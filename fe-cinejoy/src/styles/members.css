@@ -1,0 +1,151 @@
+.cinejoy-dark-select .ant-select-selector {
+  background: #23272f !important;
+  color: #fff !important;
+  border-color: #666 !important;
+}
+.cinejoy-dark-select .ant-select-selection-item {
+  color: #fff !important;
+}
+.cinejoy-dark-select .ant-select-arrow {
+  color: #fff !important;
+}
+.cinejoy-dark-select .ant-select-item-option {
+  background: #23272f !important;
+  color: #fff !important;
+}
+.cinejoy-dark-select
+  .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: #3a3f47 !important;
+  color: #ffe082 !important;
+}
+.cinejoy-dark-select
+  .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: #23272f !important;
+  color: #fff !important;
+  font-weight: bold;
+}
+.cinejoy-dark-select
+  .ant-select-item-option-selected.ant-select-item-option-active:not(
+    .ant-select-item-option-disabled
+  ) {
+  background: #3a3f47 !important;
+  color: #ffe082 !important;
+}
+
+.cinejoy-profile-tabs .ant-tabs-nav {
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+  background: transparent;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  display: flex;
+  justify-content: center;
+}
+.cinejoy-profile-tabs .ant-tabs-nav-list {
+  align-items: flex-end;
+  flex-wrap: nowrap !important;
+  min-width: 600px;
+  display: flex;
+  justify-content: center;
+}
+.cinejoy-profile-tabs .ant-tabs-tab {
+  background: #fafbfc !important;
+  border-radius: 6px !important;
+  border: 1px solid #e0e0e0 !important;
+  border-bottom: none !important;
+  margin-right: 0px !important;
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  min-width: 120px;
+  padding: 20px 25px !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: color 0.2s, background 0.2s;
+  box-shadow: none !important;
+  height: 38px;
+  border-right: 1px solid #e0e0e0 !important;
+}
+.cinejoy-profile-tabs .ant-tabs-tab:last-child {
+  border-right: none !important;
+}
+.cinejoy-profile-tabs .ant-tabs-tab-active {
+  color: #1976d2 !important;
+  background: #fff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-bottom: none !important;
+  z-index: 2;
+}
+.cinejoy-profile-tabs .ant-tabs-tab:not(.ant-tabs-tab-active) {
+  color: #222 !important;
+  background: #f5f7fa !important;
+}
+.cinejoy-profile-tabs .ant-tabs-ink-bar {
+  display: none !important;
+}
+.cinejoy-profile-tabs .ant-tabs-content-holder {
+  border-radius: 0 0 16px 16px;
+}
+
+.cinejoy-profile-tabs .ant-tabs-nav .ant-tabs-nav-wrap {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.cinejoy-profile-tabs.darkmode .ant-tabs-tab {
+  background: #23272f !important;
+  color: #bbb !important;
+  border: 1px solid #444 !important;
+  border-bottom: none !important;
+  border-left: none !important;
+}
+.cinejoy-profile-tabs.darkmode .ant-tabs-tab:first-child {
+  border-left: 1px solid #444 !important;
+}
+.cinejoy-profile-tabs.darkmode .ant-tabs-tab-active {
+  background: #23272f !important;
+  border-bottom: none !important;
+}
+.cinejoy-profile-tabs.darkmode .ant-tabs-tab:not(.ant-tabs-tab-active) {
+  color: #bbb !important;
+  background: #23272f !important;
+}
+
+.cinejoy-profile-tabs .ant-tabs-nav,
+.cinejoy-profile-tabs .ant-tabs-nav-wrap,
+.cinejoy-profile-tabs .ant-tabs-nav-operations {
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+.cinejoy-profile-tabs .ant-tabs-nav::before,
+.cinejoy-profile-tabs .ant-tabs-nav::after,
+.cinejoy-profile-tabs .ant-tabs-nav-wrap::before,
+.cinejoy-profile-tabs .ant-tabs-nav-wrap::after {
+  border-bottom: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide scrollbar ONLY for the contact ticket content */
+.contact-ticket-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+.contact-ticket-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Disabled DatePicker styling to match Input */
+.disabled-datepicker-dark .ant-picker-input > input {
+  color: #e0e0e0 !important;
+  background-color: #2d323b !important;
+}
+
+.disabled-datepicker-light .ant-picker-input > input {
+  color: #6b7280 !important;
+  background-color: #f3f4f6 !important;
+}
