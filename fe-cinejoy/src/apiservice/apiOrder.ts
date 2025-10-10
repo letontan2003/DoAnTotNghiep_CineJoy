@@ -18,6 +18,16 @@ export const getOrderByCode = async (orderCode: string): Promise<IOrder> => {
   return res.data;
 };
 
+export const getUserBookingHistory = async (): Promise<IOrder[]> => {
+  const res = await axiosClient.get<IBackendResponse<IOrder[]>>("/v1/api/orders/history");
+  return res.data.data || [];
+};
+
+export const getUserOrderDetails = async (orderId: string): Promise<IOrder> => {
+  const res = await axiosClient.get<IBackendResponse<IOrder>>(`/v1/api/orders/details/${orderId}`);
+  return res.data.data!;
+};
+
 export const getOrdersByUserId = async (
   userId: string,
   page: number = 1,

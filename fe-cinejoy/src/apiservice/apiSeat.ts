@@ -18,7 +18,7 @@ export interface ISeat {
     number: number;
     type: 'normal' | 'vip' | 'couple';
     price: number;
-    status: 'available' | 'maintenance' | 'blocked';
+    status: 'available' | 'maintenance' | 'blocked' | 'occupied';
     position: {
         x: number;
         y: number;
@@ -34,7 +34,7 @@ export interface ICreateSeatData {
     number: number;
     type: 'normal' | 'vip' | 'couple';
     price: number;
-    status: 'available' | 'maintenance' | 'blocked';
+    status: 'available' | 'maintenance' | 'blocked' | 'occupied';
     position: {
         x: number;
         y: number;

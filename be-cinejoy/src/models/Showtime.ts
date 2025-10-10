@@ -2,8 +2,9 @@ import { Schema, model, Document } from "mongoose";
 
 export interface IShowtimeSeat {
     seat: Schema.Types.ObjectId; // Reference to Seat model
-    status: 'available' | 'selected' | 'maintenance';
+    status: 'available' | 'selected' | 'maintenance' | 'reserved' | 'occupied';
     reservedUntil?: Date; // Temporary reservation
+    reservedBy?: Schema.Types.ObjectId; // User who reserved temporarily
 }
 
 export interface IShowtime extends Document {
@@ -34,11 +35,12 @@ const ShowtimeSchema = new Schema<IShowtime>({
                     seat: { type: Schema.Types.ObjectId, required: true, ref: "Seat" },
                     status: {
                         type: String,
-                        enum: ['available', 'selected', 'maintenance'],
+                        enum: ['available', 'selected', 'maintenance', 'reserved', 'occupied'],
                         default: 'available',
                         required: true
                     },
-                    reservedUntil: { type: Date }
+                    reservedUntil: { type: Date },
+                    reservedBy: { type: Schema.Types.ObjectId, ref: "User" }
                 },
             ],
         },

@@ -3,6 +3,11 @@ import Order from "../models/Order";
 import crypto from "crypto";
 import axios from "axios";
 import momoConfig from "../configs/momoConfig";
+import VNPayService from "./VNPayService";
+import { sendPaymentSuccessEmail, type PaymentEmailData } from "../utils/emailService";
+import ShowtimeService from "./ShowtimeService";
+
+const showtimeService = new ShowtimeService();
 
 export interface CreatePaymentData {
   orderId: string;
@@ -63,6 +68,15 @@ class PaymentService {
   }
 
   // Tạo MoMo payment URL
+  async createVNPayPayment(payment: IPayment): Promise<string> {
+    try {
+      return await VNPayService.createVNPayPayment(payment);
+    } catch (error) {
+      console.error("VNPay payment creation failed:", error);
+      throw error;
+    }
+  }
+
   async createMoMoPayment(payment: IPayment): Promise<string> {
     try {
       const order = await Order.findById(payment.orderId);
@@ -74,6 +88,16 @@ class PaymentService {
       const orderId = order.orderCode;
       const orderInfo = `Thanh toán đơn hàng CineJoy ${orderId}`;
       const amount = payment.amount;
+      
+      // Debug logging để kiểm tra amount
+      console.log(`🔍 MoMo Payment Debug:`);
+      console.log(`  Order Code: ${orderId}`);
+      console.log(`  Payment Amount: ${amount}`);
+      console.log(`  Order Total Amount: ${order.totalAmount}`);
+      console.log(`  Order Final Amount: ${order.finalAmount}`);
+      console.log(`  Voucher Discount: ${order.voucherDiscount}`);
+      console.log(`  Amount Discount: ${order.amountDiscount || 0}`);
+      console.log(`  Amount Discount Info:`, order.amountDiscountInfo);
       const extraData = "";
       const requestType = "captureWallet";
       // Set payment expiration to 5 minutes
@@ -105,7 +129,6 @@ class PaymentService {
         validDuration: 300,
       };
 
-      console.log("MoMo Request:", JSON.stringify(requestBody, null, 2));
 
       const response = await axios.post<MoMoPaymentResponse>(
         momoConfig.getEndpoint(),
@@ -118,7 +141,6 @@ class PaymentService {
         }
       );
 
-      console.log("MoMo Response:", JSON.stringify(response.data, null, 2));
 
       // Cập nhật payment với response từ MoMo
       await Payment.findByIdAndUpdate(payment._id, {
@@ -151,12 +173,186 @@ class PaymentService {
     }
   }
 
+  // Xử lý VNPay callback
+  async handleVNPayCallback(
+    callbackData: any
+  ): Promise<{ status: string; message: string }> {
+    try {
+      const result = await VNPayService.handleVNPayCallback(callbackData);
+      
+      if (result.status === "success") {
+        // Tìm payment record
+        const orderId = callbackData.vnp_TxnRef;
+        const payment = await Payment.findOne({ orderId });
+        
+        if (!payment) {
+          throw new Error("Payment không tồn tại");
+        }
+
+        const order = await Order.findById(payment.orderId);
+        if (!order) {
+          throw new Error("Order không tồn tại");
+        }
+
+        // Cập nhật payment và order status
+        await Promise.all([
+          Payment.findByIdAndUpdate(payment._id, {
+            $set: {
+              status: "SUCCESS",
+              gatewayTransactionId: callbackData.vnp_TransactionNo,
+              gatewayResponse: callbackData,
+            },
+          }),
+          Order.findByIdAndUpdate(order._id, {
+            $set: {
+              paymentStatus: "PAID",
+              orderStatus: "CONFIRMED",
+              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Extend to 1 year
+              "paymentInfo.transactionId": callbackData.vnp_TransactionNo,
+              "paymentInfo.paymentDate": new Date(),
+              "paymentInfo.paymentGatewayResponse": callbackData,
+            },
+          }),
+        ]);
+
+        console.log(`✅ VNPay: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
+
+        // Mark voucher as used khi thanh toán thành công (VNPay)
+        if (order.voucherId && order.voucherDiscount > 0) {
+          try {
+            const { UserVoucher } = await import("../models/UserVoucher");
+            const updateResult = await UserVoucher.findByIdAndUpdate(
+              order.voucherId,
+              {
+                $set: {
+                  status: "used",
+                  usedAt: new Date(),
+                },
+              }
+            );
+            
+            if (updateResult) {
+              console.log(`✅ Voucher ${updateResult.code} marked as used after successful VNPay payment`);
+            } else {
+              console.log(`❌ Failed to mark voucher as used: voucher not found`);
+            }
+          } catch (error) {
+            console.error(`❌ Error marking voucher as used:`, error);
+          }
+        }
+
+               // Cập nhật trạng thái ghế thành 'occupied' (đã thanh toán thành công)
+               try {
+          const populatedOrder = await Order.findById(order._id)
+            .populate('userId', 'email fullName')
+            .populate({
+              path: 'showtimeId',
+              populate: [
+                { path: 'movieId', select: 'title' },
+                { path: 'theaterId', select: 'name' }
+              ]
+            })
+            .populate('foodCombos.comboId', 'name');
+          
+          if (populatedOrder && populatedOrder.showtimeId) {
+            const seatIds = populatedOrder.seats.map(seat => seat.seatId);
+            await showtimeService.setSeatsStatus(
+              (populatedOrder.showtimeId as any)._id.toString(),
+              populatedOrder.showDate,
+              populatedOrder.showTime,
+              populatedOrder.room, // Sử dụng room string từ Order
+              seatIds,
+              'occupied'
+            );
+            console.log(`✅ VNPay: Updated ${seatIds.length} seats to occupied status after successful payment`);
+          }
+               } catch (seatUpdateError) {
+                 console.error("Failed to update seat status:", seatUpdateError);
+               }
+               
+               // Gửi email xác nhận thanh toán
+               try {
+          
+          const populatedOrder = await Order.findById(order._id)
+            .populate('userId', 'email fullName')
+            .populate({
+              path: 'showtimeId',
+              populate: [
+                { path: 'movieId', select: 'title' },
+                { path: 'theaterId', select: 'name' }
+              ]
+            })
+            .populate('foodCombos.comboId', 'name');
+          
+          
+          if (populatedOrder && populatedOrder.userId) {
+            const userEmail = (populatedOrder.userId as any).email;
+            
+            const emailData: PaymentEmailData = {
+              userName: (populatedOrder.userId as any).fullName || 'Khách hàng',
+              orderId: order._id.toString(),
+              movieName: (populatedOrder.showtimeId as any)?.movieId?.title || 'N/A',
+              cinema: (populatedOrder.showtimeId as any)?.theaterId?.name || 'N/A',
+              room: populatedOrder.room || 'N/A',
+              showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
+              seats: populatedOrder.seats.map(seat => seat.seatId),
+              ticketPrice: populatedOrder.ticketPrice || 0,
+              comboPrice: populatedOrder.comboPrice || 0,
+              totalAmount: populatedOrder.totalAmount || 0,
+              voucherDiscount: populatedOrder.voucherDiscount || 0,
+              voucherCode: undefined, // voucherCode không có trong Order model
+              amountDiscount: populatedOrder.amountDiscount || 0,
+              amountDiscountDescription: populatedOrder.amountDiscountInfo?.description || undefined,
+              itemPromotions: populatedOrder.itemPromotions || [],
+              percentPromotions: populatedOrder.percentPromotions || [],
+              finalAmount: populatedOrder.finalAmount || 0,
+              qrCodeDataUrl: '',
+              foodCombos: populatedOrder.foodCombos?.map(combo => ({
+                comboName: (combo.comboId as any)?.name || 'Combo',
+                quantity: combo.quantity,
+                price: combo.price
+              })) || []
+            };
+            
+            console.log(`📧 Email Debug - Food Combos:`, {
+              rawFoodCombos: populatedOrder.foodCombos,
+              processedFoodCombos: emailData.foodCombos,
+              hasFoodCombos: emailData.foodCombos && emailData.foodCombos.length > 0
+            });
+
+            // Debug logging cho amount discount trong email (VNPay)
+            console.log(`📧 Email Debug (VNPay) - Amount Discount:`, {
+              orderId: order._id.toString(),
+              voucherDiscount: emailData.voucherDiscount,
+              amountDiscount: emailData.amountDiscount,
+              amountDiscountDescription: emailData.amountDiscountDescription,
+              finalAmount: emailData.finalAmount,
+              totalAmount: emailData.totalAmount
+            });
+            
+            
+            const emailResult = await sendPaymentSuccessEmail(userEmail, emailData);
+          } else {
+          }
+        } catch (emailError) {
+          console.error("=== EMAIL ERROR ===");
+          console.error("Failed to send payment confirmation email:", emailError);
+          console.error("=== EMAIL ERROR END ===");
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("VNPay callback processing error:", error);
+      return { status: "error", message: "Callback processing failed" };
+    }
+  }
+
   // Xử lý MoMo IPN callback
   async handleMoMoCallback(
     callbackData: any
   ): Promise<{ status: string; message: string }> {
     try {
-      console.log("MoMo Callback Data:", JSON.stringify(callbackData, null, 2));
 
       const {
         partnerCode,
@@ -215,6 +411,7 @@ class PaymentService {
             $set: {
               paymentStatus: "PAID",
               orderStatus: "CONFIRMED",
+              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Extend to 1 year
               "paymentInfo.transactionId": transId,
               "paymentInfo.paymentDate": new Date(),
               "paymentInfo.paymentGatewayResponse": callbackData,
@@ -222,7 +419,125 @@ class PaymentService {
           }),
         ]);
 
-        console.log("Payment success for order:", orderId);
+        console.log(`✅ MoMo: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
+
+        // Mark voucher as used khi thanh toán thành công
+        if (order.voucherId && order.voucherDiscount > 0) {
+          try {
+            const { UserVoucher } = await import("../models/UserVoucher");
+            const updateResult = await UserVoucher.findByIdAndUpdate(
+              order.voucherId,
+              {
+                $set: {
+                  status: "used",
+                  usedAt: new Date(),
+                },
+              }
+            );
+            
+            if (updateResult) {
+              console.log(`✅ Voucher ${updateResult.code} marked as used after successful payment`);
+            } else {
+              console.log(`❌ Failed to mark voucher as used: voucher not found`);
+            }
+          } catch (error) {
+            console.error(`❌ Error marking voucher as used:`, error);
+          }
+        }
+
+        
+        // Cập nhật trạng thái ghế thành 'occupied' (đã thanh toán thành công)
+        try {
+          const populatedOrder = await Order.findById(order._id)
+            .populate('showtimeId');
+          
+          if (populatedOrder && populatedOrder.showtimeId) {
+            const seatIds = populatedOrder.seats.map(seat => seat.seatId);
+            await showtimeService.setSeatsStatus(
+              (populatedOrder.showtimeId as any)._id.toString(),
+              populatedOrder.showDate,
+              populatedOrder.showTime,
+              populatedOrder.room, // Sử dụng room string từ Order
+              seatIds,
+              'occupied'
+            );
+            console.log(`✅ MoMo: Updated ${seatIds.length} seats to occupied status after successful payment`);
+          }
+        } catch (seatUpdateError) {
+          console.error("Failed to update seat status:", seatUpdateError);
+          // Không throw error để không ảnh hưởng đến thanh toán
+        }
+        
+        // Gửi email xác nhận thanh toán
+        try {
+          
+          const populatedOrder = await Order.findById(order._id)
+            .populate('userId', 'email fullName')
+            .populate({
+              path: 'showtimeId',
+              populate: [
+                { path: 'movieId', select: 'title' },
+                { path: 'theaterId', select: 'name' }
+              ]
+            })
+            .populate('foodCombos.comboId', 'name');
+          
+          
+          if (populatedOrder && populatedOrder.userId) {
+            const userEmail = (populatedOrder.userId as any).email;
+            
+            const emailData: PaymentEmailData = {
+              userName: (populatedOrder.userId as any).fullName || 'Khách hàng',
+              orderId: order._id.toString(),
+              movieName: (populatedOrder.showtimeId as any)?.movieId?.title || 'N/A',
+              cinema: (populatedOrder.showtimeId as any)?.theaterId?.name || 'N/A',
+              room: populatedOrder.room || 'N/A', // Lấy từ Order.room
+              showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
+              seats: populatedOrder.seats.map(seat => seat.seatId),
+              ticketPrice: populatedOrder.ticketPrice || 0,
+              comboPrice: populatedOrder.comboPrice || 0,
+              totalAmount: populatedOrder.totalAmount || 0,
+              voucherDiscount: populatedOrder.voucherDiscount || 0,
+              voucherCode: undefined, // voucherCode không có trong Order model
+              amountDiscount: populatedOrder.amountDiscount || 0,
+              amountDiscountDescription: populatedOrder.amountDiscountInfo?.description || undefined,
+              itemPromotions: populatedOrder.itemPromotions || [],
+              percentPromotions: populatedOrder.percentPromotions || [],
+              finalAmount: populatedOrder.finalAmount || 0,
+              qrCodeDataUrl: '', // Sẽ được tạo trong sendPaymentSuccessEmail từ orderId
+              foodCombos: populatedOrder.foodCombos?.map(combo => ({
+                comboName: (combo.comboId as any)?.name || 'Combo',
+                quantity: combo.quantity,
+                price: combo.price
+              })) || []
+            };
+            
+            console.log(`📧 Email Debug (MoMo) - Food Combos:`, {
+              rawFoodCombos: populatedOrder.foodCombos,
+              processedFoodCombos: emailData.foodCombos,
+              hasFoodCombos: emailData.foodCombos && emailData.foodCombos.length > 0
+            });
+
+            // Debug logging cho amount discount trong email
+            console.log(`📧 Email Debug (MoMo) - Amount Discount:`, {
+              orderId: order._id.toString(),
+              voucherDiscount: emailData.voucherDiscount,
+              amountDiscount: emailData.amountDiscount,
+              amountDiscountDescription: emailData.amountDiscountDescription,
+              finalAmount: emailData.finalAmount,
+              totalAmount: emailData.totalAmount
+            });
+            
+            const emailResult = await sendPaymentSuccessEmail(userEmail, emailData);
+          } else {
+          }
+        } catch (emailError) {
+          console.error("=== EMAIL ERROR ===");
+          console.error("Failed to send payment confirmation email:", emailError);
+          console.error("=== EMAIL ERROR END ===");
+          // Không throw error để không ảnh hưởng đến thanh toán
+        }
+        
         return { status: "success", message: "Payment processed successfully" };
       } else {
         // Thanh toán thất bại

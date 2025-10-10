@@ -14,6 +14,12 @@ router.get("/momo/return", PaymentController.handleMoMoReturn); // MoMo return U
 router.post("/momo/test", PaymentController.testMoMoConnection); // Test MoMo connection
 router.get("/momo/config", PaymentController.getMoMoConfigStatus); // Get MoMo config status
 
+// VNPay Integration Routes
+router.post("/vnpay/callback", PaymentController.handleVNPayCallback); // VNPay callback
+router.get("/vnpay/return", PaymentController.handleVNPayReturn); // VNPay return URL
+router.post("/vnpay/test", PaymentController.testVNPayConnection); // Test VNPay connection
+router.get("/vnpay/config", PaymentController.getVNPayConfigStatus); // Get VNPay config status
+
 // Mock Payment Routes for Testing
 router.get("/mock", PaymentController.mockPayment); // Mock payment page
 

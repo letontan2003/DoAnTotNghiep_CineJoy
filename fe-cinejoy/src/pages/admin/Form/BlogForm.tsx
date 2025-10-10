@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Form, Input, DatePicker, Button, message } from "antd";
+import { Modal, Form, Input, DatePicker, Button, message, Select } from "antd";
 import dayjs from "dayjs";
 import { UploadOutlined } from "@ant-design/icons";
 import { uploadAvatarApi } from "@/services/api";
@@ -30,6 +30,7 @@ const BlogForm: React.FC<BlogFormProps> = ({ blog, onSubmit, onCancel }) => {
         content: blog.content,
         posterImage: blog.posterImage,
         backgroundImage: blog.backgroundImage,
+        status: blog.status || 'Hiển thị',
       }
     : {};
 
@@ -60,6 +61,7 @@ const BlogForm: React.FC<BlogFormProps> = ({ blog, onSubmit, onCancel }) => {
         content: values.content,
         posterImage: posterUrl,
         backgroundImage: backgroundUrl,
+        status: values.status || 'Hiển thị', // Thêm trường status
       };
       await onSubmit(payload);
     } catch (e) {
@@ -152,6 +154,21 @@ const BlogForm: React.FC<BlogFormProps> = ({ blog, onSubmit, onCancel }) => {
             format="DD/MM/YYYY" 
             disabled={true}
             placeholder={blog ? "Không thể chỉnh sửa ngày đăng" : "Tự động là ngày hiện tại"}
+          />
+        </Form.Item>
+
+        <Form.Item 
+          label="Trạng thái" 
+          name="status" 
+          rules={[{ required: true, message: "Vui lòng chọn trạng thái" }]}
+          initialValue="Hiển thị"
+        >
+          <Select
+            placeholder="Chọn trạng thái hiển thị"
+            options={[
+              { value: 'Hiển thị', label: 'Hiển thị' },
+              { value: 'Ẩn', label: 'Ẩn' }
+            ]}
           />
         </Form.Item>
 

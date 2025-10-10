@@ -16,10 +16,13 @@ const PaymentCancel: React.FC = () => {
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
 
   useEffect(() => {
-    // Hủy order đang chờ nếu quay về từ MoMo cancel
+    // Chỉ hủy order khi thực sự là cancel (resultCode !== '0')
     try {
       const oid = sessionStorage.getItem('last_order_id');
-      if (oid) {
+      const resultCode = searchParams.get('resultCode');
+      
+      // Chỉ hủy order khi thanh toán thất bại (resultCode !== '0')
+      if (oid && resultCode && resultCode !== '0') {
         cancelOrder(oid).finally(() => {
           try { sessionStorage.removeItem('last_order_id'); } catch (e) {
             console.error('Error removing last_order_id:', e);
@@ -27,9 +30,14 @@ const PaymentCancel: React.FC = () => {
         });
         // Trigger release-expired để dọn dẹp các hold quá hạn nếu có
         axiosClient.post('/showtimes/release-expired').catch(() => undefined);
+      } else if (oid && (!resultCode || resultCode === '0')) {
+        // Thanh toán thành công hoặc chưa có resultCode, chỉ clear sessionStorage
+        try { sessionStorage.removeItem('last_order_id'); } catch (e) {
+          console.error('Error removing last_order_id:', e);
+        }
       }
     } catch (e) {
-      console.error('Error canceling order:', e);
+      console.error('Error processing order status:', e);
     }
 
     // Lấy thông tin từ URL params

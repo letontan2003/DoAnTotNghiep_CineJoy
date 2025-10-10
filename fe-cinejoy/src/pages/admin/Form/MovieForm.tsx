@@ -20,17 +20,23 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
     const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
     const [posterPreviewUrl, setPosterPreviewUrl] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
+    const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
+    const [availableStatusOptions, setAvailableStatusOptions] = useState<Array<{value: string, label: string}>>([]);
 
     useEffect(() => {
         if (movie) {
+            const startDateValue = movie.startDate ? dayjs(movie.startDate) : undefined;
+            const endDateValue = movie.endDate ? dayjs(movie.endDate) : undefined;
+            
             form.setFieldsValue({
                 movieCode: movie.movieCode,
                 title: movie.title,
                 image: movie.image,
                 posterImage: movie.posterImage,
                 releaseDate: movie.releaseDate ? dayjs(movie.releaseDate) : undefined,
-                startDate: movie.startDate ? dayjs(movie.startDate) : undefined,
-                endDate: movie.endDate ? dayjs(movie.endDate) : undefined,
+                startDate: startDateValue,
+                endDate: endDateValue,
                 duration: movie.duration,
                 actors: movie.actors?.join(', '),
                 genre: movie.genre || [],
@@ -44,6 +50,10 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
             // Set image previews
             setImagePreview(movie.image || '');
             setPosterPreview(movie.posterImage || '');
+            
+            // Set date states
+            setStartDate(startDateValue || null);
+            setEndDate(endDateValue || null);
         }
     }, [movie, form]);
 
@@ -70,6 +80,18 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
             }
         };
     }, [imagePreviewUrl, posterPreviewUrl]);
+
+    // Effect để cập nhật options trạng thái khi ngày thay đổi
+    useEffect(() => {
+        const options = calculateAvailableStatusOptions(startDate, endDate);
+        setAvailableStatusOptions(options);
+        
+        // Nếu trạng thái hiện tại không có trong options mới, reset trạng thái
+        const currentStatus = form.getFieldValue('status');
+        if (currentStatus && !options.find(option => option.value === currentStatus)) {
+            form.setFieldsValue({ status: undefined });
+        }
+    }, [startDate, endDate, form]);
 
     const languages = [
         'Vietnamese',
@@ -106,6 +128,52 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
     ];
 
     const ageRestrictions = ['T13+', 'T16+', 'T18+', 'P'];
+
+    // Function để tính toán trạng thái dựa trên ngày hiện tại và khoảng thời gian chiếu
+    const calculateAvailableStatusOptions = (start: dayjs.Dayjs | null, end: dayjs.Dayjs | null) => {
+        if (!start || !end) {
+            return [];
+        }
+
+        const today = dayjs();
+        const startDate = start.startOf('day');
+        const endDate = end.endOf('day');
+
+        // Nếu ngày hiện tại nằm trong khoảng thời gian chiếu
+        if (today.isAfter(startDate) && today.isBefore(endDate)) {
+            return [
+                { value: 'Phim đang chiếu', label: 'Phim đang chiếu' },
+                { value: 'Suất chiếu đặc biệt', label: 'Suất chiếu đặc biệt' }
+            ];
+        }
+        // Nếu ngày hiện tại quá khoảng thời gian chiếu (đã kết thúc)
+        else if (today.isAfter(endDate)) {
+            return [
+                { value: 'Đã kết thúc', label: 'Đã kết thúc' }
+            ];
+        }
+        // Nếu ngày hiện tại chưa đến khoảng thời gian chiếu (sắp chiếu)
+        else if (today.isBefore(startDate)) {
+            return [
+                { value: 'Phim sắp chiếu', label: 'Phim sắp chiếu' }
+            ];
+        }
+        // Trường hợp đặc biệt: ngày hiện tại bằng ngày bắt đầu hoặc kết thúc
+        else if (today.isSame(startDate, 'day')) {
+            return [
+                { value: 'Phim đang chiếu', label: 'Phim đang chiếu' },
+                { value: 'Suất chiếu đặc biệt', label: 'Suất chiếu đặc biệt' }
+            ];
+        }
+        else if (today.isSame(endDate, 'day')) {
+            return [
+                { value: 'Phim đang chiếu', label: 'Phim đang chiếu' },
+                { value: 'Suất chiếu đặc biệt', label: 'Suất chiếu đặc biệt' }
+            ];
+        }
+
+        return [];
+    };
 
     const handleSubmit = async (values: {
         movieCode: string;
@@ -334,6 +402,9 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
                             size="large"
                             style={{ width: '100%' }}
                             format="DD/MM/YYYY"
+                            onChange={(date) => {
+                                setStartDate(date);
+                            }}
                         />
                     </Form.Item>
 
@@ -358,6 +429,9 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
                             size="large"
                             style={{ width: '100%' }}
                             format="DD/MM/YYYY"
+                            onChange={(date) => {
+                                setEndDate(date);
+                            }}
                         />
                     </Form.Item>
 
@@ -399,18 +473,30 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
                         name="status"
                         label="Trạng thái"
                         rules={[
-                            { required: true, message: 'Vui lòng chọn trạng thái!' }
+                            { required: true, message: 'Vui lòng chọn trạng thái!' },
+                            ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    const startDate = getFieldValue('startDate');
+                                    const endDate = getFieldValue('endDate');
+                                    
+                                    if (!startDate || !endDate) {
+                                        return Promise.reject(new Error('Vui lòng chọn ngày khởi chiếu và ngày kết thúc chiếu trước!'));
+                                    }
+                                    
+                                    if (!value) {
+                                        return Promise.reject(new Error('Vui lòng chọn trạng thái!'));
+                                    }
+                                    
+                                    return Promise.resolve();
+                                },
+                            }),
                         ]}
                     >
                         <Select
-                            placeholder="Chọn trạng thái"
+                            placeholder={!startDate || !endDate ? "Vui lòng chọn ngày khởi chiếu và ngày kết thúc chiếu trước" : "Chọn trạng thái"}
                             size="large"
-                            options={[
-                                { value: 'Phim đang chiếu', label: 'Phim đang chiếu' },
-                                { value: 'Phim sắp chiếu', label: 'Phim sắp chiếu' },
-                                { value: 'Suất chiếu đặc biệt', label: 'Suất chiếu đặc biệt' },
-                                { value: 'Đã kết thúc', label: 'Đã kết thúc' }
-                            ]}
+                            disabled={!startDate || !endDate}
+                            options={availableStatusOptions}
                         />
                     </Form.Item>
 

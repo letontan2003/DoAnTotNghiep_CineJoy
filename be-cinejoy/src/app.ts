@@ -22,6 +22,7 @@ import SeatRouter from "./routes/SeatRouter";
 import ShowSessionRouter from "./routes/ShowSessionRouter";
 import PriceListRouter from "./routes/PriceListRouter";
 import momoConfig from "./configs/momoConfig";
+import SchedulerService from "./services/SchedulerService";
 
 dotenv.config();
 
@@ -64,10 +65,11 @@ app.use("/v1/api/orders", OrderRouter);
 app.use("/v1/api/payments", PaymentRouter);
 app.use("/movies", moviesRouter);
 app.use("/theaters", theaterRouter);
-app.use("/showtimes", ShowtimeRouter);
+app.use("/v1/api/showtimes", ShowtimeRouter);
+app.use("/showtimes", ShowtimeRouter); // Backward compatibility
 app.use("/foodcombos", FoodComboRouter);
 app.use("/blogs", BlogRouter);
-app.use("/vouchers", VoucherRouter);
+app.use("/v1/api/vouchers", VoucherRouter);
 app.use("/regions", RegionRouter);
 app.use("/rooms", RoomRouter);
 app.use("/seats", SeatRouter);
@@ -92,6 +94,10 @@ app.listen(PORT, () => {
     );
     console.log("📝 Please check your .env file for required MoMo variables");
   }
+
+  // Khởi động scheduler service để cleanup expired reservations và cập nhật trạng thái phim
+  const schedulerService = new SchedulerService();
+  schedulerService.startAllSchedulers();
 
   console.log("🎬 CineJoy Backend Ready!\n");
 });

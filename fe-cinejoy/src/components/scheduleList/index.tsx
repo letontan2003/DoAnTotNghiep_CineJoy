@@ -10,6 +10,7 @@ import { getMovieById } from "@/apiservice/apiMovies";
 import { getShowTimesByTheater } from "@/apiservice/apiShowTime";
 import { getRegions } from "@/apiservice/apiRegion";
 import { useNavigate } from "react-router-dom";
+import { useReleaseReservedSeats } from "@/hooks/useReleaseReservedSeats";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -87,6 +88,7 @@ const ScheduleList: React.FC = () => {
   const sevenDaysLater = dayjs().add(6, "day").format("YYYY-MM-DD");
 
   const navigate = useNavigate();
+  const { releaseUserReservedSeats } = useReleaseReservedSeats();
   const [selectedCinemaId, setSelectedCinemaId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -137,7 +139,18 @@ const ScheduleList: React.FC = () => {
         const now = dayjs();
         showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
           const start = dayjs(st.start);
-          return start.add(5, "minute").isAfter(now);
+          const end = dayjs(st.end);
+          
+          // Xử lý trường hợp ca đêm qua ngày hôm sau
+          if (start.hour() >= 22 && end.hour() < 6) {
+            // Ca đêm: kiểm tra xem đã qua end time chưa
+            const endTimeToday = end.format("YYYY-MM-DD HH:mm");
+            const nowFormatted = now.format("YYYY-MM-DD HH:mm");
+            return dayjs(endTimeToday).add(5, "minute").isAfter(now);
+          } else {
+            // Ca bình thường: kiểm tra start time
+            return start.add(5, "minute").isAfter(now);
+          }
         });
       }
 
@@ -569,7 +582,10 @@ const ScheduleList: React.FC = () => {
                                   ? "bg-[#3a3c4a] border-gray-600 text-gray-200 hover:bg-blue-700"
                                   : "bg-gray-50 border border-gray-300 text-gray-800 hover:bg-[#0f1b4c]"
                               } rounded px-2 py-0.5 text-sm cursor-pointer hover:text-white transition-all duration-250 ease-in-out`}
-                              onClick={() => {
+                              onClick={async () => {
+                                // Giải phóng ghế tạm giữ trước khi chọn suất chiếu mới
+                                await releaseUserReservedSeats();
+                                
                                 navigate(`/selectSeat`, {
                                   state: {
                                     movie: {

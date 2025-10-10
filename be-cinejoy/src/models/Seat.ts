@@ -8,7 +8,7 @@ export interface ISeat extends Document {
     number: number; // 1, 2, 3, 4, etc.
     type: 'normal' | 'vip' | 'couple' | '4dx';
     price: number;
-    status: 'available' | 'maintenance' | 'selected';
+    status: 'available' | 'maintenance' | 'selected' | 'occupied';
     position: {
         x: number;
         y: number;
@@ -55,7 +55,7 @@ const SeatSchema = new Schema<ISeat>(
         },
         status: {
             type: String,
-            enum: ['available', 'maintenance', 'selected'],
+            enum: ['available', 'maintenance', 'selected', 'occupied'],
             default: 'available',
             required: [true, 'Trạng thái ghế là bắt buộc']
         },

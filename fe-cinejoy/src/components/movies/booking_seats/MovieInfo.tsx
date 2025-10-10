@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import useAppStore from "@/store/app.store";
 import { Modal, Button, message } from "antd";
+import { bookSeatsApi } from "@/services/api";
 
 interface MovieInfoProps {
   movie: {
@@ -21,9 +22,10 @@ interface MovieInfoProps {
   onContinue: () => void;
   totalPrice: number;
   priceError?: boolean; // true nếu thiếu giá vé đang hoạt động cho loại ghế đã chọn
+  showtimeId?: string; // ID của suất chiếu để đặt ghế
 }
 
-const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, priceError = false }) => {
+const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, priceError = false, showtimeId }) => {
   const { isDarkMode, setIsModalOpen } = useAppStore();
   const hasSelectedSeats = movie.seats.length > 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -82,10 +84,52 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
     setIsModalOpen(true);
   };
 
-  const handleConfirm = () => {
-    setConfirmOpen(false);
-    setIsModalOpen(false);
-    onContinue();
+  const handleConfirm = async () => {
+    if (!showtimeId) {
+      message.error("Không tìm thấy thông tin suất chiếu");
+      return;
+    }
+
+    try {
+      // Gọi API đặt ghế với trạng thái selected (giữ ghế 5 phút)
+      // Lấy userId từ store hoặc sessionStorage
+      const userId = sessionStorage.getItem('current_user_id') || localStorage.getItem('current_user_id') || '';
+      
+      const result = await bookSeatsApi({
+        showtimeId,
+        date: movie.date,
+        startTime: movie.time,  
+        room: movie.room,
+        seatIds: movie.seats,
+        userId: userId || undefined
+      });
+
+      // Kiểm tra null safety
+      if (!result) {
+        message.error("Ghế đã bị đặt bởi người khác. Vui lòng chọn ghế khác.");
+        return;
+      }
+
+      if (result.status) {
+        // message.success("Đã đặt ghế thành công! Bạn có 5 phút để hoàn tất thanh toán.");
+        // Lưu info để còn release khi rời trang payment
+        const info = { showtimeId, date: movie.date, startTime: movie.time, room: movie.room, seatIds: movie.seats, userId };
+        sessionStorage.setItem('booking_reserved_info', JSON.stringify(info));
+        
+        // Lưu ghế đã chọn để khôi phục khi quay lại SelectSeat
+        const storageKey = `booking:selected:${showtimeId}`;
+        sessionStorage.setItem(storageKey, JSON.stringify(movie.seats));
+        
+        setConfirmOpen(false);
+        setIsModalOpen(false);
+        onContinue();
+      } else {
+        message.error(result.message || "Ghế đã bị đặt bởi người khác. Vui lòng chọn ghế khác.");
+      }
+       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+       } catch (error: unknown) {
+         message.error("Ghế đã bị đặt bởi người khác. Vui lòng chọn ghế khác.");
+       }
   };
 
   const minAge = movie.minAge ?? 13;
@@ -199,6 +243,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
           Vui lòng chọn ghế ngồi để tiếp tục
         </div>
       )}
+
 
       <button
         className={`mt-2 px-6 py-2 w-full rounded font-semibold transition-all duration-200 ${

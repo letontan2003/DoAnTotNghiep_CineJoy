@@ -5,6 +5,7 @@ import { getTheaters } from "@/apiservice/apiTheater";
 import { getRegions } from "@/apiservice/apiRegion";
 import { useNavigate, useParams } from "react-router-dom";
 import useAppStore from "@/store/app.store";
+import { useReleaseReservedSeats } from "@/hooks/useReleaseReservedSeats";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -92,12 +93,24 @@ const CardInfMovie = () => {
   );
   if (selectedDate === dayjs().format("YYYY-MM-DD")) {
     const now = dayjs();
-    showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) =>
-      dayjs(st.start).add(5, "minute").isAfter(now)
-    );
+    showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
+      const start = dayjs(st.start);
+      const end = dayjs(st.end);
+      
+      // Xử lý trường hợp ca đêm qua ngày hôm sau
+      if (start.hour() >= 22 && end.hour() < 6) {
+        // Ca đêm: kiểm tra xem đã qua end time chưa
+        const endTimeToday = end.format("YYYY-MM-DD HH:mm");
+        return dayjs(endTimeToday).add(5, "minute").isAfter(now);
+      } else {
+        // Ca bình thường: kiểm tra start time
+        return start.add(5, "minute").isAfter(now);
+      }
+    });
   }
 
   const navigate = useNavigate();
+  const { releaseUserReservedSeats } = useReleaseReservedSeats();
 
   const { id } = useParams<{ id: string }>();
   const [movie, setMovie] = useState<IMovie | null>(null);
@@ -594,7 +607,10 @@ const CardInfMovie = () => {
                                 ? "text-gray-100 bg-gray-700 hover:bg-blue-800 border-gray-600"
                                 : "text-gray-800 bg-white hover:bg-blue-50"
                             }`}
-                            onClick={() =>
+                            onClick={async () => {
+                              // Giải phóng ghế tạm giữ trước khi chọn suất chiếu mới
+                              await releaseUserReservedSeats();
+                              
                               navigate(`/selectSeat`, {
                                 state: {
                                   movie: {
@@ -614,10 +630,10 @@ const CardInfMovie = () => {
                                         : movie?.ageRating === "T12+"
                                         ? 12
                                         : 13,
-                                    theaterId: movie?.theaterId, // Thêm theaterId
+                                    theaterId: selectedCinemaId, // Thêm theaterId
                                   },
                                   showtimeId: showtime.parentId,
-                                  theaterId: movie?.theaterId, // Thêm theaterId ở level state, // Use parent document ID
+                                  theaterId: selectedCinemaId, // Thêm theaterId ở level state, // Use parent document ID
                                   cinema: filteredCinemas.find(
                                     (c) => c._id === selectedCinemaId
                                   )?.name,
@@ -626,8 +642,8 @@ const CardInfMovie = () => {
                                   room: showtime.room,
                                   seats: [], // sẽ cập nhật khi chọn ghế
                                 },
-                              })
-                            }
+                              });
+                            }}
                           >
                             {formatVNTime(showtime.start)} - {formatVNTime(showtime.end)}
                           </button>

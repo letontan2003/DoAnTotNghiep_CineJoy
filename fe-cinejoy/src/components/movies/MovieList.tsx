@@ -23,12 +23,35 @@ const MovieList: React.FC = () => {
         fetchMovies();
     }, []);
 
-    const filteredMovies =
-        activeTab === "all"
-            ? movies
-            : activeTab === "Phim đang chiếu"
-            ? movies.filter((movie) => movie.status === "Phim đang chiếu" || movie.status === "Suất chiếu đặc biệt")
-            : movies.filter((movie) => movie.status === activeTab);
+    const filteredMovies = (() => {
+        let filtered = [];
+        
+        if (activeTab === "all") {
+            filtered = movies;
+        } else if (activeTab === "Phim đang chiếu") {
+            filtered = movies.filter((movie) => movie.status === "Phim đang chiếu" || movie.status === "Suất chiếu đặc biệt");
+        } else {
+            filtered = movies.filter((movie) => movie.status === activeTab);
+        }
+        
+        // Sắp xếp phim đang chiếu theo ngày khởi chiếu (gần ngày hiện tại nhất trước)
+        if (activeTab === "Phim đang chiếu") {
+            const today = new Date();
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.startDate);
+                const dateB = new Date(b.startDate);
+                
+                // Tính khoảng cách từ ngày khởi chiếu đến ngày hiện tại
+                const diffA = Math.abs(dateA.getTime() - today.getTime());
+                const diffB = Math.abs(dateB.getTime() - today.getTime());
+                
+                // Sắp xếp theo khoảng cách gần nhất (diff nhỏ nhất trước)
+                return diffA - diffB;
+            });
+        }
+        
+        return filtered;
+    })();
 
     const handleView = (_id: string) => {
         navigate(`/movies/${_id}`);

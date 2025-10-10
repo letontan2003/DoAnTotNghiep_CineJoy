@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
-import { getBlogs } from '@/apiservice/apiBlog';
+import { getVisibleBlogs } from '@/apiservice/apiBlog';
 import { getMovies } from '@/apiservice/apiMovies';
 import useAppStore from '@/store/app.store';
 
@@ -28,10 +28,9 @@ const NewsPage: React.FC = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await getBlogs();
-        // Mới nhất trước
-        const sorted = [...data].sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
-        setBlogs(sorted);
+        const data = await getVisibleBlogs();
+        // API đã sắp xếp theo ngày đăng mới nhất
+        setBlogs(data);
       } finally {
         setLoading(false);
       }

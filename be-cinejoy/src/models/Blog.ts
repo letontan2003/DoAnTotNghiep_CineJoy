@@ -8,6 +8,7 @@ export interface IBlog extends Document {
     content: string;
     posterImage: string; // Ảnh poster
     backgroundImage: string; // Ảnh background
+    status: 'Hiển thị' | 'Ẩn'; // Trạng thái hiển thị
 }
 
 const BlogSchema = new Schema<IBlog>({
@@ -18,6 +19,12 @@ const BlogSchema = new Schema<IBlog>({
     content: { type: String, required: true },
     posterImage: { type: String, required: true }, // URL for poster image
     backgroundImage: { type: String, required: true }, // URL for background image
+    status: { 
+        type: String, 
+        required: true,
+        enum: ['Hiển thị', 'Ẩn'],
+        default: 'Hiển thị'
+    }, // Trạng thái hiển thị
 });
 
 // Tạo index không unique để tối ưu truy vấn theo mã (cho phép trùng)
