@@ -27,6 +27,39 @@ export default class VoucherController {
         }
     }
 
+    async getAmountDiscount(req: Request, res: Response): Promise<void> {
+        try {
+            const { orderTotal } = req.body;
+            
+            if (!orderTotal || orderTotal <= 0) {
+                res.status(400).json({
+                    status: false,
+                    error: 400,
+                    message: "Order total is required and must be greater than 0",
+                    data: null,
+                });
+                return;
+            }
+
+            const result = await voucherService.getAmountDiscount(orderTotal);
+            
+            res.status(200).json({
+                status: true,
+                error: 0,
+                message: "Success",
+                data: result,
+            });
+        } catch (error) {
+            console.error("Error getting amount discount:", error);
+            res.status(500).json({
+                status: false,
+                error: 500,
+                message: "Internal server error",
+                data: null,
+            });
+        }
+    }
+
     async addVoucher(req: Request, res: Response): Promise<void> {
         try {
             const body = req.body as any;
@@ -302,6 +335,90 @@ export default class VoucherController {
                 status: false,
                 error: 1,
                 message: err.message || "Lỗi đổi voucher",
+                data: null
+            });
+        }
+    }
+
+    // Lấy danh sách khuyến mãi hàng đang hoạt động
+    async getActiveItemPromotions(req: Request, res: Response): Promise<void> {
+        try {
+            const result = await voucherService.getActiveItemPromotions();
+            res.status(200).json(result);
+        } catch (error) {
+            console.error("Error getting active item promotions:", error);
+            res.status(500).json({
+                status: false,
+                error: 1,
+                message: "Có lỗi xảy ra khi lấy danh sách khuyến mãi hàng",
+                data: null
+            });
+        }
+    }
+
+    // Áp dụng khuyến mãi hàng
+    async applyItemPromotions(req: Request, res: Response): Promise<void> {
+        try {
+            const { selectedCombos, appliedPromotions } = req.body;
+
+            if (!selectedCombos || !Array.isArray(selectedCombos)) {
+                res.status(400).json({
+                    status: false,
+                    error: 400,
+                    message: "Danh sách combo được chọn là bắt buộc",
+                    data: null
+                });
+                return;
+            }
+
+            const result = await voucherService.applyItemPromotions(selectedCombos, appliedPromotions || []);
+            res.status(200).json(result);
+        } catch (error) {
+            console.error("Error applying item promotions:", error);
+            res.status(500).json({
+                status: false,
+                error: 1,
+                message: "Có lỗi xảy ra khi áp dụng khuyến mãi hàng",
+                data: null
+            });
+        }
+    }
+
+    async getActivePercentPromotions(req: Request, res: Response): Promise<void> {
+        try {
+            const result = await voucherService.applyPercentPromotions([], []);
+            res.status(200).json(result);
+        } catch (error) {
+            console.error("Error getting active percent promotions:", error);
+            res.status(500).json({
+                status: false,
+                error: 1,
+                message: "Có lỗi xảy ra khi lấy danh sách khuyến mãi chiết khấu",
+                data: null
+            });
+        }
+    }
+
+    async applyPercentPromotions(req: Request, res: Response): Promise<void> {
+        try {
+            const { selectedCombos, appliedPromotions } = req.body;
+            if (!selectedCombos || !Array.isArray(selectedCombos)) {
+                res.status(400).json({
+                    status: false,
+                    error: 400,
+                    message: "Danh sách combo được chọn là bắt buộc",
+                    data: null
+                });
+                return;
+            }
+            const result = await voucherService.applyPercentPromotions(selectedCombos, appliedPromotions || []);
+            res.status(200).json(result);
+        } catch (error) {
+            console.error("Error applying percent promotions:", error);
+            res.status(500).json({
+                status: false,
+                error: 1,
+                message: "Có lỗi xảy ra khi áp dụng khuyến mãi chiết khấu",
                 data: null
             });
         }

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef } from "react";
 import useAppStore from "@/store/app.store";
-import { getSeatsForShowtimeApi } from "@/apiservice/apiShowTime";
+import { getSeatsForShowtimeApi, getSeatsWithReservationStatusApi } from "@/apiservice/apiShowTime";
 interface SeatProps {
   selectedSeats: string[]; // UI checked
   soldSeats: string[]; // already selected (reserved/sold)
@@ -27,7 +27,7 @@ interface SeatLayout {
 // const selectedSeats = ["C3", "D4", "E3", "G4"];
 
 type SeatType = 'normal' | 'vip' | 'couple' | '4dx';
-type SeatStatus = 'available' | 'maintenance';
+type SeatStatus = 'available' | 'maintenance' | 'occupied';
 
 const Seat: React.FC<SeatProps> = ({
   selectedSeats,
@@ -52,7 +52,6 @@ const Seat: React.FC<SeatProps> = ({
 
   // Helper function to handle seat selection (including couple seats)
   const handleSeatSelection = (seatName: string) => {
-    console.log("handleSeatSelection called with seatName:", seatName);
     const seatType = seatMap[seatName]?.type;
     
     if (seatType === 'couple') {
@@ -67,40 +66,42 @@ const Seat: React.FC<SeatProps> = ({
       // Check if both seats are available
       const isMaintenance = seatMap[seatName]?.status === 'maintenance';
       const isPairMaintenance = seatMap[pairSeatName]?.status === 'maintenance';
-      const isSelectedFromServer = soldSeats.includes(seatName) || soldSeats.includes(pairSeatName);
+      const seatStatus = seatMap[seatName]?.status;
+      const pairSeatStatus = seatMap[pairSeatName]?.status;
+      const isSeatReservedByMe = seatMap[seatName]?.isReservedByMe || false;
+      const isPairSeatReservedByMe = seatMap[pairSeatName]?.isReservedByMe || false;
+      
+      const isSelectedFromServer = 
+        ((seatStatus === 'selected' && !isSeatReservedByMe) || (seatStatus === 'reserved' && !isSeatReservedByMe) || soldSeats.includes(seatName)) ||
+        ((pairSeatStatus === 'selected' && !isPairSeatReservedByMe) || (pairSeatStatus === 'reserved' && !isPairSeatReservedByMe) || soldSeats.includes(pairSeatName));
       
       if (!isSelectedFromServer && !isMaintenance && !isPairMaintenance) {
-        // Check if either seat is already selected
-        const isSeatSelected = selectedSeats.includes(seatName);
-        const isPairSelected = selectedSeats.includes(pairSeatName);
+        // Check if either seat is already selected or reserved by me
+        const isSeatSelected = selectedSeats.includes(seatName) || (seatStatus === 'selected' && isSeatReservedByMe);
+        const isPairSelected = selectedSeats.includes(pairSeatName) || (pairSeatStatus === 'selected' && isPairSeatReservedByMe);
         
         if (isSeatSelected || isPairSelected) {
           // If either is selected, deselect both
           if (onSelectMultiple) {
-            console.log("Calling onSelectMultiple for deselection:", [seatName, pairSeatName]);
             onSelectMultiple([seatName, pairSeatName]);
           } else {
             // Fallback to individual selection if onSelectMultiple is not provided
             // Only call onSelect once to avoid duplicate validation
-            console.log("Calling onSelect for deselection:", seatName);
             onSelect(seatName);
           }
         } else {
           // If neither is selected, select both
           if (onSelectMultiple) {
-            console.log("Calling onSelectMultiple for selection:", [seatName, pairSeatName]);
             onSelectMultiple([seatName, pairSeatName]);
           } else {
             // Fallback to individual selection if onSelectMultiple is not provided
             // Only call onSelect once to avoid duplicate validation
-            console.log("Calling onSelect for selection:", seatName);
             onSelect(seatName);
           }
         }
       }
     } else {
       // For non-couple seats, use normal selection
-      console.log("Calling onSelect for non-couple seat:", seatName);
       onSelect(seatName);
     }
   };
@@ -108,40 +109,34 @@ const Seat: React.FC<SeatProps> = ({
   // Load seats from API
   useEffect(() => {
     const loadSeats = async () => {
-      // Debug: log the props to see what's missing
-      console.log("Seat component props:", {
+      console.log("🔄 Seat component loading seats with params:", {
         showtimeId,
         date,
         startTime,
-        room,
+        room
       });
 
       if (!showtimeId || !date || !startTime) {
-        console.log("Missing required props for API call, using static data");
-        // Fallback to static data if no API params provided
+        console.log("❌ Missing required params for seat loading");
         return;
       }
 
       try {
         setLoading(true);
         setError(null);
-        // Call the API to get seats
-        console.log("Calling API with params:", {
-          showtimeId,
-          date,
-          startTime,
-          room,
-        });
-
+        
+        // Load basic seats first (no auth required)
         const response = await getSeatsForShowtimeApi(
           showtimeId,
           date,
           startTime,
           room
         );
+        
+        console.log("✅ Seat API response:", response);
 
         if (response.status && response.data) {
-          // Cast the API response to match our SeatLayout interface
+          // API cũ trả về format cũ với seatLayout và seats
           const apiSeatLayout = response.data.seatLayout;
           const typedSeatLayout: SeatLayout = {
             rows: apiSeatLayout.rows,
@@ -149,11 +144,11 @@ const Seat: React.FC<SeatProps> = ({
           };
           setSeatLayout(typedSeatLayout);
           
-          // Build seat map from API seats data
+          // Build seat map từ API response cũ
           const map: Record<string, { type: SeatType; status: SeatStatus }> = {};
           const seatsData = response.data.seats || [];
           
-          // Create a mapping from seatId to seat info (status and type). Prefer API seatId if provided
+          // Create a mapping from seatId to seat info (status and type)
           const seatInfoMap: Record<string, { status: string; type: string }> = {};
           seatsData.forEach((seatItem: any, index: number) => {
             let seatId: string | undefined = seatItem.seatId;
@@ -181,9 +176,83 @@ const Seat: React.FC<SeatProps> = ({
           }
           
           setSeatMap(map);
+          
+          // Debug: Log seat statuses
+          console.log("🪑 Seat map created:", map);
+          const selectedSeats = Object.entries(map).filter(([_, info]) => info.status === 'selected');
+          console.log("🔍 Selected seats found:", selectedSeats);
+          
           if (onSeatsLoadedRef.current) {
             onSeatsLoadedRef.current(response.data);
           }
+
+          // Try to load reservation status if user is authenticated
+          try {
+            const token = localStorage.getItem("accessToken");
+            if (token) {
+              console.log("🔄 Loading reservation status...");
+              // Kiểm tra xem có phải quay lại từ trang thanh toán không
+              const isFromPaymentReturn = sessionStorage.getItem('from_payment_page') === 'true';
+              
+              const reservationResponse = await getSeatsWithReservationStatusApi(
+                showtimeId,
+                date,
+                startTime,
+                room,
+                isFromPaymentReturn
+              );
+              
+              if (reservationResponse.status && reservationResponse.data) {
+                console.log("✅ Reservation status loaded:", reservationResponse.data);
+                
+                // Update seat map with reservation status
+                const updatedMap = { ...map };
+                reservationResponse.data.forEach((seatItem: any) => {
+                  if (seatItem.seatId && updatedMap[seatItem.seatId]) {
+                    console.log(`🔍 Updating seat ${seatItem.seatId}: status=${seatItem.status}, isReservedByMe=${seatItem.isReservedByMe}`);
+                    
+                    if (seatItem.status === 'reserved') {
+                      if (seatItem.isReservedByMe) {
+                        // Reserved by current user - show as selected (blue)
+                        updatedMap[seatItem.seatId].status = 'selected';
+                        updatedMap[seatItem.seatId].isReservedByMe = true;
+                        console.log(`✅ Seat ${seatItem.seatId} set to 'selected' (reserved by me)`);
+                      } else {
+                        // Reserved by other user - show as taken (red)
+                        updatedMap[seatItem.seatId].status = 'reserved';
+                        updatedMap[seatItem.seatId].isReservedByMe = false;
+                        console.log(`🔒 Seat ${seatItem.seatId} set to 'reserved' (by others)`);
+                      }
+                    } else if (seatItem.status === 'selected') {
+                      // Selected seats - check if reserved by current user
+                      if (seatItem.isReservedByMe) {
+                        // Reserved by current user - show as selected (blue)
+                        updatedMap[seatItem.seatId].status = 'selected';
+                        updatedMap[seatItem.seatId].isReservedByMe = true;
+                        console.log(`✅ Seat ${seatItem.seatId} set to 'selected' (reserved by me)`);
+                      } else {
+                        // Reserved by other user - show as taken (red)
+                        updatedMap[seatItem.seatId].status = 'reserved';
+                        updatedMap[seatItem.seatId].isReservedByMe = false;
+                        console.log(`🔒 Seat ${seatItem.seatId} set to 'reserved' (by others)`);
+                      }
+                    } else if (seatItem.status === 'available') {
+                      // Available seats - reset to available status
+                      updatedMap[seatItem.seatId].status = 'available';
+                      updatedMap[seatItem.seatId].isReservedByMe = false;
+                      console.log(`🟢 Seat ${seatItem.seatId} set to 'available' (released)`);
+                    }
+                  }
+                });
+                
+                setSeatMap(updatedMap);
+                console.log("🪑 Updated seat map with reservations:", updatedMap);
+              }
+            }
+          } catch (reservationError) {
+            console.log("ℹ️ Could not load reservation status (expected if no auth):", reservationError);
+          }
+          
         } else {
           setError(response.message || "Không thể tải dữ liệu ghế");
         }
@@ -196,7 +265,7 @@ const Seat: React.FC<SeatProps> = ({
     };
 
     loadSeats();
-  }, [showtimeId, date, startTime, room]); // Removed onSeatsLoaded from dependencies
+  }, [showtimeId, date, startTime, room]);
 
 
 
@@ -305,8 +374,10 @@ const Seat: React.FC<SeatProps> = ({
                     if (!seat) return null;
 
                     const seatName = seat.seatId;
-                    const isMaintenance = seat.status === 'maintenance';
-                    const isSelectedFromServer = soldSeats.includes(seatName);
+                    const seatStatus = seatMap[seatName]?.status || seat.status;
+                    const isReservedByMe = seatMap[seatName]?.isReservedByMe || false;
+                    const isMaintenance = seatStatus === 'maintenance';
+                    const isSelectedFromServer = (seatStatus === 'selected' && !isReservedByMe) || (seatStatus === 'reserved' && !isReservedByMe) || (seatStatus === 'occupied') || soldSeats.includes(seatName);
                     const isChecked = selectedSeats.includes(seatName);
 
                     let baseColor = '';
@@ -326,11 +397,13 @@ const Seat: React.FC<SeatProps> = ({
 
                     const colorClass = isMaintenance
                       ? 'bg-gray-600 border-gray-800'
-                      : isSelectedFromServer
-                        ? 'bg-[#b3210e] border-[#b3210e] text-white'  // Ghế đã chọn (từ server) = đỏ
-                        : isChecked
-                          ? 'bg-blue-600 border-blue-600 text-white'   // Ghế đang chọn (UI) = xanh
-                          : baseColor;
+                      : seatStatus === 'reserved'
+                        ? 'bg-[#b3210e] border-[#b3210e] text-white'  // Ghế tạm giữ = đỏ (giống ghế đã chọn)
+                        : isSelectedFromServer
+                          ? 'bg-[#b3210e] border-[#b3210e] text-white'  // Ghế đã chọn (từ server) = đỏ
+                          : isChecked
+                            ? 'bg-blue-600 border-blue-600 text-white'   // Ghế đang chọn (UI) = xanh
+                            : baseColor;
 
               return (
                 <button
@@ -373,8 +446,10 @@ const Seat: React.FC<SeatProps> = ({
               }
 
               const seatName = seat.seatId;
-              const isMaintenance = seat.status === 'maintenance';
-              const isSelectedFromServer = soldSeats.includes(seatName);
+              const seatStatus = seatMap[seatName]?.status || seat.status;
+              const isReservedByMe = seatMap[seatName]?.isReservedByMe || false;
+              const isMaintenance = seatStatus === 'maintenance';
+              const isSelectedFromServer = (seatStatus === 'selected' && !isReservedByMe) || (seatStatus === 'reserved' && !isReservedByMe) || (seatStatus === 'occupied') || soldSeats.includes(seatName);
               const isChecked = selectedSeats.includes(seatName);
 
               let baseColor = '';
@@ -394,11 +469,13 @@ const Seat: React.FC<SeatProps> = ({
 
               const colorClass = isMaintenance
                 ? 'bg-gray-600 border-gray-800'
-                : isSelectedFromServer
-                  ? 'bg-[#b3210e] border-[#b3210e] text-white'
-                  : isChecked
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : baseColor;
+                : seatStatus === 'reserved'
+                  ? 'bg-[#b3210e] border-[#b3210e] text-white'  // Ghế tạm giữ = đỏ (giống ghế đã chọn)
+                  : isSelectedFromServer
+                    ? 'bg-[#b3210e] border-[#b3210e] text-white'  // Ghế đã chọn = đỏ
+                    : isChecked
+                      ? 'bg-blue-600 border-blue-600 text-white'   // Ghế đang chọn = xanh
+                      : baseColor;
 
               return (
                 <button

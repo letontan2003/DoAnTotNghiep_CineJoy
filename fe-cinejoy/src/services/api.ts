@@ -182,14 +182,14 @@ export const uploadAvatarApi = async (file: File) => {
 
 export const getMyVouchersApi = async () => {
   const response = await axios.get<IBackendResponse<IUserVoucher[]>>(
-    "/vouchers/my-vouchers"
+    "/v1/api/vouchers/my-vouchers"
   );
   return response.data;
 };
 
 export const redeemVoucherApi = async (voucherId: string, detailId?: string) => {
   const response = await axios.post<IBackendResponse<IUserVoucher>>(
-    "/vouchers/redeem",
+    "/v1/api/vouchers/redeem",
     {
       voucherId,
       detailId,
@@ -231,6 +231,20 @@ export const applyVoucherApi = async (
   return response.data;
 };
 
+export const getAmountDiscountApi = async (orderTotal: number) => {
+  const response = await axios.post<
+    IBackendResponse<{
+      discountAmount: number;
+      description: string;
+      minOrderValue: number;
+      discountValue: number;
+    } | null>
+  >("/v1/api/vouchers/amount-discount", {
+    orderTotal,
+  });
+  return response.data;
+};
+
 export const markVoucherAsUsedApi = async (
   code?: string,
   userVoucherId?: string
@@ -242,6 +256,49 @@ export const markVoucherAsUsedApi = async (
       userVoucherId,
     }
   );
+  return response.data;
+};
+
+// API cho khuyến mãi hàng
+export const getActiveItemPromotionsApi = async () => {
+  const response = await axios.get<IBackendResponse<any[]>>(
+    "/v1/api/vouchers/item-promotions"
+  );
+  return response.data;
+};
+
+export const applyItemPromotionsApi = async (
+  selectedCombos: Array<{ comboId: string; quantity: number; name: string }>,
+  appliedPromotions: any[] = []
+) => {
+  const response = await axios.post<IBackendResponse<{
+    applicablePromotions: any[];
+    totalRewardItems: number;
+  }>>("/v1/api/vouchers/apply-item-promotions", {
+    selectedCombos,
+    appliedPromotions
+  });
+  return response.data;
+};
+
+export const getActivePercentPromotionsApi = async () => {
+  const response = await axios.get<IBackendResponse<any[]>>(
+    "/v1/api/vouchers/percent-promotions"
+  );
+  return response.data;
+};
+
+export const applyPercentPromotionsApi = async (
+  selectedCombos: Array<{ comboId: string; quantity: number; name: string; price: number }>,
+  appliedPromotions: any[] = []
+) => {
+  const response = await axios.post<IBackendResponse<{
+    applicablePromotions: any[];
+    totalDiscountAmount: number;
+  }>>("/v1/api/vouchers/apply-percent-promotions", {
+    selectedCombos,
+    appliedPromotions
+  });
   return response.data;
 };
 
@@ -327,6 +384,56 @@ export const deleteSeatApi = async (seatId: string) => {
 
 export const deleteAllSeatsInRoomApi = async (roomId: string) => {
   await axios.delete(`/seats/room/${roomId}/all`);
+};
+
+// Book seats API - đặt ghế với trạng thái selected
+export const bookSeatsApi = async (data: {
+  showtimeId: string;
+  date: string;
+  startTime: string;
+  room: string;
+  seatIds: string[];
+  userId?: string;
+}) => {
+  try {
+    const response = await axios.post<IBackendResponse<any>>(
+      "/showtimes/book-seats",
+      data
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message = error?.response?.data?.message || error?.message || 'Request failed';
+    
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    } as unknown as IBackendResponse<any>;
+  }
+};
+
+// Release seats by user
+export const releaseSeatsByUserApi = async (data: {
+  showtimeId: string;
+  date: string;
+  startTime: string;
+  room: string;
+  seatIds: string[];
+  userId: string;
+}) => {
+  try {
+    const response = await axios.post<IBackendResponse<any>>(
+      "/showtimes/release-by-user",
+      data
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message = error?.response?.data?.message || error?.message || 'Request failed';
+    return { status: false, error: status, message, data: null } as unknown as IBackendResponse<any>;
+  }
 };
 
 // Order APIs

@@ -171,9 +171,9 @@ const Header = () => {
       onClick: () => navigate("/members"),
     },
     {
-      key: "/history",
+      key: "booking-history",
       label: <div className="text-center">Lịch sử đặt vé</div>,
-      //   onClick: () => navigate("/history"),
+      onClick: () => navigate("/booking-history"),
     },
     {
       key: "logout",

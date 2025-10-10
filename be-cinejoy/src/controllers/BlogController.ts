@@ -86,4 +86,49 @@ export default class BlogController {
             res.status(500).json({ message: "Error deleting blog", error });
         }
     }
+
+    // Lấy blog theo trạng thái
+    async getBlogsByStatus(req: Request, res: Response): Promise<void> {
+        const { status } = req.params;
+        try {
+            if (status !== 'Hiển thị' && status !== 'Ẩn') {
+                res.status(400).json({ message: "Invalid status. Must be 'Hiển thị' or 'Ẩn'" });
+                return;
+            }
+            const blogs = await blogService.getBlogsByStatus(status as 'Hiển thị' | 'Ẩn');
+            res.status(200).json(blogs);
+        } catch (error) {
+            res.status(500).json({ message: "Error fetching blogs by status", error });
+        }
+    }
+
+    // Lấy blog hiển thị (cho client)
+    async getVisibleBlogs(req: Request, res: Response): Promise<void> {
+        try {
+            const blogs = await blogService.getVisibleBlogs();
+            res.status(200).json(blogs);
+        } catch (error) {
+            res.status(500).json({ message: "Error fetching visible blogs", error });
+        }
+    }
+
+    // Cập nhật trạng thái blog
+    async updateBlogStatus(req: Request, res: Response): Promise<void> {
+        const { id } = req.params;
+        const { status } = req.body;
+        try {
+            if (!status || (status !== 'Hiển thị' && status !== 'Ẩn')) {
+                res.status(400).json({ message: "Invalid status. Must be 'Hiển thị' or 'Ẩn'" });
+                return;
+            }
+            const updatedBlog = await blogService.updateBlogStatus(id, status);
+            if (!updatedBlog) {
+                res.status(404).json({ message: "Blog not found" });
+                return;
+            }
+            res.status(200).json(updatedBlog);
+        } catch (error) {
+            res.status(500).json({ message: "Error updating blog status", error });
+        }
+    }
 }

@@ -369,7 +369,18 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
         if (selectedMovie?.duration) {
             // Hiển thị giờ kết thúc theo duration phim (backend tự cộng thêm 20' khi lưu)
             const estimatedEnd = nextStartMin + selectedMovie.duration;
-            rows[rowIndex].endTime = minutesToDayjs(dayjs(row.date), estimatedEnd % (24*60));
+            let endTime = minutesToDayjs(dayjs(row.date), estimatedEnd % (24*60));
+            
+            // Xử lý trường hợp ca đêm qua ngày hôm sau
+            const startHour = Math.floor(nextStartMin / 60);
+            const endHour = Math.floor((estimatedEnd % (24*60)) / 60);
+            
+            // Nếu giờ bắt đầu >= 22:00 và giờ kết thúc < 6:00, coi như qua ngày
+            if (startHour >= 22 && endHour < 6) {
+                endTime = endTime.add(1, 'day');
+            }
+            
+            rows[rowIndex].endTime = endTime;
             // Lưu ràng buộc min start để người dùng có thể chỉnh nhưng không thấp hơn
             rows[rowIndex].minStartBoundary = minutesToDayjs(dayjs(row.date), nextStartMin);
             // validate vượt ca (trừ ca đêm)
@@ -963,7 +974,16 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                         }
                                                                     } catch (err) { console.error(err); }
                                                                     // Tự động tính thời gian kết thúc
-                                                            const endTime = time.add(selectedMovie.duration, 'minute');
+                                                            let endTime = time.add(selectedMovie.duration, 'minute');
+                                                                    
+                                                                    // Xử lý trường hợp ca đêm qua ngày hôm sau
+                                                                    const startHour = time.hour();
+                                                                    const endHour = endTime.hour();
+                                                                    
+                                                                    // Nếu giờ bắt đầu >= 22:00 và giờ kết thúc < 6:00, coi như qua ngày
+                                                                    if (startHour >= 22 && endHour < 6) {
+                                                                        endTime = endTime.add(1, 'day');
+                                                                    }
                                                                     const currentShowTimes = form.getFieldValue('showTimes') || [];
                                                                     currentShowTimes[name] = {
                                                                         ...currentShowTimes[name],

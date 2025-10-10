@@ -39,9 +39,11 @@ const useAppStore = create<AppState>((set, get) => ({
       const res = await fetchAccountApi();
       
       if (res.data) {
+        sessionStorage.setItem("current_user_id", res.data.user._id);
         set({ user: res.data.user, isAuthenticated: true, isDarkMode: res.data.user.settings.darkMode });
       } else {
         localStorage.removeItem("accessToken");
+        sessionStorage.removeItem("current_user_id");
       }
     } catch (err) {
       console.error(err);

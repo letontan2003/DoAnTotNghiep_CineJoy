@@ -1,5 +1,6 @@
 import { Router } from "express";
 import ShowtimeController from "../controllers/ShowtimeController";
+import { verifyToken } from "../middlewares/AuthMiddleware";
 
 const router = Router();
 const showtimeController = new ShowtimeController();
@@ -27,6 +28,27 @@ router.post(
   showtimeController.bookSeats.bind(showtimeController)
 );
 router.post(
+  "/book-seats",
+  showtimeController.bookSeatsForFrontend.bind(showtimeController)
+);
+router.post(
+  "/release-by-user",
+  verifyToken,
+  showtimeController.releaseSeatsByUser.bind(showtimeController)
+);
+
+// API mới cho seat reservation
+router.get(
+  "/seats-with-reservation",
+  verifyToken,
+  showtimeController.getSeatsWithReservationStatus.bind(showtimeController)
+);
+router.post(
+  "/reserve-seats",
+  verifyToken,
+  showtimeController.reserveSeats.bind(showtimeController)
+);
+router.post(
   "/:id/initialize-seats",
   showtimeController.initializeSeats.bind(showtimeController)
 );
@@ -35,6 +57,19 @@ router.post(
 router.post(
   "/release-expired",
   showtimeController.releaseExpired.bind(showtimeController)
+);
+
+// Release all user reserved seats when selecting new showtime
+router.post(
+  "/release-user-seats",
+  verifyToken,
+  showtimeController.releaseUserReservedSeats.bind(showtimeController)
+);
+
+// TEST ENDPOINT: Update seats to occupied manually
+router.post(
+  "/test-update-occupied",
+  showtimeController.testUpdateSeatsToOccupied.bind(showtimeController)
 );
 
 // Dev-only: backfill seats cho toàn bộ showtimes

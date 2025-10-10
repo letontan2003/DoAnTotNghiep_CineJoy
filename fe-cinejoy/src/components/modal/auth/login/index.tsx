@@ -80,6 +80,7 @@ const ModalLogin = (props: IProps) => {
         });
         if (res.data) {
             localStorage.setItem("accessToken", res.data.accessToken);
+            sessionStorage.setItem("current_user_id", res.data.user._id);
             setUser(res.data.user);
             setIsAuthenticated(true);
             setIsDarkMode(res.data.user.settings.darkMode);

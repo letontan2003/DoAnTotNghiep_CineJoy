@@ -18,13 +18,17 @@ const PaymentSuccess: React.FC = () => {
     const orderId = searchParams.get('orderId');
     const amount = searchParams.get('amount');
     const resultCode = searchParams.get('resultCode');
+    const status = searchParams.get('status');
     const message = searchParams.get('message');
     const transId = searchParams.get('transId');
 
-    if (orderId && amount && resultCode === '0') {
+    // Kiểm tra success từ cả MoMo (resultCode=0) và VNPay (status=success)
+    const isSuccess = (orderId && amount && resultCode === '0') || (orderId && status === 'success');
+
+    if (isSuccess) {
       setOrderInfo({
         orderId,
-        amount: parseInt(amount),
+        amount: amount ? parseInt(amount) : 0,
         transId,
         message: decodeURIComponent(message || ''),
         success: true
@@ -40,7 +44,7 @@ const PaymentSuccess: React.FC = () => {
   };
 
   const handleViewOrders = () => {
-    navigate('/members');
+    navigate('/booking-history');
   };
 
   if (!orderInfo) {
@@ -90,7 +94,7 @@ const PaymentSuccess: React.FC = () => {
                 onClick={handleViewOrders}
                 className="border-blue-600 text-blue-600 hover:bg-blue-50"
               >
-                Xem đơn hàng
+                Xem lịch sử đặt vé
               </Button>
             </Space>
           }

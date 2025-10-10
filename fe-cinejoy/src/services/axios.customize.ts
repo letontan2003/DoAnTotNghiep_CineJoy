@@ -51,7 +51,13 @@ const createInstanceAxios = (baseURL: string) => {
       if (error && error.response && error.response.data) {
         return error.response.data;
       }
-      return Promise.reject(error);
+      // Nếu không có response.data, trả về structured error
+      return {
+        status: false,
+        error: error?.response?.status || 500,
+        message: error?.message || 'Request failed',
+        data: null
+      };
     }
   );
 

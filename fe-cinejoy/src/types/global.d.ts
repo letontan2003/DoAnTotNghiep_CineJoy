@@ -147,7 +147,7 @@ declare global {
     _id: string;
     row: string;
     number: number;
-    status: "available" | "reserved" | "sold";
+    status: "available" | "reserved" | "sold" | "occupied";
   }
 
   // Voucher
@@ -262,8 +262,8 @@ declare global {
     content: string;
     posterImage: string; // Ảnh poster
     backgroundImage: string; // Ảnh background
+    status: 'Hiển thị' | 'Ẩn'; // Trạng thái hiển thị
   }
-
   // FoodCombo - Sản phẩm đơn lẻ hoặc combo
   interface IComboItem {
     productId: string;
@@ -310,10 +310,17 @@ declare global {
     _id: string;
     orderCode: string;
     userId: string;
-    movieId: string;
-    theaterId: string;
+    movieId: any; // Populated movie object
+    theaterId: any; // Populated theater object
     showtimeId: string;
-    seats: string[];
+    showDate: string;
+    showTime: string;
+    room: string;
+    seats: Array<{
+      seatId: string;
+      type: string;
+      price: number;
+    }>;
     foodCombos: Array<{
       comboId: string;
       quantity: number;

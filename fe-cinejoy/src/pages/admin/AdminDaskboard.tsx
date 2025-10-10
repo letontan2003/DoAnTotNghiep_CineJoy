@@ -1754,6 +1754,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                       <th className="p-3 text-left font-semibold text-black">Tiêu đề</th>
                       <th className="p-3 text-left font-semibold text-black">Mô tả</th>
                       <th className="p-3 text-left font-semibold text-black">Ngày đăng</th>
+                      <th className="p-3 text-left font-semibold text-black">Trạng thái</th>
                       <th className="p-3 text-left font-semibold text-black">Nội dung</th>
                       <th className="p-3 text-left font-semibold text-black">Ảnh Poster</th>
                       <th className="p-3 text-left font-semibold text-black">Hành động</th>
@@ -1773,6 +1774,15 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           </div>
                         </td>
                         <td className="p-3">{new Date(blog.postedDate).toLocaleDateString("vi-VN")}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            blog.status === 'Hiển thị' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {blog.status || 'Hiển thị'}
+                          </span>
+                        </td>
                         <td className="p-3">
                           <button
                             className="text-indigo-600 hover:text-indigo-800 cursor-pointer"

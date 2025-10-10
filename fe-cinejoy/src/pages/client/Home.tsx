@@ -6,7 +6,7 @@ import ScheduleList from '@/components/scheduleList';
 import CommentCard from '@/components/card/commentCard';
 import NewsCard from '@/components/card/newCard';
 import useAppStore from '@/store/app.store';
-import { getBlogs } from '@/apiservice/apiBlog';
+import { getVisibleBlogs } from '@/apiservice/apiBlog';
 
 interface UserComment {
     name: string;
@@ -55,10 +55,9 @@ const HomePage = () => {
         const loadBlogs = async () => {
             setLoading(true);
             try {
-                const data = await getBlogs();
-                // Sắp xếp theo ngày đăng mới nhất
-                const sorted = [...data].sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
-                setBlogs(sorted);
+                const data = await getVisibleBlogs();
+                // API đã sắp xếp theo ngày đăng mới nhất
+                setBlogs(data);
             } catch (error) {
                 console.error('Error loading blogs:', error);
                 setBlogs([]);

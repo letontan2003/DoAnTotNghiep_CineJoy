@@ -10,5 +10,6 @@ router.get("/:id", moviesController.getMovieById.bind(moviesController));
 router.post("/add", moviesController.addMovie.bind(moviesController));
 router.put("/update/:id", moviesController.updateMovie.bind(moviesController));
 router.delete("/delete/:id", moviesController.deleteMovie.bind(moviesController));
+router.post("/update-statuses", moviesController.updateMovieStatuses.bind(moviesController));
 
 export default router;

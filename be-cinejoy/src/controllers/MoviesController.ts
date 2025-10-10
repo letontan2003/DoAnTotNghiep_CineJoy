@@ -12,7 +12,7 @@ export default class MoviesController {
     // Lấy danh sách phim
     async getMovies(req: Request, res: Response): Promise<void> {
         try {
-            const movies = await moviesService.getMovies();
+            const movies = await moviesService.getMoviesWithUpdatedStatus();
             res.status(200).json(movies);
         } catch (error) {
             res.status(500).json({ message: "Error fetching movies", error });
@@ -233,6 +233,24 @@ export default class MoviesController {
             res.status(200).json({ status: true, error: 0, message: "Get search movie success", data: movies });
         } catch (error) {
             res.status(500).json({ status: false, error: 2, message: "Error searching movies", data: [], details: error });
+        }
+    }
+
+    // Cập nhật trạng thái phim thủ công (cho testing)
+    async updateMovieStatuses(req: Request, res: Response): Promise<void> {
+        try {
+            const result = await moviesService.updateMovieStatuses();
+            res.status(200).json({
+                success: true,
+                message: result.message,
+                updated: result.updated
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                success: false,
+                message: "Error updating movie statuses", 
+                error 
+            });
         }
     }
 }

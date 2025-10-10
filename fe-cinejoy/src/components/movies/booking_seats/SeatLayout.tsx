@@ -62,10 +62,32 @@ const SeatLayout: React.FC<SeatLayoutProps> = ({
     try {
       const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
       const isBackForward = navigationType === 'POP' || (!!perf && perf.type === 'back_forward');
+      
+      // Kiểm tra thêm từ referrer để đảm bảo chỉ restore khi quay lại từ trang thanh toán
+      const referrerIsPayment = document.referrer.includes('/payment');
+      const hasPaymentFlag = sessionStorage.getItem('from_payment_page') === 'true';
+      
+      // Chỉ restore khi:
+      // 1. Navigation type là POP (back button) 
+      // 2. VÀ (có flag from_payment_page HOẶC referrer là payment page)
+      // Ưu tiên flag hơn referrer vì flag đáng tin cậy hơn
+      const shouldRestore = isBackForward && (hasPaymentFlag || referrerIsPayment);
 
-      if (!isBackForward) {
+      console.log('🔍 Navigation detection:', {
+        navigationType,
+        isBackForward,
+        referrerIsPayment,
+        hasPaymentFlag,
+        shouldRestore,
+        referrer: document.referrer,
+        perfType: perf?.type
+      });
+
+      if (!shouldRestore) {
         // Không phải quay lại từ trang thanh toán → xóa cache để tránh lưu khi reload/đi thẳng
+        console.log('🧹 Clearing sessionStorage - not a valid payment return');
         sessionStorage.removeItem(storageKey);
+        // Không xóa flag from_payment_page ở đây để tránh xóa quá sớm
         return;
       }
 
@@ -73,16 +95,24 @@ const SeatLayout: React.FC<SeatLayoutProps> = ({
       if (raw) {
         const restored: string[] = JSON.parse(raw);
         if (Array.isArray(restored) && restored.length > 0) {
+          console.log('🔄 Restoring selected seats from payment return:', restored);
           if (onSelectMultiple) {
             onSelectMultiple(restored);
           } else if (onSelect) {
             // Fallback: chọn từng ghế nếu component cha không hỗ trợ select nhiều
             restored.forEach((s) => onSelect(s));
           }
+          
+          // Xóa flag sau khi restore thành công
+          sessionStorage.removeItem('from_payment_page');
+          console.log('🧹 SeatLayout - Removed from_payment_page flag after successful restore');
         }
       }
     } catch (error) {
       console.error("Error restoring selected seats:", error);
+      // Xóa sessionStorage nếu có lỗi
+      sessionStorage.removeItem(storageKey);
+      sessionStorage.removeItem('from_payment_page');
     }
   // only run once for current showtime
   // eslint-disable-next-line react-hooks/exhaustive-deps
