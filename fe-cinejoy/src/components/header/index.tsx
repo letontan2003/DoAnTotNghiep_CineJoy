@@ -13,7 +13,6 @@ import Logo from "assets/CineJoyLogo.png";
 const Header = () => {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [searchValue, setSearchValue] = useState<string>("");
   const [searchResults, setSearchResults] = useState<IMovie[]>([]);
@@ -27,6 +26,7 @@ const Header = () => {
     setUser,
     setIsAuthenticated,
     isModalOpen,
+    setIsModalOpen,
     isDarkMode,
     setIsDarkMode,
   } = useAppStore();
@@ -116,12 +116,12 @@ const Header = () => {
 
   const handleOpenLoginModal = (value: boolean) => {
     setModalOpen(value);
-    setLoginModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleCloseLoginModal = (value: boolean) => {
     setModalOpen(value);
-    setLoginModalOpen(false);
+    setIsModalOpen(false);
   };
 
   const handleLogout = async () => {
@@ -136,6 +136,8 @@ const Header = () => {
           type: "success",
           content: "Đăng xuất thành công!",
         });
+        // Quay về trang chủ sau khi đăng xuất thành công
+        navigate("/");
       }
     } catch (error) {
       console.error("Lỗi khi đăng xuất:", error);
@@ -202,7 +204,7 @@ const Header = () => {
     <>
       <header
         className={`sticky top-0 ${
-          loginModalOpen || modalOpen || isModalOpen ? "z-1000" : "z-2000"
+          modalOpen || isModalOpen ? "z-500" : "z-2000"
         } ${
           isDarkMode ? "bg-[#23272f]" : "bg-[#eee]"
         } shadow-sm border-b border-[#ccc]`}
@@ -381,7 +383,7 @@ const Header = () => {
       </header>
 
       <ModalLogin
-        isOpen={loginModalOpen}
+        isOpen={isModalOpen}
         onOpen={handleOpenLoginModal}
         onClose={handleCloseLoginModal}
       />

@@ -177,7 +177,7 @@ const ScheduleList: React.FC = () => {
     }
   }, [showtimes, selectedDate, movieDetails]);
 
-  const { isDarkMode } = useAppStore();
+  const { isDarkMode, user, setIsModalOpen } = useAppStore();
 
   useEffect(() => {
     const fetchRegions = async () => {
@@ -583,6 +583,12 @@ const ScheduleList: React.FC = () => {
                                   : "bg-gray-50 border border-gray-300 text-gray-800 hover:bg-[#0f1b4c]"
                               } rounded px-2 py-0.5 text-sm cursor-pointer hover:text-white transition-all duration-250 ease-in-out`}
                               onClick={async () => {
+                                // Kiểm tra user đã đăng nhập chưa
+                                if (!user || !user._id) {
+                                  setIsModalOpen(true);
+                                  return;
+                                }
+                                
                                 // Giải phóng ghế tạm giữ trước khi chọn suất chiếu mới
                                 await releaseUserReservedSeats();
                                 

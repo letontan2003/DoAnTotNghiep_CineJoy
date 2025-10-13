@@ -77,8 +77,13 @@ router.post(
   "/backfill-seats",
   showtimeController.backfillSeats.bind(showtimeController)
 );
+
 // Route general
 router.get("/", showtimeController.getShowtimes.bind(showtimeController));
+router.get("/admin/all", showtimeController.getAllShowtimesForAdmin.bind(showtimeController));
+router.get("/check-occupied/:id", showtimeController.checkOccupiedSeats.bind(showtimeController));
+router.post("/update-expired", showtimeController.updateExpiredShowtimes.bind(showtimeController));
+router.post("/admin/update-expired-manual", showtimeController.manualUpdateExpiredShowtimes.bind(showtimeController));
 router.post("/add", showtimeController.addShowtime.bind(showtimeController));
 router.put(
   "/update/:id",

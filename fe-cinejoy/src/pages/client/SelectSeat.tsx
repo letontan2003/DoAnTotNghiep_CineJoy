@@ -11,6 +11,7 @@ import { reserveSeatsApi, getSeatsWithReservationStatusApi } from "@/apiservice/
 export const SelectSeat = () => {
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [soldSeats, setSoldSeats] = useState<string[]>([]);
+  const [reservedSeats, setReservedSeats] = useState<string[]>([]); // Thêm state cho reserved seats
   const [selectedSeatType, setSelectedSeatType] = useState<string | null>(null);
   const [seatTypeMap, setSeatTypeMap] = useState<Record<string, string>>({});
   const [layoutCols, setLayoutCols] = useState<number>(10);
@@ -356,12 +357,17 @@ export const SelectSeat = () => {
       
       if (response.status && response.data) {
         console.log('✅ Seats with reservation loaded:', response.data);
-        // Update sold seats with reservation info
-        const reservedSeats = response.data
+        // Tách riêng reserved seats và sold seats
+        const reservedSeatsData = response.data
           .filter((seat: { status: string; seatId: string }) => seat.status === 'reserved' || seat.status === 'selected')
           .map((seat: { status: string; seatId: string }) => seat.seatId);
         
-        setSoldSeats(prev => [...new Set([...prev, ...reservedSeats])]);
+        const soldSeatsData = response.data
+          .filter((seat: { status: string; seatId: string }) => seat.status === 'sold' || seat.status === 'occupied')
+          .map((seat: { status: string; seatId: string }) => seat.seatId);
+        
+        setReservedSeats(reservedSeatsData);
+        setSoldSeats(prev => [...new Set([...prev, ...soldSeatsData])]);
       }
     } catch (error) {
       console.error('Error loading seats with reservation:', error);
@@ -373,6 +379,17 @@ export const SelectSeat = () => {
     if (user && user._id) {
       loadSeatsWithReservation();
     }
+  }, [loadSeatsWithReservation, user]);
+
+  // Reload reservation status periodically để cập nhật reservedSeats từ các tab khác
+  useEffect(() => {
+    if (!user || !user._id) return;
+
+    const interval = setInterval(() => {
+      loadSeatsWithReservation();
+    }, 1000); // Reload mỗi nữa giây
+
+    return () => clearInterval(interval);
   }, [loadSeatsWithReservation, user]);
 
   // Callback to update sold seats from API data
@@ -456,6 +473,7 @@ export const SelectSeat = () => {
             minAge: movie?.minAge,
             seatCols: layoutCols,
             soldSeats: soldSeats,
+            reservedSeats: reservedSeats,
             format: has4dx ? '4DX' : movie?.format,
           }}
           totalPrice={totalTicketPrice}
@@ -468,6 +486,9 @@ export const SelectSeat = () => {
                 console.log('🔒 Reserving seats on Continue (resetting 8-minute timer):', selectedSeats);
                 await reserveSeatsApi(showtimeId, date, apiTime, room, selectedSeats);
                 console.log(`✅ Successfully reserved ${selectedSeats.length} seats (timer reset to 8 minutes)`);
+                
+                // Cập nhật reservedSeats state sau khi reserve thành công
+                setReservedSeats(prev => [...new Set([...prev, ...selectedSeats])]);
               } catch (error) {
                 console.error('❌ Error reserving seats:', error);
                 message.error('Không thể tạm giữ ghế. Vui lòng thử lại.');

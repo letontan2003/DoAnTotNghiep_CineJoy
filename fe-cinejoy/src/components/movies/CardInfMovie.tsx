@@ -71,7 +71,8 @@ const CardInfMovie = () => {
     get7DaysFromToday()
   );
   const [showtimes, setShowtimes] = useState<IShowtime[]>([]);
-  const { isDarkMode } = useAppStore();
+  const { isDarkMode, user, setIsModalOpen, isModalOpen } = useAppStore();
+
 
   // Flatten showtimes and normalize room to string (same approach as ScheduleList)
   const allShowTimes = showtimes.flatMap((st) =>
@@ -608,6 +609,12 @@ const CardInfMovie = () => {
                                 : "text-gray-800 bg-white hover:bg-blue-50"
                             }`}
                             onClick={async () => {
+                              // Kiểm tra user đã đăng nhập chưa
+                              if (!user || !user._id) {
+                                setIsModalOpen(true);
+                                return;
+                              }
+                              
                               // Giải phóng ghế tạm giữ trước khi chọn suất chiếu mới
                               await releaseUserReservedSeats();
                               

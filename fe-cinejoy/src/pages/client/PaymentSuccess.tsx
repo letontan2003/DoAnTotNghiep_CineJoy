@@ -94,7 +94,7 @@ const PaymentSuccess: React.FC = () => {
                 onClick={handleViewOrders}
                 className="border-blue-600 text-blue-600 hover:bg-blue-50"
               >
-                Xem lịch sử đặt vé
+                Xem đơn vé
               </Button>
             </Space>
           }

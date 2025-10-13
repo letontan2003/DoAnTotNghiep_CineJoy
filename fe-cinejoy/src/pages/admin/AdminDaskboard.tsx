@@ -35,7 +35,7 @@ import {
 } from "@/apiservice/apiRegion";
 import { getBlogs, addBlog, updateBlog, deleteBlog } from "@/apiservice/apiBlog";
 import {
-  getShowTimes,
+  getAllShowtimesForAdmin,
   deleteShowtime,
 } from "@/apiservice/apiShowTime";
 import MovieForm from "@/pages/admin/Form/MovieForm";
@@ -270,7 +270,7 @@ const Dashboard: React.FC = () => {
         console.error("Error fetching blogs:", error);
         setBlogs([]);
       });
-    getShowTimes()
+    getAllShowtimesForAdmin()
       .then((data) => {
         setShowtimes(data && Array.isArray(data) ? data : []);
       })
@@ -1247,6 +1247,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
     setEditingShowtime(showtime);
     setShowShowtimeForm(true);
   };
+
 
   return (
     <div className="min-h-screen flex font-roboto bg-white">
@@ -3212,7 +3213,10 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     roomType: roomType,
                     availableSeats: seatsArr.filter((s: any) => s.status === 'available').length,
                     totalSeats: seatsArr.length,
-                    seats: seatsArr
+                    seats: seatsArr,
+                    status: time.status || 'active', // Mặc định active nếu chưa có
+                    showtimeId: selectedShowtime._id,
+                    roomId: time.room
                   };
                 })}
                 columns={[
@@ -3307,6 +3311,21 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         </Space>
                       );
                     }
+                  },
+                  {
+                    title: '🔄 Trạng thái',
+                    key: 'status',
+                    render: (_, record) => {
+                      const isActive = record.status === 'active';
+                      const statusColor = isActive ? 'green' : 'red';
+                      const statusText = isActive ? 'Hoạt động' : 'Không hoạt động';
+                      
+                      return (
+                        <Tag color={statusColor} className="font-medium">
+                          {statusText}
+                        </Tag>
+                      );
+                    }
                   }
                 ]}
                 pagination={{
@@ -3336,7 +3355,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
             setShowShowtimeForm(false);
             setEditingShowtime(null);
             // Refresh showtimes data
-            getShowTimes()
+            getAllShowtimesForAdmin()
               .then((data) => {
                 setShowtimes(data && Array.isArray(data) ? data : []);
               })
