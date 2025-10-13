@@ -1523,16 +1523,12 @@ class ShowtimeService {
       const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
       const todayStr = vietnamTime.toISOString().split('T')[0]; // Format: YYYY-MM-DD
       
-      console.log(`🕐 Checking for expired showtimes on ${todayStr} (Vietnam timezone)`);
-      console.log(`🕐 Current UTC time: ${now.toISOString()}`);
-      console.log(`🕐 Current Vietnam time: ${vietnamTime.toISOString()}`);
       
       // Tìm tất cả showtime có showTimes trong ngày đã qua (chỉ những ngày trước hôm nay)
       const yesterday = new Date(vietnamTime);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
       
-      console.log(`🕐 Looking for showtimes before ${yesterdayStr} (yesterday)`);
       
       // Query chỉ tìm showtime có ngày < hôm qua (không bao gồm hôm qua và hôm nay)
       const showtimes = await Showtime.find({
@@ -1552,15 +1548,12 @@ class ShowtimeService {
           const showDate = new Date(showTime.date);
           const showDateStr = showDate.toISOString().split('T')[0];
           
-          console.log(`🔍 Checking showtime: ${showDateStr} vs today: ${todayStr}, yesterday: ${yesterdayStr}`);
           
           // Chỉ update những suất chiếu có ngày < hôm qua (không bao gồm hôm qua và hôm nay)
           if (showDateStr < yesterdayStr && (!showTime.status || showTime.status === 'active')) {
             showTime.status = 'inactive';
             hasUpdates = true;
-            console.log(`📅 Updated expired showtime: ${showDateStr} - Room ${showTime.room} (was before yesterday)`);
           } else {
-            console.log(`⏭️ Skipping showtime: ${showDateStr} - Room ${showTime.room} (not expired yet)`);
           }
         }
         
@@ -1577,7 +1570,6 @@ class ShowtimeService {
         }
       }
 
-      console.log(`✅ Updated ${updatedCount} showtimes with expired show sessions`);
       
       return {
         updatedCount,

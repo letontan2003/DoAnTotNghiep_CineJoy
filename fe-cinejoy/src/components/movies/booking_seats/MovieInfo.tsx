@@ -16,9 +16,11 @@ interface MovieInfoProps {
     room: string;
     seats: string[];
     minAge?: number;
+    ageRating?: string; // Thêm trường ageRating
     seatCols?: number;
     soldSeats?: string[];
     reservedSeats?: string[]; // Thêm ghế đã reserved
+    totalSeats?: number; // Tổng số ghế trong phòng
   };
   onContinue: () => void;
   totalPrice: number;
@@ -174,6 +176,14 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
             isDarkMode ? "text-gray-300" : "text-gray-700"
           }`}
         >
+          <span className="font-bold">Độ Tuổi:</span>
+          <span>{movie.ageRating || 'N/A'}</span>
+        </div>
+        <div
+          className={`flex justify-between text-sm ${
+            isDarkMode ? "text-gray-300" : "text-gray-700"
+          }`}
+        >
           <span className="font-bold">Thời lượng:</span>
           <span>{movie.duration} phút</span>
         </div>
@@ -190,16 +200,8 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
             isDarkMode ? "text-gray-300" : "text-gray-700"
           }`}
         >
-          <span className="font-bold">Ngày chiếu:</span>
-          <span>{displayDate}</span>
-        </div>
-        <div
-          className={`flex justify-between text-sm ${
-            isDarkMode ? "text-gray-300" : "text-gray-700"
-          }`}
-        >
-          <span className="font-bold">Giờ chiếu:</span>
-          <span>{movie.time}</span>
+          <span className="font-bold">Suất chiếu:</span>
+          <span>{displayDate} {movie.time}</span>
         </div>
         <div
           className={`flex justify-between text-sm ${
@@ -208,6 +210,21 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
         >
           <span className="font-bold">Phòng chiếu:</span>
           <span>{movie.room}</span>
+        </div>
+        <div
+          className={`flex justify-between text-sm ${
+            isDarkMode ? "text-gray-300" : "text-gray-700"
+          }`}
+        >
+          <span className="font-bold">Số Ghế:</span>
+          <span>{(() => {
+            const totalSeats = movie.totalSeats || 0;
+            const soldSeats = movie.soldSeats?.length || 0;
+            const reservedSeats = movie.reservedSeats?.length || 0;
+            const occupiedSeats = soldSeats + reservedSeats;
+            const availableSeats = totalSeats - occupiedSeats;
+            return `${availableSeats}/${totalSeats}`;
+          })()}</span>
         </div>
         <div
           className={`flex justify-between text-sm ${

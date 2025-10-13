@@ -19,6 +19,7 @@ export const SelectSeat = () => {
   const [ticketPrices, setTicketPrices] = useState<Record<string, number>>({});
   const [totalTicketPrice, setTotalTicketPrice] = useState<number>(0);
   const [hasTicketPriceGap, setHasTicketPriceGap] = useState<boolean>(false);
+  const [totalSeats, setTotalSeats] = useState<number>(0); // Tổng số ghế trong phòng
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -402,6 +403,10 @@ export const SelectSeat = () => {
       const seatsData = seatData.seats || [];
       setLayoutCols(apiSeatLayout.cols || 10);
       
+      // Tính tổng số ghế từ dữ liệu API
+      const totalSeatsCount = seatsData.length;
+      setTotalSeats(totalSeatsCount);
+      
       // Tạo map loại ghế sử dụng cùng logic với Seat component
       const typeMap: Record<string, string> = {};
       const occupiedSeats: string[] = [];
@@ -432,6 +437,7 @@ export const SelectSeat = () => {
            }
          });
       
+      console.log('🔍 handleSeatsLoaded - Total seats:', totalSeatsCount);
       console.log('🔍 handleSeatsLoaded - Setting seatTypeMap:', typeMap);
       console.log('🔍 handleSeatsLoaded - Current selectedSeats:', selectedSeats);
       
@@ -474,6 +480,7 @@ export const SelectSeat = () => {
             seatCols: layoutCols,
             soldSeats: soldSeats,
             reservedSeats: reservedSeats,
+            totalSeats: totalSeats,
             format: has4dx ? '4DX' : movie?.format,
           }}
           totalPrice={totalTicketPrice}
