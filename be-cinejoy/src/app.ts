@@ -87,19 +87,14 @@ app.listen(PORT, () => {
   connectDB();
 
   // Check MoMo configuration on startup
-  console.log("\n📋 MoMo Payment Gateway Status:");
   if (momoConfig.isConfigured()) {
-    console.log(`✅ MoMo is configured (${momoConfig.getEnvironment()} mode)`);
+    // MoMo is configured
   } else {
-    console.log(
-      "⚠️  MoMo configuration incomplete - Payment features may not work"
-    );
-    console.log("📝 Please check your .env file for required MoMo variables");
+    // MoMo configuration incomplete - Payment features may not work
   }
 
   // Khởi động scheduler service để cleanup expired reservations và cập nhật trạng thái phim
   const schedulerService = new SchedulerService();
   schedulerService.startAllSchedulers();
 
-  console.log("🎬 CineJoy Backend Ready!\n");
 });

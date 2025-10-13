@@ -34,7 +34,6 @@ class SchedulerService {
       }
     }, 2 * 60 * 1000); // 2 minutes
 
-    console.log('🚀 Started scheduled cleanup service (every 2 minutes)');
   }
 
   // Dừng scheduled job
@@ -64,7 +63,6 @@ class SchedulerService {
       }
     }, 24 * 60 * 60 * 1000); // 24 hours
 
-    console.log('🚀 Started scheduled movie status update service (daily at 00:00)');
   }
 
   // Dừng scheduled job cập nhật trạng thái phim
@@ -78,7 +76,6 @@ class SchedulerService {
 
   // Bắt đầu scheduled job để cập nhật trạng thái showtime đã quá ngày
   startExpiredShowtimeScheduler(): void {
-    console.log('🕐 Starting expired showtime scheduler...');
     
     // Chạy ngay lập tức khi khởi động
     this.updateExpiredShowtimes();
@@ -95,12 +92,10 @@ class SchedulerService {
       }
     }, 60000); // Check mỗi phút
 
-    console.log('✅ Expired showtime scheduler started. Will run daily at 00:05');
   }
 
   // Khởi động scheduler để tự động cập nhật điểm cho order CONFIRMED
   startPointsUpdateScheduler(): void {
-    console.log('🕐 Starting points update scheduler...');
     
     // Chạy ngay lập tức khi khởi động
     this.updatePointsForOrders();
@@ -110,19 +105,16 @@ class SchedulerService {
       this.updatePointsForOrders();
     }, 5 * 60 * 1000); // 5 phút
 
-    console.log('✅ Points update scheduler started. Will run every 5 minutes');
   }
 
   // Cập nhật điểm cho các order CONFIRMED
   private async updatePointsForOrders(): Promise<void> {
     try {
-      console.log('🔄 Running points update...');
       const result = await this.pointsService.updatePointsForConfirmedOrders();
       
       if (result.processedOrders > 0) {
         console.log(`✅ Updated points for ${result.processedOrders} orders: ${result.totalPointsAdded} points added to ${result.updatedUsers.length} users`);
       } else {
-        console.log('ℹ️ No new orders to process for points');
       }
     } catch (error) {
       console.error('❌ Error in points update scheduler:', error);
@@ -141,13 +133,10 @@ class SchedulerService {
   // Cập nhật showtime đã quá ngày
   private async updateExpiredShowtimes(): Promise<void> {
     try {
-      console.log('🔄 Running expired showtime update...');
       const result = await this.showtimeService.updateExpiredShowtimes();
       
       if (result.updatedCount > 0) {
-        console.log(`✅ Updated ${result.updatedCount} expired showtimes`);
       } else {
-        console.log('ℹ️ No expired showtimes found');
       }
     } catch (error) {
       console.error('❌ Error in expired showtime scheduler:', error);
@@ -178,14 +167,12 @@ class SchedulerService {
 
   // Bắt đầu tất cả scheduled jobs
   startAllSchedulers(): void {
-    console.log('🕐 Starting all schedulers...');
     
     this.startCleanupScheduler();
     this.startMovieStatusScheduler();
     this.startExpiredShowtimeScheduler();
     this.startPointsUpdateScheduler();
     
-    console.log('✅ All schedulers started');
   }
 
   // Dừng tất cả scheduled jobs

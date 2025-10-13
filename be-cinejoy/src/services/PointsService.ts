@@ -9,7 +9,6 @@ class PointsService {
     updatedUsers: string[];
   }> {
     try {
-      console.log('🔄 Processing points for confirmed orders...');
 
       // Tìm tất cả order có trạng thái CONFIRMED và chưa được xử lý điểm
       const confirmedOrders = await Order.find({
@@ -25,7 +24,6 @@ class PointsService {
       });
 
       if (confirmedOrders.length === 0) {
-        console.log('ℹ️ No confirmed orders found');
         return {
           processedOrders: 0,
           totalPointsAdded: 0,
