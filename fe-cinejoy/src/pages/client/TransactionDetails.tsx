@@ -160,7 +160,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
                   <div>Từ ${order?.showTime || 'N/A'} - Đến ${calculateEndTime(order?.showTime || '', movie?.duration || 120)}</div>
                 </td>
                 <td>
-                  <div><strong>${order?.seats[0]?.seatType || 'VIP'}</strong></div>
+                  <div><strong>${order?.seats[0]?.type || 'VIP'}</strong></div>
                   <div>${order?.seats.map((seat: any) => seat.seatId).join(', ')}</div>
                   <div><strong>${formatCurrency(order?.seats[0]?.price || 0)}</strong></div>
                 </td>
@@ -343,7 +343,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
                   {/* Tickets */}
                   <td className="py-4 px-4">
                       <div className={`space-y-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        <div>VIP</div>
+                        <div>{order.seats[0]?.type || 'VIP'}</div>
                         <div>{order.seats.map((seat: { seatId: string }) => seat.seatId).join(',')}</div>
                         <div className="font-semibold">{formatCurrency(order.seats[0]?.price || 0)}</div>
                       </div>

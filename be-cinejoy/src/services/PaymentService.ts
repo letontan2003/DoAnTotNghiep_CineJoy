@@ -217,6 +217,15 @@ class PaymentService {
 
         console.log(`✅ VNPay: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
 
+        // Cộng điểm ngay lập tức khi thanh toán thành công (VNPay)
+        try {
+          const pointsService = await import("./PointsService");
+          const pointsResult = await pointsService.default.updatePointsForSingleOrder(order._id.toString());
+          console.log(`✅ VNPay: Points added immediately for order ${order._id}:`, pointsResult);
+        } catch (error) {
+          console.error(`❌ VNPay: Error adding points for order ${order._id}:`, error);
+        }
+
         // Mark voucher as used khi thanh toán thành công (VNPay)
         if (order.voucherId && order.voucherDiscount > 0) {
           try {
@@ -353,6 +362,7 @@ class PaymentService {
     callbackData: any
   ): Promise<{ status: string; message: string }> {
     try {
+      console.log('📱 MoMo Callback Debug - Received data:', callbackData);
 
       const {
         partnerCode,
@@ -377,6 +387,13 @@ class PaymentService {
         .createHmac("sha256", momoConfig.getSecretKey())
         .update(rawSignature)
         .digest("hex");
+
+      console.log('📱 MoMo Signature Debug:', {
+        rawSignature,
+        receivedSignature: signature,
+        expectedSignature,
+        isValid: signature === expectedSignature
+      });
 
       if (signature !== expectedSignature) {
         console.error("Invalid signature:", { signature, expectedSignature });
@@ -420,6 +437,15 @@ class PaymentService {
         ]);
 
         console.log(`✅ MoMo: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
+
+        // Cộng điểm ngay lập tức khi thanh toán thành công (MoMo)
+        try {
+          const pointsService = await import("./PointsService");
+          const pointsResult = await pointsService.default.updatePointsForSingleOrder(order._id.toString());
+          console.log(`✅ MoMo: Points added immediately for order ${order._id}:`, pointsResult);
+        } catch (error) {
+          console.error(`❌ MoMo: Error adding points for order ${order._id}:`, error);
+        }
 
         // Mark voucher as used khi thanh toán thành công
         if (order.voucherId && order.voucherDiscount > 0) {

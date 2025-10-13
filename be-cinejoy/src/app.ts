@@ -21,6 +21,7 @@ import RoomRouter from "./routes/RoomRouter";
 import SeatRouter from "./routes/SeatRouter";
 import ShowSessionRouter from "./routes/ShowSessionRouter";
 import PriceListRouter from "./routes/PriceListRouter";
+import PointsRouter from "./routes/PointsRouter";
 import momoConfig from "./configs/momoConfig";
 import SchedulerService from "./services/SchedulerService";
 
@@ -63,6 +64,7 @@ app.use("/v1/api/upload", UploadRouter);
 app.use("/v1/user-vouchers", UserVoucherRouter);
 app.use("/v1/api/orders", OrderRouter);
 app.use("/v1/api/payments", PaymentRouter);
+app.use("/v1/api/points", PointsRouter);
 app.use("/movies", moviesRouter);
 app.use("/theaters", theaterRouter);
 app.use("/v1/api/showtimes", ShowtimeRouter);

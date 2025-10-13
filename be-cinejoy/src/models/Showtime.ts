@@ -16,6 +16,7 @@ export interface IShowtime extends Document {
         end: Date;   // giờ kết thúc
         room: Schema.Types.ObjectId; // Reference to Room model
         showSessionId?: Schema.Types.ObjectId; // Reference to ShowSession model
+        status: 'active' | 'inactive'; // trạng thái suất chiếu
         seats: IShowtimeSeat[];
     }>;
 }
@@ -30,6 +31,12 @@ const ShowtimeSchema = new Schema<IShowtime>({
             end: { type: Date, required: true },
             room: { type: Schema.Types.ObjectId, required: true, ref: "Room" },
             showSessionId: { type: Schema.Types.ObjectId, ref: "ShowSession" },
+            status: {
+                type: String,
+                enum: ['active', 'inactive'],
+                default: 'active',
+                required: true
+            },
             seats: [
                 {
                     seat: { type: Schema.Types.ObjectId, required: true, ref: "Seat" },

@@ -101,7 +101,8 @@ const MovieForm: React.FC<MovieFormProps> = ({ movie, movies = [], onSubmit, onC
         'Chinese',
         'French',
         'German',
-        'Spanish'
+        'Spanish',
+        'Thái Lọ'
     ];
 
     const genres = [

@@ -134,6 +134,7 @@ declare global {
       end: string;
       room: string;
       showSessionId?: string;
+      status?: 'active' | 'inactive'; // Trạng thái suất chiếu
       seats: Array<{
         seatId: string;
         status: string;

@@ -49,6 +49,7 @@ export interface IOrder extends Document {
   paymentMethod: "MOMO" | "VNPAY"; // Required
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
   orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  pointsProcessed?: boolean; // Đánh dấu order đã được xử lý điểm chưa
   customerInfo: {
     fullName: string;
     phoneNumber: string;
@@ -253,6 +254,11 @@ const OrderSchema: Schema = new Schema(
       type: String,
       enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"],
       default: "PENDING",
+      index: true,
+    },
+    pointsProcessed: {
+      type: Boolean,
+      default: false,
       index: true,
     },
     customerInfo: {

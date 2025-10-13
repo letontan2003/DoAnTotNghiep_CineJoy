@@ -22,7 +22,14 @@ class ShowtimeService {
           path: "showTimes.showSessionId",
           select: "name startTime endTime"
         });
-      return showtimes;
+      
+      // Lọc chỉ lấy showtime có trạng thái active
+      const activeShowtimes = showtimes.map(showtime => ({
+        ...showtime.toObject(),
+        showTimes: showtime.showTimes.filter((st: any) => st.status === 'active' || !st.status) // Bao gồm cả showtime chưa có status (backward compatibility)
+      })).filter(showtime => showtime.showTimes.length > 0);
+      
+      return activeShowtimes as any;
     } catch (error) {
       throw error;
     }
@@ -226,6 +233,11 @@ class ShowtimeService {
               seat: s._id, 
               status: s.status || "available" 
             }));
+          
+          // Đặt trạng thái mặc định cho showtime nếu chưa có
+          if (!incoming.status) {
+            incoming.status = 'active';
+          }
 
           doc.showTimes.push(incoming);
           }
@@ -242,6 +254,17 @@ class ShowtimeService {
     showtimeData: Partial<IShowtime>
   ): Promise<IShowtime | null> {
     try {
+      // Kiểm tra xem có ghế đã đặt không trước khi update
+      const existingShowtime = await Showtime.findById(id);
+      if (existingShowtime && Array.isArray((showtimeData as any).showTimes)) {
+        for (let i = 0; i < existingShowtime.showTimes.length; i++) {
+          const hasOccupied = await this.hasOccupiedSeats(id, i);
+          if (hasOccupied) {
+            throw new Error("Không thể cập nhật vì suất chiếu này đã có ghế được đặt");
+          }
+        }
+      }
+
       // If showTimes updated, ensure seats are present for each new item
       if (Array.isArray((showtimeData as any).showTimes)) {
         const updatedList = await Promise.all(
@@ -250,6 +273,12 @@ class ShowtimeService {
               const roomSeats = await SeatModel.find({ room: st.room }).select("_id status");
               st.seats = roomSeats.map((s) => ({ seat: s._id, status: "available" }));
             }
+            
+            // Đặt trạng thái mặc định cho showtime nếu chưa có
+            if (!st.status) {
+              st.status = 'active';
+            }
+            
             return st;
           })
         );
@@ -295,7 +324,14 @@ class ShowtimeService {
           path: "showTimes.showSessionId",
           select: "name startTime endTime"
         });
-      return showtimes;
+      
+      // Lọc chỉ lấy showtime có trạng thái active
+      const activeShowtimes = showtimes.map(showtime => ({
+        ...showtime.toObject(),
+        showTimes: showtime.showTimes.filter((st: any) => st.status === 'active' || !st.status) // Bao gồm cả showtime chưa có status (backward compatibility)
+      })).filter(showtime => showtime.showTimes.length > 0);
+      
+      return activeShowtimes as any;
     } catch (error) {
       throw error;
     }
@@ -359,7 +395,14 @@ class ShowtimeService {
           path: "showTimes.showSessionId",
           select: "name startTime endTime"
         });
-      return showtimes;
+      
+      // Lọc chỉ lấy showtime có trạng thái active
+      const activeShowtimes = showtimes.map(showtime => ({
+        ...showtime.toObject(),
+        showTimes: showtime.showTimes.filter((st: any) => st.status === 'active' || !st.status) // Bao gồm cả showtime chưa có status (backward compatibility)
+      })).filter(showtime => showtime.showTimes.length > 0);
+      
+      return activeShowtimes as any;
     } catch (error) {
       throw error;
     }
@@ -1353,6 +1396,195 @@ class ShowtimeService {
       return true;
     } catch (error) {
       console.error("Error initializing seats:", error);
+      throw error;
+    }
+  }
+
+  // Lấy danh sách showtime theo trạng thái (tương tự BlogService.getBlogsByStatus)
+  async getShowtimesByStatus(status: 'active' | 'inactive'): Promise<any[]> {
+    try {
+      const showtimes = await Showtime.find({
+        'showTimes.status': status
+      })
+        .populate("movieId", "title")
+        .populate("theaterId", "name")
+        .populate({
+          path: "showTimes.room",
+          select: "name"
+        })
+        .populate({
+          path: "showTimes.showSessionId",
+          select: "name startTime endTime"
+        });
+
+      // Lọc chỉ lấy các showtime có trạng thái phù hợp
+      const filteredShowtimes = showtimes.map(showtime => ({
+        ...showtime.toObject(),
+        showTimes: showtime.showTimes.filter((st: any) => st.status === status)
+      })).filter(showtime => showtime.showTimes.length > 0);
+
+      return filteredShowtimes;
+    } catch (error) {
+      console.error("Error getting showtimes by status:", error);
+      throw error;
+    }
+  }
+
+  // Lấy tất cả showtime cho admin (bao gồm cả active và inactive)
+  async getAllShowtimesForAdmin(): Promise<IShowtime[]> {
+    try {
+      const showtimes = await Showtime.find()
+        .populate("movieId", "title")
+        .populate("theaterId", "name")
+        .populate({
+          path: "showTimes.room",
+          select: "name"
+        })
+        .populate({
+          path: "showTimes.showSessionId",
+          select: "name startTime endTime"
+        });
+      
+      // Admin thấy tất cả showtime (không filter theo status)
+      return showtimes as any;
+    } catch (error) {
+      console.error("Error getting all showtimes for admin:", error);
+      throw error;
+    }
+  }
+
+  // Kiểm tra xem showtime có ghế đã đặt (occupied) không
+  async hasOccupiedSeats(showtimeId: string, showTimeIndex: number): Promise<boolean> {
+    try {
+      const showtime = await Showtime.findById(showtimeId);
+      if (!showtime) {
+        return false;
+      }
+
+      const showTime = showtime.showTimes[showTimeIndex];
+      if (!showTime) {
+        return false;
+      }
+
+      // Kiểm tra xem có ghế nào có status = 'occupied' không
+      const hasOccupied = showTime.seats.some((seat: any) => seat.status === 'occupied');
+      return hasOccupied;
+    } catch (error) {
+      console.error("Error checking occupied seats:", error);
+      return false;
+    }
+  }
+
+  // Kiểm tra xem showtime có ghế đã đặt không (API endpoint)
+  async checkShowtimeOccupiedSeats(showtimeId: string): Promise<{
+    hasOccupiedSeats: boolean;
+    occupiedCount: number;
+    totalSeats: number;
+  }> {
+    try {
+      const showtime = await Showtime.findById(showtimeId);
+      if (!showtime) {
+        return { hasOccupiedSeats: false, occupiedCount: 0, totalSeats: 0 };
+      }
+
+      let totalOccupied = 0;
+      let totalSeats = 0;
+      let hasOccupied = false;
+
+      for (const showTime of showtime.showTimes) {
+        totalSeats += showTime.seats.length;
+        const occupiedInThisShowTime = showTime.seats.filter((seat: any) => seat.status === 'occupied').length;
+        totalOccupied += occupiedInThisShowTime;
+        
+        if (occupiedInThisShowTime > 0) {
+          hasOccupied = true;
+        }
+      }
+
+      return {
+        hasOccupiedSeats: hasOccupied,
+        occupiedCount: totalOccupied,
+        totalSeats: totalSeats
+      };
+    } catch (error) {
+      console.error("Error checking showtime occupied seats:", error);
+      return { hasOccupiedSeats: false, occupiedCount: 0, totalSeats: 0 };
+    }
+  }
+
+  // Tự động cập nhật trạng thái showtime đã quá ngày thành inactive
+  async updateExpiredShowtimes(): Promise<{
+    updatedCount: number;
+    updatedShowtimes: any[];
+  }> {
+    try {
+      // Lấy ngày hiện tại theo timezone Việt Nam (UTC+7)
+      const now = new Date();
+      const vietnamTime = new Date(now.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
+      const todayStr = vietnamTime.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+      
+      console.log(`🕐 Checking for expired showtimes on ${todayStr} (Vietnam timezone)`);
+      console.log(`🕐 Current UTC time: ${now.toISOString()}`);
+      console.log(`🕐 Current Vietnam time: ${vietnamTime.toISOString()}`);
+      
+      // Tìm tất cả showtime có showTimes trong ngày đã qua (chỉ những ngày trước hôm nay)
+      const yesterday = new Date(vietnamTime);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      console.log(`🕐 Looking for showtimes before ${yesterdayStr} (yesterday)`);
+      
+      // Query chỉ tìm showtime có ngày < hôm qua (không bao gồm hôm qua và hôm nay)
+      const showtimes = await Showtime.find({
+        'showTimes.date': { $lt: new Date(yesterdayStr + 'T00:00:00.000Z') },
+        'showTimes.status': { $in: ['active', null, undefined] } // Chỉ update active hoặc chưa có status
+      });
+
+      let updatedCount = 0;
+      const updatedShowtimes: any[] = [];
+
+      for (const showtime of showtimes) {
+        let hasUpdates = false;
+        
+        // Cập nhật từng showTime trong mảng
+        for (let i = 0; i < showtime.showTimes.length; i++) {
+          const showTime = showtime.showTimes[i] as any;
+          const showDate = new Date(showTime.date);
+          const showDateStr = showDate.toISOString().split('T')[0];
+          
+          console.log(`🔍 Checking showtime: ${showDateStr} vs today: ${todayStr}, yesterday: ${yesterdayStr}`);
+          
+          // Chỉ update những suất chiếu có ngày < hôm qua (không bao gồm hôm qua và hôm nay)
+          if (showDateStr < yesterdayStr && (!showTime.status || showTime.status === 'active')) {
+            showTime.status = 'inactive';
+            hasUpdates = true;
+            console.log(`📅 Updated expired showtime: ${showDateStr} - Room ${showTime.room} (was before yesterday)`);
+          } else {
+            console.log(`⏭️ Skipping showtime: ${showDateStr} - Room ${showTime.room} (not expired yet)`);
+          }
+        }
+        
+        // Nếu có thay đổi, lưu showtime
+        if (hasUpdates) {
+          await showtime.save();
+          updatedCount++;
+          updatedShowtimes.push({
+            showtimeId: showtime._id,
+            movieId: showtime.movieId,
+            theaterId: showtime.theaterId,
+            updatedShowTimes: showtime.showTimes.filter((st: any) => st.status === 'inactive')
+          });
+        }
+      }
+
+      console.log(`✅ Updated ${updatedCount} showtimes with expired show sessions`);
+      
+      return {
+        updatedCount,
+        updatedShowtimes
+      };
+    } catch (error) {
+      console.error("Error updating expired showtimes:", error);
       throw error;
     }
   }

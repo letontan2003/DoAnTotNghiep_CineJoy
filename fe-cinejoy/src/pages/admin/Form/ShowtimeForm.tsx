@@ -7,7 +7,7 @@ import axiosClient from '@/apiservice/axiosClient';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getMovies } from '@/apiservice/apiMovies';
 import { getTheaters } from '@/apiservice/apiTheater';
-import { createShowtime, updateShowtime, getShowtimesByRoomAndDateApi } from '@/apiservice/apiShowTime';
+import { createShowtime, updateShowtime, getShowtimesByRoomAndDateApi, checkOccupiedSeatsApi } from '@/apiservice/apiShowTime';
 import { getRegions } from '@/apiservice/apiRegion';
 import { getActiveRoomsByTheaterApi } from '@/apiservice/apiRoom';
 import { toast } from 'react-toastify';
@@ -18,6 +18,22 @@ interface ShowtimeFormProps {
     onSuccess: () => void;
     editData?: IShowtime;
 }
+
+// Function để chuyển đổi status phim thành text tiếng Việt
+const getMovieStatusText = (status: string): string => {
+    switch (status) {
+        case 'Phim đang chiếu':
+            return 'Phim Đang Chiếu';
+        case 'Phim sắp chiếu':
+            return 'Phim Sắp Chiếu';
+        case 'Suất chiếu đặc biệt':
+            return 'Suất Chiếu Đặc Biệt';
+        case 'Đã kết thúc':
+            return 'Phim Đã Kết Thúc';
+        default:
+            return 'Không Xác Định';
+    }
+};
 
 const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editData }) => {
     const [movies, setMovies] = useState<IMovie[]>([]);
@@ -34,6 +50,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [modalLoading, setModalLoading] = useState<boolean>(true);
     const [showSessions, setShowSessions] = useState<IShowSession[]>([]);
+    const [hasOccupiedSeats, setHasOccupiedSeats] = useState(false);
 
 
     useEffect(() => {
@@ -81,6 +98,15 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
     useEffect(() => {
         const loadEditData = async () => {
             if (editData) {
+                // Kiểm tra xem có ghế đã đặt không
+                try {
+                    const occupiedData = await checkOccupiedSeatsApi(editData._id);
+                    setHasOccupiedSeats(occupiedData.hasOccupiedSeats);
+                } catch (error) {
+                    console.error('Error checking occupied seats:', error);
+                    setHasOccupiedSeats(false);
+                }
+
                 // Tìm khu vực của rạp được chọn khi edit
                 const selectedTheater = allTheaters.find(t => t._id === editData.theaterId._id);
                 if (selectedTheater) {
@@ -137,13 +163,15 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                     start: string; 
                     end: string; 
                     room: string | { _id: string; name: string }; 
-                    showSessionId?: string | { _id: string; name: string } 
+                    showSessionId?: string | { _id: string; name: string };
+                    status?: 'active' | 'inactive';
                 }>).map((st) => ({
                     date: dayjs(st.date),
                     startTime: dayjs(st.start),
                     endTime: dayjs(st.end),
                     room: typeof st.room === 'object' ? st.room._id : st.room,
-                    sessionId: typeof st.showSessionId === 'object' ? st.showSessionId._id : st.showSessionId
+                    sessionId: typeof st.showSessionId === 'object' ? st.showSessionId._id : st.showSessionId,
+                    status: st.status || 'active' // Mặc định active nếu chưa có
                 }))
             });
         }
@@ -477,6 +505,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
             endTime: dayjs.Dayjs;
             room: string;
             sessionId?: string;
+            status: 'active' | 'inactive';
         }>;
     }) => {
         try {
@@ -497,13 +526,14 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
             const formattedData = {
                 movieId: values.movieId,
                 theaterId: values.theaterId,
-                showTimes: (values.showTimes as Array<{ date: dayjs.Dayjs; startTime: dayjs.Dayjs; endTime: dayjs.Dayjs; room: string; sessionId?: string }>).map((st) => ({
+                showTimes: (values.showTimes as Array<{ date: dayjs.Dayjs; startTime: dayjs.Dayjs; endTime: dayjs.Dayjs; room: string; sessionId?: string; status: 'active' | 'inactive' }>).map((st) => ({
                     date: st.date.toISOString(),
                     start: st.startTime.toISOString(),
                     end: st.endTime.toISOString(),
                     room: st.room,
                     // lưu kèm ca chiếu để backend có thể kiểm soát nếu cần
-                    showSessionId: st.sessionId
+                    showSessionId: st.sessionId,
+                    status: st.status
                 }))
             };
 
@@ -586,6 +616,25 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 onFinish={handleSubmit}
                 autoComplete="off"
             >
+                {hasOccupiedSeats && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">
+                                    Không thể chỉnh sửa suất chiếu
+                                </h3>
+                                <div className="mt-2 text-sm text-red-700">
+                                    <p>Suất chiếu này đã có ghế được đặt nên không thể chỉnh sửa.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className="grid grid-cols-3 gap-4 mb-6">
                     <Form.Item
                         name="movieId"
@@ -598,15 +647,18 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                             placeholder="Chọn phim"
                             size="large"
                             showSearch
+                            disabled={hasOccupiedSeats}
                             optionFilterProp="children"
                             filterOption={(input, option) =>
                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                             }
                             onChange={handleMovieChange}
-                            options={movies.map(movie => ({ 
-                                value: movie._id, 
-                                label: movie.title 
-                            }))}
+                            options={movies
+                                .filter(movie => movie.status !== 'Đã kết thúc') // Lọc ra phim đã kết thúc
+                                .map(movie => ({ 
+                                    value: movie._id, 
+                                    label: `${movie.title} (${getMovieStatusText(movie.status)})`
+                                }))}
                         />
                     </Form.Item>
 
@@ -621,6 +673,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                             placeholder="Chọn khu vực"
                             size="large"
                             showSearch
+                            disabled={hasOccupiedSeats}
                             optionFilterProp="children"
                             filterOption={(input, option) =>
                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
@@ -648,7 +701,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                             filterOption={(input, option) =>
                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                             }
-                            disabled={!selectedRegionId}
+                            disabled={!selectedRegionId || hasOccupiedSeats}
                             onChange={handleTheaterChange}
                             options={filteredTheaters.map(theater => ({ 
                                 value: theater._id, 
@@ -706,6 +759,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                             }
                                         >
                                             <div className="space-y-4">
+                                {/* Row 1: Ngày chiếu + Trạng thái */}
                                 <div className="grid grid-cols-2 gap-4">
                                                     <Form.Item
                                                         {...restField}
@@ -721,7 +775,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             size="large"
                                                             style={{ width: '100%' }}
                                                             format="DD/MM/YYYY"
-                                                            disabled={!selectedMovie}
+                                                            disabled={!selectedMovie || hasOccupiedSeats}
                                                             disabledDate={(current) => {
                                                                 if (!selectedMovie) return true;
                                                                 const movieStart = dayjs(selectedMovie.startDate);
@@ -737,7 +791,30 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             }}
                                                         />
                                                     </Form.Item>
-        
+
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'status']}
+                                                        label="Trạng thái"
+                                                        rules={[
+                                                            { required: true, message: 'Vui lòng chọn trạng thái!' }
+                                                        ]}
+                                                        initialValue="active"
+                                                    >
+                                                        <Select
+                                                            placeholder="Chọn trạng thái"
+                                                            size="large"
+                                                            disabled={hasOccupiedSeats}
+                                                            options={[
+                                                                { value: 'active', label: 'Hoạt động' },
+                                                                { value: 'inactive', label: 'Không hoạt động' }
+                                                            ]}
+                                                        />
+                                                    </Form.Item>
+                                                </div>
+
+                                                {/* Row 2: Phòng chiếu + Ca chiếu */}
+                                                <div className="grid grid-cols-2 gap-4">
                                                     <Form.Item
                                                         {...restField}
                                                         name={[name, 'room']}
@@ -755,7 +832,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             filterOption={(input, option) =>
                                                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                                             }
-                                                            disabled={!form.getFieldValue('theaterId')}
+                                                            disabled={!form.getFieldValue('theaterId') || hasOccupiedSeats}
                                                             value={
                                                                 (() => {
                                                                     const hasTheater = !!form.getFieldValue('theaterId');
@@ -816,6 +893,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                     options={showSessions.map(s => ({ value: s._id, label: `${s.name} (${s.startTime} - ${s.endTime})` }))}
                                                                     onChange={(val)=> onChangeSessionForRow(name, val)}
                                                                     disabled={
+                                                                        hasOccupiedSeats ||
                                                                         !(
                                                                             form.getFieldValue(['showTimes', name, 'date']) &&
                                                                             form.getFieldValue(['showTimes', name, 'room'])
@@ -825,8 +903,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             </Form.Item>
                                                         )}
                                                     </Form.Item>
-                                    </div>
+                                                </div>
 
+                                                {/* Row 3: Thời gian bắt đầu + Thời gian kết thúc */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <Form.Item
                                                         {...restField}
@@ -842,7 +921,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             style={{ width: '100%' }}
                                                             format="HH:mm"
                                                             minuteStep={15}
-                                                            disabled={!selectedMovie}
+                                                            disabled={!selectedMovie || hasOccupiedSeats}
                                                             inputReadOnly={false}
                                                             // Khóa khung giờ theo ca đã chọn
                                                             disabledHours={() => {
@@ -1019,6 +1098,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                 <Form.Item className="mt-4">
                                     <Button
                                         type="dashed"
+                                        disabled={hasOccupiedSeats}
                                         onClick={async () => {
                                             // Kiểm tra các trường bắt buộc trước khi thêm
                                             const currentValues = form.getFieldsValue();
@@ -1055,9 +1135,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                         </motion.button>
                         <motion.button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || hasOccupiedSeats}
                             className={`px-4 py-2 text-white rounded cursor-pointer flex items-center gap-2 ${
-                                isLoading 
+                                (isLoading || hasOccupiedSeats)
                                     ? 'bg-gray-400 cursor-not-allowed' 
                                     : 'bg-black hover:bg-gray-800'
                             }`}

@@ -100,7 +100,7 @@ const CNJPointsTab = () => {
                                 : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border border-blue-300'
                         )}
                     >
-                        <StarOutlined className="text-xl" />
+                        <StarOutlined className="text-xl" style={{ transform: 'translateY(2px)' }} />
                         <span>Điểm hiện có: <span className="ml-2 text-2xl">{(user?.point ?? 0).toLocaleString('vi-VN')} điểm</span></span>
                     </div>
                 </div>

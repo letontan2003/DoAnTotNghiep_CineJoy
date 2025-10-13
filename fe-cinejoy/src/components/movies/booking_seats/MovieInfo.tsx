@@ -18,6 +18,7 @@ interface MovieInfoProps {
     minAge?: number;
     seatCols?: number;
     soldSeats?: string[];
+    reservedSeats?: string[]; // Thêm ghế đã reserved
   };
   onContinue: () => void;
   totalPrice: number;
@@ -26,7 +27,7 @@ interface MovieInfoProps {
 }
 
 const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, priceError = false, showtimeId }) => {
-  const { isDarkMode, setIsModalOpen } = useAppStore();
+  const { isDarkMode } = useAppStore();
   const hasSelectedSeats = movie.seats.length > 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -37,6 +38,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
 
   const seatCols = movie.seatCols || 10;
   const soldSet = new Set(movie.soldSeats || []);
+  const reservedSet = new Set(movie.reservedSeats || []);
   const selectedSet = new Set(movie.seats);
 
   const toCoord = (sid: string) => {
@@ -51,7 +53,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
 
     const isOccupied = (sid: string | null): boolean => {
       if (!sid) return true; // ngoài biên coi như chiếm chỗ (tường)
-      return selectedSet.has(sid) || soldSet.has(sid);
+      return selectedSet.has(sid) || soldSet.has(sid) || reservedSet.has(sid);
     };
 
     for (const sid of movie.seats) {
@@ -60,13 +62,13 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
       // Kiểm tra bên trái
       const left = col - 1 >= 0 ? toSeatId(row, col - 1) : null; // ghế kề trái
       const leftFar = col - 2 >= 0 ? toSeatId(row, col - 2) : null; // ghế cách 2 bên trái hoặc null nếu tường
-      const leftEmpty = left && !selectedSet.has(left) && !soldSet.has(left);
+      const leftEmpty = left && !selectedSet.has(left) && !soldSet.has(left) && !reservedSet.has(left);
       if (leftEmpty && isOccupied(leftFar)) return true;
 
       // Kiểm tra bên phải
       const right = col + 1 < seatCols ? toSeatId(row, col + 1) : null; // ghế kề phải
       const rightFar = col + 2 < seatCols ? toSeatId(row, col + 2) : null; // ghế cách 2 bên phải hoặc null nếu tường
-      const rightEmpty = right && !selectedSet.has(right) && !soldSet.has(right);
+      const rightEmpty = right && !selectedSet.has(right) && !soldSet.has(right) && !reservedSet.has(right);
       if (rightEmpty && isOccupied(rightFar)) return true;
     }
     return false;
@@ -81,7 +83,6 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
     }
 
     setConfirmOpen(true);
-    setIsModalOpen(true);
   };
 
   const handleConfirm = async () => {
@@ -121,7 +122,6 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
         sessionStorage.setItem(storageKey, JSON.stringify(movie.seats));
         
         setConfirmOpen(false);
-        setIsModalOpen(false);
         onContinue();
       } else {
         message.error(result.message || "Ghế đã bị đặt bởi người khác. Vui lòng chọn ghế khác.");

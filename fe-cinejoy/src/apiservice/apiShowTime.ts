@@ -12,6 +12,19 @@ export const getShowTimes = async () => {
   }
 };
 
+// API lấy tất cả showtime cho admin (bao gồm cả active và inactive)
+export const getAllShowtimesForAdmin = async () => {
+  try {
+    const response = await axiosClient.get<IBackendResponse<IShowtime[]>>(
+      `/showtimes/admin/all`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching all showtimes for admin:", error);
+    throw error;
+  }
+};
+
 export const createShowtime = async (showtimeData: Partial<IShowtime>) => {
   try {
     const response = await axiosClient.post<IBackendResponse<IShowtime>>(
@@ -301,6 +314,21 @@ export const releaseUserReservedSeatsApi = async () => {
     return response.data;
   } catch (error) {
     console.error("Error releasing user reserved seats:", error);
+    throw error;
+  }
+};
+
+// API kiểm tra xem showtime có ghế đã đặt không
+export const checkOccupiedSeatsApi = async (showtimeId: string): Promise<{
+  hasOccupiedSeats: boolean;
+  occupiedCount: number;
+  totalSeats: number;
+}> => {
+  try {
+    const response = await axiosClient.get(`/showtimes/check-occupied/${showtimeId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error checking occupied seats:", error);
     throw error;
   }
 };

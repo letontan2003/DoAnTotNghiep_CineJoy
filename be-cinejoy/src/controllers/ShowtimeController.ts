@@ -15,6 +15,80 @@ export default class ShowtimeController {
     }
   }
 
+  // API lấy tất cả showtime cho admin (bao gồm cả active và inactive)
+  async getAllShowtimesForAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const showtimes = await showtimeService.getAllShowtimesForAdmin();
+      res.status(200).json(showtimes);
+    } catch (error) {
+      res.status(500).json({ message: "Error getting all showtimes for admin", error });
+    }
+  }
+
+  // API tự động cập nhật trạng thái showtime đã quá ngày
+  async updateExpiredShowtimes(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await showtimeService.updateExpiredShowtimes();
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Đã cập nhật ${result.updatedCount} suất chiếu đã quá ngày`,
+        data: result
+      });
+    } catch (error) {
+      console.error("Error updating expired showtimes:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi cập nhật suất chiếu đã quá ngày",
+        data: null
+      });
+    }
+  }
+
+  // API manual trigger cập nhật trạng thái showtime đã quá ngày (cho admin)
+  async manualUpdateExpiredShowtimes(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await schedulerService.runManualExpiredUpdate();
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Đã cập nhật thủ công ${result.updatedCount} suất chiếu đã quá ngày`,
+        data: result
+      });
+    } catch (error) {
+      console.error("Error in manual update expired showtimes:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi cập nhật thủ công suất chiếu đã quá ngày",
+        data: null
+      });
+    }
+  }
+
+  // API kiểm tra xem showtime có ghế đã đặt không
+  async checkOccupiedSeats(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const result = await showtimeService.checkShowtimeOccupiedSeats(id);
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: "Kiểm tra ghế đã đặt thành công",
+        data: result
+      });
+    } catch (error) {
+      console.error("Error checking occupied seats:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi kiểm tra ghế đã đặt",
+        data: null
+      });
+    }
+  }
+
   // API lấy thông tin ghế với trạng thái reservation
   async getSeatsWithReservationStatus(req: Request, res: Response): Promise<void> {
     try {
@@ -189,9 +263,26 @@ export default class ShowtimeController {
       res.status(200).json(populatedShowtime);
     } catch (error: any) {
       console.error('Error in updateShowtime controller:', error);
+      
+      // Xử lý lỗi occupied seats
+      if (error?.message && error.message.includes("đã có ghế được đặt")) {
+        res.status(400).json({ 
+          status: false,
+          error: 400,
+          message: "Không thể cập nhật vì suất chiếu này đã có ghế được đặt",
+          data: null
+        });
+        return;
+      }
+      
       // Trả về message cụ thể từ error nếu có, nếu không thì dùng message mặc định
       const errorMessage = error?.message || "Error updating showtime";
-      res.status(400).json({ message: errorMessage, error: error?.message });
+      res.status(400).json({ 
+        status: false,
+        error: 400,
+        message: errorMessage, 
+        data: null
+      });
     }
   }
 
@@ -597,4 +688,5 @@ export default class ShowtimeController {
       });
     }
   }
+
 }

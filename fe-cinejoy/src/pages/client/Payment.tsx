@@ -29,6 +29,7 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, user, setIsModalOpen } = useAppStore();
+
   const {
     movie = {},
     seats = [],
@@ -405,7 +406,6 @@ const PaymentPage = () => {
       message.warning("Vui lòng nhập email");
       return;
     }
-    setIsModalOpen(true);
     setIsModalPaymentOpen(true);
   };
 
