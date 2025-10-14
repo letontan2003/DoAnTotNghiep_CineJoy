@@ -16,6 +16,8 @@ import PaymentCancel from '@/pages/client/PaymentCancel';
 import Error from 'pages/client/Error';
 import Dashboard from 'pages/admin/AdminDaskboard';
 import VoucherDetail from 'pages/admin/VoucherDetail';
+import PromotionReport from 'pages/admin/PromotionReport';
+import AdminLayout from 'components/admin/AdminLayout';
 import { ToastContainer } from 'react-toastify';
 import Contact from 'pages/client/Contact';
 import NewsPage from 'pages/client/News';
@@ -89,6 +91,10 @@ const router = createBrowserRouter([
   {
     path: "/admin/vouchers/:id",
     element: <VoucherDetail />
+  },
+  {
+    path: "/admin/promotion-report",
+    element: <AdminLayout><PromotionReport /></AdminLayout>
   },
   {
     path: "*",
