@@ -53,7 +53,6 @@ const VoucherTab = () => {
 
     // Khi bấm Đổi ngay
     const handleRedeemVoucher = (voucher: IVoucher) => {
-        setIsModalOpen(true);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedVoucher(voucher as any);
         setModalType('redeem');
@@ -62,7 +61,6 @@ const VoucherTab = () => {
 
     // Khi bấm Sử dụng
     const handleShowCode = (voucher: IUserVoucher) => {
-        setIsModalOpen(true);
         setSelectedVoucher(voucher);
         setVoucherCode(voucher.code || '');
         setModalType('showCode');

@@ -14,11 +14,30 @@ export const getMovies = async () => {
 };
 export const getMovieById = async (id: string) => {
     try {
+        console.log(`Fetching movie with ID: ${id}`);
         const response = await axiosClient.get<IMovie>(`/movies/${id}`);
+        console.log(`Movie fetched successfully:`, response.data);
         return response.data;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching movie by ID:", error);
-        throw error;
+        
+        // Thêm thông tin chi tiết về lỗi
+        if (error.response) {
+            console.error("Response status:", error.response.status);
+            console.error("Response data:", error.response.data);
+        } else if (error.request) {
+            console.error("Request error:", error.request);
+        } else {
+            console.error("Error message:", error.message);
+        }
+        
+        // Re-throw error với thông tin chi tiết hơn
+        throw {
+            ...error,
+            message: error.response?.data?.message || error.message || "Không thể tải thông tin phim",
+            status: error.response?.status,
+            code: error.code
+        };
     }
 };
 export const createMovie = async (movie: IMovie) => {

@@ -375,22 +375,25 @@ export const SelectSeat = () => {
     }
   }, [user, showtimeId, date, apiTime, room]);
 
-  // Load reservation status when user is authenticated
+  // Load reservation status when user is authenticated (chỉ gọi 1 lần khi mount)
   useEffect(() => {
     if (user && user._id) {
       loadSeatsWithReservation();
     }
-  }, [loadSeatsWithReservation, user]);
+  }, [user?._id, showtimeId, date, apiTime, room]); // Chỉ phụ thuộc vào data cần thiết
 
-  // Reload reservation status periodically để cập nhật reservedSeats từ các tab khác
+  // Reload reservation status 1 lần sau 2 giây rồi dừng
   useEffect(() => {
     if (!user || !user._id) return;
 
-    const interval = setInterval(() => {
+    const timeoutId = setTimeout(() => {
+      console.log('🔄 Loading seat reservation status once after 2 seconds');
       loadSeatsWithReservation();
-    }, 1000); // Reload mỗi nữa giây
+    }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [loadSeatsWithReservation, user]);
 
   // Callback to update sold seats from API data

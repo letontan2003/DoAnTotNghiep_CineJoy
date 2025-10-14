@@ -239,7 +239,8 @@ export const getSeatsWithReservationStatusApi = async (
         startTime, 
         room,
         fromPaymentReturn: isFromPaymentReturn.toString(),
-        _t: Date.now().toString(), // Cache busting
+        // Chỉ cache busting khi từ payment return để đảm bảo data mới
+        ...(isFromPaymentReturn && { _t: Date.now().toString() }),
       },
     });
     

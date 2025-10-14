@@ -108,6 +108,17 @@ const Header = () => {
     }
   };
   const handleSelectMovie = (id: string) => {
+    // Validate ID trước khi navigate
+    if (!id || id.trim() === '') {
+      console.error("Invalid movie ID:", id);
+      messageApi?.open({
+        type: "error",
+        content: "ID phim không hợp lệ!",
+      });
+      return;
+    }
+
+    console.log("Navigating to movie with ID:", id);
     setShowSearch(false);
     setShowDropdown(false);
     setSearchValue("");
@@ -191,6 +202,7 @@ const Header = () => {
         </Link>
       ),
       key: "admin",
+      onClick: () => navigate("/admin"),
     });
   }
 
@@ -383,7 +395,7 @@ const Header = () => {
       </header>
 
       <ModalLogin
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && !user}
         onOpen={handleOpenLoginModal}
         onClose={handleCloseLoginModal}
       />

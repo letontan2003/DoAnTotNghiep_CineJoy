@@ -27,8 +27,13 @@ const MembersPage = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [activeTabKey, setActiveTabKey] = useState<string>('1');
-  const { user, setUser, isDarkMode } = useAppStore();
+  const { user, setUser, isDarkMode, setIsModalOpen } = useAppStore();
   const { messageApi } = useAlertContextApp();
+
+  // Reset login modal state khi vào trang members
+  useEffect(() => {
+    setIsModalOpen(false);
+  }, [setIsModalOpen]);
   
   useEffect(() => {
     if (user) {
