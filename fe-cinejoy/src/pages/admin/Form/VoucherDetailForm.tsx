@@ -217,9 +217,10 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
         comboDiscountPercent: detail?.comboDiscountPercent,
         seatType: detail?.seatType,
         ticketDiscountPercent: detail?.ticketDiscountPercent,
-        // Amount detail fields
+        // Amount/Percent shared fields
         minOrderValue: detail?.minOrderValue,
         discountValue: detail?.discountValue,
+        totalBudget: detail?.totalBudget,
         // Description field (shared for both percent and amount)
         description: detail?.description,
         // Item detail fields (không duplicate với discount fields)
@@ -284,6 +285,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
             comboDiscountPercent: values.comboDiscountPercent,
             seatType: values.seatType,
             ticketDiscountPercent: values.ticketDiscountPercent,
+            totalBudget: values.totalBudget,
             description: values.description,
           }
         }),
@@ -292,6 +294,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           amountDetail: {
             minOrderValue: values.minOrderValue,
             discountValue: values.discountValue,
+            totalBudget: values.totalBudget,
             description: values.description,
           }
         }),
@@ -307,6 +310,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 rewardQuantity: values.rewardQuantity,
                 rewardType: values.rewardType,
                 rewardDiscountPercent: values.rewardDiscountPercent,
+            totalBudget: values.totalBudget,
                 description: values.description,
               }
             })
@@ -684,6 +688,23 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                     addonAfter="VNĐ"
                   />
                 </Form.Item>
+
+                <Form.Item
+                  name="totalBudget"
+                  label="Ngân sách tổng (VNĐ)"
+                  tooltip="Tổng ngân sách áp dụng cho khuyến mãi tiền"
+                  rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
+                >
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    placeholder="Nhập ngân sách tổng"
+                    min={0}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, '')) as any}
+                    addonAfter="VNĐ"
+                  />
+                </Form.Item>
               </div>
             </div>
           </>
@@ -708,6 +729,8 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rows={2}
                 />
               </Form.Item>
+
+              {/* Ngân sách tổng sẽ hiển thị sau phần 'Loại tặng' để thuận thứ tự nhập */}
 
               <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.exclusionGroup !== currentValues.exclusionGroup || prevValues.stackingPolicy !== currentValues.stackingPolicy}>
                 {({ getFieldValue }) => {
@@ -764,7 +787,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                         </Option>
                         <Option 
                           value="ticket" 
-                          disabled={exclusionGroup && exclusionGroup.endsWith(' discount')}
+                          disabled={exclusionGroup && exclusionGroup.endsWith(' promo')}
                         >
                           Vé
                         </Option>
@@ -971,6 +994,20 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           </Select>
                         </Form.Item>
 
+                        {/* Ngân sách tổng - đặt ngay sau "Loại tặng" */}
+                        <Form.Item
+                          name="totalBudget"
+                          label="Ngân sách tổng (số sản phẩm tặng)"
+                          tooltip="Tổng ngân sách của sản phẩm tặng, ví dụ: 1000 sản phẩm"
+                          rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
+                        >
+                          <InputNumber
+                            style={{ width: '100%' }}
+                            placeholder="Nhập ngân sách tổng"
+                            min={0}
+                          />
+                        </Form.Item>
+
                         <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.rewardType !== currentValues.rewardType}>
                           {({ getFieldValue }) => {
                             const rewardType = getFieldValue('rewardType');
@@ -1084,6 +1121,24 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                     </Form.Item>
                   );
                 }}
+              </Form.Item>
+
+              {/* Ngân sách tổng cho percent */}
+              <Form.Item
+                name="totalBudget"
+                label="Ngân sách tổng (VNĐ)"
+                tooltip="Tổng ngân sách áp dụng cho khuyến mãi chiết khấu"
+                rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="Nhập ngân sách tổng"
+                  min={0}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, '')) as any}
+                  addonAfter="VNĐ"
+                />
               </Form.Item>
 
               <Form.Item shouldUpdate={(prevValues, currentValues) => prevValues.applyType !== currentValues.applyType || prevValues.exclusionGroup !== currentValues.exclusionGroup}>

@@ -399,6 +399,66 @@ export default class VoucherController {
         }
     }
 
+    async getAmountBudgetUsed(req: Request, res: Response): Promise<void> {
+        const { id } = req.params;
+        const { lineIndex } = req.query as { lineIndex?: string };
+        try {
+            if (!id || typeof lineIndex !== 'string') {
+                res.status(400).json({ status: false, error: 1, message: 'Thiếu id hoặc lineIndex', data: null });
+                return;
+            }
+            const index = parseInt(lineIndex, 10);
+            if (isNaN(index) || index < 0) {
+                res.status(400).json({ status: false, error: 1, message: 'lineIndex không hợp lệ', data: null });
+                return;
+            }
+            const result = await voucherService.getAmountBudgetUsed(id, index);
+            res.status(200).json({ status: true, error: 0, message: 'Thành công', data: result });
+        } catch (error: any) {
+            res.status(500).json({ status: false, error: 1, message: error.message || 'Lỗi tính ngân sách đã dùng', data: null });
+        }
+    }
+
+    async getItemBudgetUsed(req: Request, res: Response): Promise<void> {
+        const { id } = req.params;
+        const { lineIndex } = req.query as { lineIndex?: string };
+        try {
+            if (!id || typeof lineIndex !== 'string') {
+                res.status(400).json({ status: false, error: 1, message: 'Thiếu id hoặc lineIndex', data: null });
+                return;
+            }
+            const index = parseInt(lineIndex, 10);
+            if (isNaN(index) || index < 0) {
+                res.status(400).json({ status: false, error: 1, message: 'lineIndex không hợp lệ', data: null });
+                return;
+            }
+            const result = await voucherService.getItemBudgetUsed(id, index);
+            res.status(200).json({ status: true, error: 0, message: 'Thành công', data: result });
+        } catch (error: any) {
+            res.status(500).json({ status: false, error: 1, message: error.message || 'Lỗi tính ngân sách đã dùng', data: null });
+        }
+    }
+
+    async getPercentBudgetUsed(req: Request, res: Response): Promise<void> {
+        const { id } = req.params;
+        const { lineIndex } = req.query as { lineIndex?: string };
+        try {
+            if (!id || typeof lineIndex !== 'string') {
+                res.status(400).json({ status: false, error: 1, message: 'Thiếu id hoặc lineIndex', data: null });
+                return;
+            }
+            const index = parseInt(lineIndex, 10);
+            if (isNaN(index) || index < 0) {
+                res.status(400).json({ status: false, error: 1, message: 'lineIndex không hợp lệ', data: null });
+                return;
+            }
+            const result = await voucherService.getPercentBudgetUsed(id, index);
+            res.status(200).json({ status: true, error: 0, message: 'Thành công', data: result });
+        } catch (error: any) {
+            res.status(500).json({ status: false, error: 1, message: error.message || 'Lỗi tính ngân sách đã dùng', data: null });
+        }
+    }
+
     async applyPercentPromotions(req: Request, res: Response): Promise<void> {
         try {
             const { selectedCombos, appliedPromotions } = req.body;

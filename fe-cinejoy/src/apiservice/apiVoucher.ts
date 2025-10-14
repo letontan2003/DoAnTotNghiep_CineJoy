@@ -40,3 +40,24 @@ export const deletePromotionLine = async (voucherId: string, lineIndex: number):
     const res = await axiosClient.delete<IVoucher>(`/v1/api/vouchers/${voucherId}/delete-line/${lineIndex}`);
     return res.data;
 };
+
+export const getAmountBudgetUsedApi = async (voucherId: string, lineIndex: number): Promise<number> => {
+    const res = await axiosClient.get<{ status: boolean; data?: { usedBudget: number } }>(`/v1/api/vouchers/${voucherId}/amount-budget-used`, {
+        params: { lineIndex }
+    });
+    return res.data?.data?.usedBudget ?? 0;
+};
+
+export const getItemBudgetUsedApi = async (voucherId: string, lineIndex: number): Promise<number> => {
+    const res = await axiosClient.get<{ status: boolean; data?: { usedBudget: number } }>(`/v1/api/vouchers/${voucherId}/item-budget-used`, {
+        params: { lineIndex }
+    });
+    return res.data?.data?.usedBudget ?? 0;
+};
+
+export const getPercentBudgetUsedApi = async (voucherId: string, lineIndex: number): Promise<number> => {
+    const res = await axiosClient.get<{ status: boolean; data?: { usedBudget: number } }>(`/v1/api/vouchers/${voucherId}/percent-budget-used`, {
+        params: { lineIndex }
+    });
+    return res.data?.data?.usedBudget ?? 0;
+};

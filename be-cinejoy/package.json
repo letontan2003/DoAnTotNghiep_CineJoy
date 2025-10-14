@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "ts-node-dev --respawn src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "migration:add-codes": "ts-node src/scripts/addPromotionLineCodes.ts",
+    "migration:check-codes": "ts-node src/scripts/checkPromotionLineCodes.ts"
   },
   "keywords": [],
   "author": "",
