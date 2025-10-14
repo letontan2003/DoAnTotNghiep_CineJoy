@@ -42,10 +42,26 @@ const TheaterForm: React.FC<TheaterFormProps> = ({ theater, theaters = [], onSub
                     address: theater.location.address
                 }
             });
+            
+            // Tìm region phù hợp với theater hiện tại để hiển thị trong console (debug)
+            const matchingRegion = regions.find(region => {
+                const regionName = region.name.trim().toLowerCase();
+                const cityName = theater.location.city.trim().toLowerCase();
+                return regionName === cityName || 
+                       regionName.includes(cityName) || 
+                       cityName.includes(regionName);
+            });
+            
+            if (matchingRegion) {
+                console.log(`Found matching region for theater "${theater.name}":`, matchingRegion.name);
+            } else {
+                console.warn(`No matching region found for theater "${theater.name}" with city "${theater.location.city}"`);
+                console.log('Available regions:', regions.map(r => r.name));
+            }
         } else {
             form.resetFields();
         }
-    }, [theater, form]);
+    }, [theater, form, regions]);
 
     useEffect(() => {
         if (!theater) {
@@ -64,10 +80,24 @@ const TheaterForm: React.FC<TheaterFormProps> = ({ theater, theaters = [], onSub
             address: string;
         };
     }) => {
-        // Tìm regionId từ city được chọn
-        const selectedRegion = regions.find(region => region.name === values.location.city);
+        // Tìm regionId từ city được chọn với logic linh hoạt hơn
+        const selectedRegion = regions.find(region => {
+            const regionName = region.name.trim().toLowerCase();
+            const cityName = values.location.city.trim().toLowerCase();
+            
+            // So sánh chính xác
+            if (regionName === cityName) return true;
+            
+            // So sánh một phần (để xử lý trường hợp "Hà Nội" vs "Hà Nội, Việt Nam")
+            if (regionName.includes(cityName) || cityName.includes(regionName)) return true;
+            
+            return false;
+        });
+        
         if (!selectedRegion) {
-            toast.error('Không tìm thấy khu vực tương ứng!');
+            console.error('Available regions:', regions.map(r => r.name));
+            console.error('Selected city:', values.location.city);
+            toast.error(`Không tìm thấy khu vực tương ứng với "${values.location.city}"! Vui lòng kiểm tra lại dữ liệu khu vực.`);
             return;
         }
 

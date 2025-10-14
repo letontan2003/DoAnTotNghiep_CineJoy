@@ -1398,6 +1398,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                   {[
                     { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
                     { label: "Khuyến mãi", value: "vouchers", icon: "🎟️" },
+                    { label: "Thống Kê", value: "statistics", icon: "📊" },
                   ].map((subItem) => (
                     <li
                       key={subItem.value}
@@ -1832,6 +1833,89 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Statistics Tab */}
+          {activeTab === "statistics" && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-6 text-black select-none">
+                📊 Thống Kê Bán Hàng
+              </h2>
+              
+              {/* Menu chọn loại thống kê */}
+              <div className="bg-white rounded-xl shadow-lg p-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <motion.button
+                    className="p-8 border-2 border-blue-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-blue-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+                      DOANH SỐ BÁN HÀNG THEO NGÀY
+                    </h3>
+                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                      📅
+                    </div>
+                  </motion.button>
+
+                  <motion.button
+                    className="p-8 border-2 border-green-300 rounded-xl hover:border-green-500 hover:bg-green-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-green-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+                      DOANH SỐ THEO KHÁCH HÀNG
+                    </h3>
+                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                      👥
+                    </div>
+                  </motion.button>
+
+                  <motion.button
+                    className="p-8 border-2 border-purple-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    onClick={() => navigate('/admin/promotion-report')}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-purple-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+                      BÁO CÁO TỔNG KẾT CHƯƠNG TRÌNH KHUYẾN MÃI
+                    </h3>
+                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                      🎟️
+                    </div>
+                  </motion.button>
+
+                  <motion.button
+                    className="p-8 border-2 border-orange-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400/10 to-orange-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-orange-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+                      THỐNG KÊ DOANH THU THEO BIỂU ĐỒ
+                    </h3>
+                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                      📈
+                    </div>
+                  </motion.button>
+                </div>
               </div>
             </div>
           )}
