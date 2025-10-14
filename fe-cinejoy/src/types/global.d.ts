@@ -201,6 +201,7 @@ declare global {
     description?: string;
     pointToRedeem?: number;
     quantity?: number;
+    totalQuantity?: number;
     discountPercent?: number;
     maxDiscountValue?: number;
   }
@@ -212,12 +213,14 @@ declare global {
     comboDiscountPercent?: number;
     seatType?: 'normal' | 'vip' | 'couple' | '4dx';
     ticketDiscountPercent?: number;
+    totalBudget?: number; // Ngân sách tổng (VNĐ)
     description?: string; // Mô tả cho khuyến mãi chiết khấu
   }
 
   interface AmountDetail {
     minOrderValue: number;
     discountValue: number;
+    totalBudget?: number; // Ngân sách tổng (VNĐ)
     description?: string; // Mô tả cho khuyến mãi tiền
   }
 
@@ -234,6 +237,7 @@ declare global {
     rewardQuantity: number;
     rewardType: 'free' | 'discount';
     rewardDiscountPercent?: number;
+    totalBudget?: number; // Ngân sách tổng cho sản phẩm tặng
     description?: string; // Mô tả cho khuyến mãi hàng
   }
 
@@ -251,6 +255,7 @@ declare global {
       stackingPolicy: 'STACKABLE' | 'EXCLUSIVE' | 'EXCLUSIVE_WITH_GROUP';
       exclusionGroup?: string; // chỉ dùng khi stackingPolicy = EXCLUSIVE_WITH_GROUP
     };
+    code?: string; // Mã 10 số ngẫu nhiên tự động tạo
   }
 
   // Blog

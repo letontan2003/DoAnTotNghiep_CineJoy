@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Spin, Tag, Button, Descriptions, Table, Card, Popconfirm } from 'antd';
 import { toast } from 'react-toastify';
-import { getVoucherById, addPromotionLine, updatePromotionLine, deletePromotionLine } from '@/apiservice/apiVoucher';
+import { getVoucherById, addPromotionLine, updatePromotionLine, deletePromotionLine, getAmountBudgetUsedApi, getItemBudgetUsedApi, getPercentBudgetUsedApi } from '@/apiservice/apiVoucher';
 import useAppStore from '@/store/app.store';
 import VoucherDetailForm from './Form/VoucherDetailForm';
 import dayjs from 'dayjs';
@@ -562,7 +562,8 @@ const VoucherDetail = ({ id: idProp }: Props) => {
               </h4>
               {line.promotionType === 'voucher' && line.detail && (
                 <Table
-                  dataSource={[line.detail]}
+                  // Ép kiểu hẹp cho render để truy cập quantity/totalQuantity an toàn
+                  dataSource={[line.detail as unknown as { quantity?: number; totalQuantity?: number; pointToRedeem?: number; discountPercent?: number; maxDiscountValue?: number; description?: string }]}
                   rowKey={() => 'detail'}
                   pagination={false}
                   size="middle"
@@ -575,7 +576,17 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                       render: (value: number) => value ? `${value} điểm` : 'Không có'
                     },
                     {
-                      title: 'Số lượng',
+                      title: 'Tổng số lượng',
+                      dataIndex: 'totalQuantity',
+                      key: 'totalQuantity',
+                      render: (value: number, record: { quantity?: number }) => {
+                        const fallback = typeof record?.quantity === 'number' ? record.quantity : undefined;
+                        const finalVal = (typeof value === 'number' ? value : fallback);
+                        return typeof finalVal === 'number' ? `${finalVal} cái` : 'Không có';
+                      }
+                    },
+                    {
+                      title: 'Số lượng còn lại',
                       dataIndex: 'quantity',
                       key: 'quantity',
                       render: (value: number) => value ? `${value} cái` : 'Không có'
@@ -609,8 +620,10 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                   size="middle"
                   bordered
                   columns={(() => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const detail = line.detail as any;
+                      const detail = line.detail as unknown as {
+                        applyType?: string;
+                        rewardType?: string;
+                      };
                     const applyType = detail?.applyType;
                     
                     if (applyType === 'combo') {
@@ -632,6 +645,19 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           dataIndex: 'comboDiscountPercent',
                           key: 'comboDiscountPercent',
                           render: (value: number) => value ? `${value}%` : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách tổng',
+                          dataIndex: 'totalBudget',
+                          key: 'totalBudget',
+                          render: (value: number) => typeof value === 'number' ? `${value.toLocaleString('vi-VN')} VNĐ` : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách đã dùng',
+                          key: 'usedBudget',
+                          render: () => (
+                            <AsyncPercentBudget voucherId={id as string} lineIndex={startIdx + index} />
+                          )
                         },
                         {
                           title: 'Mô tả',
@@ -667,6 +693,19 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           dataIndex: 'ticketDiscountPercent',
                           key: 'ticketDiscountPercent',
                           render: (value: number) => value ? `${value}%` : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách tổng',
+                          dataIndex: 'totalBudget',
+                          key: 'totalBudget',
+                          render: (value: number) => typeof value === 'number' ? `${value.toLocaleString('vi-VN')} VNĐ` : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách đã dùng',
+                          key: 'usedBudget',
+                          render: () => (
+                            <AsyncPercentBudget voucherId={id as string} lineIndex={startIdx + index} />
+                          )
                         },
                         {
                           title: 'Mô tả',
@@ -714,6 +753,19 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                       dataIndex: 'discountValue',
                       key: 'discountValue',
                       render: (value: number) => value ? `${value.toLocaleString('vi-VN')} VNĐ` : 'Không có'
+                    },
+                    {
+                      title: 'Ngân sách tổng',
+                      dataIndex: 'totalBudget',
+                      key: 'totalBudget',
+                      render: (value: number) => typeof value === 'number' ? `${value.toLocaleString('vi-VN')} VNĐ` : 'Không có'
+                    },
+                    {
+                      title: 'Ngân sách đã dùng',
+                      key: 'usedBudget',
+                      render: () => (
+                        <AsyncUsedBudget voucherId={id as string} lineIndex={startIdx + index} />
+                      )
                     },
                     {
                       title: 'Mô tả',
@@ -773,6 +825,19 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           dataIndex: 'rewardType',
                           key: 'rewardType',
                           render: (text: string) => text === 'free' ? 'Miễn phí' : text === 'discount' ? 'Giảm giá' : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách tổng',
+                          dataIndex: 'totalBudget',
+                          key: 'totalBudget',
+                          render: (value: number) => typeof value === 'number' ? value : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách đã dùng',
+                          key: 'usedBudget',
+                          render: () => (
+                            <AsyncItemBudget voucherId={id as string} lineIndex={startIdx + index} />
+                          )
                         }
                       ];
 
@@ -836,6 +901,19 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           dataIndex: 'rewardQuantity',
                           key: 'rewardQuantity',
                           render: (value: number) => value || 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách tổng',
+                          dataIndex: 'totalBudget',
+                          key: 'totalBudget',
+                          render: (value: number) => typeof value === 'number' ? value : 'Không có'
+                        },
+                        {
+                          title: 'Ngân sách đã dùng',
+                          key: 'usedBudget',
+                          render: () => (
+                            <AsyncItemBudget voucherId={id as string} lineIndex={startIdx + index} />
+                          )
                         },
                         {
                           title: 'Loại tặng',
@@ -1048,5 +1126,67 @@ const VoucherDetail = ({ id: idProp }: Props) => {
 };
 
 export default VoucherDetail;
+
+// Component nhỏ để fetch và hiển thị ngân sách đã dùng cho amount line
+import React from 'react';
+const AsyncUsedBudget: React.FC<{ voucherId: string; lineIndex: number }> = ({ voucherId, lineIndex }) => {
+  const [value, setValue] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const used = await getAmountBudgetUsedApi(voucherId, lineIndex);
+        if (mounted) setValue(used);
+      } catch {
+        if (mounted) setValue(0);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [voucherId, lineIndex]);
+
+  if (value === null) return <span>...</span>;
+  return <span>{value.toLocaleString('vi-VN')} VNĐ</span>;
+};
+
+const AsyncItemBudget: React.FC<{ voucherId: string; lineIndex: number }> = ({ voucherId, lineIndex }) => {
+  const [value, setValue] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const used = await getItemBudgetUsedApi(voucherId, lineIndex);
+        if (mounted) setValue(used);
+      } catch {
+        if (mounted) setValue(0);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [voucherId, lineIndex]);
+
+  if (value === null) return <span>...</span>;
+  return <span>{value.toLocaleString('vi-VN')}</span>;
+};
+
+const AsyncPercentBudget: React.FC<{ voucherId: string; lineIndex: number }> = ({ voucherId, lineIndex }) => {
+  const [value, setValue] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const used = await getPercentBudgetUsedApi(voucherId, lineIndex);
+        if (mounted) setValue(used);
+      } catch {
+        if (mounted) setValue(0);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [voucherId, lineIndex]);
+
+  if (value === null) return <span>...</span>;
+  return <span>{value.toLocaleString('vi-VN')} VNĐ</span>;
+};
 
 

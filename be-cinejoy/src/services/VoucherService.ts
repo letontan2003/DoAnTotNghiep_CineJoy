@@ -1,4 +1,5 @@
 import { Voucher, IVoucher } from "../models/Voucher";
+import Order from "../models/Order";
 import { UserVoucher } from "../models/UserVoucher";
 import { Types } from "mongoose";
 import { User } from "../models/User";
@@ -12,6 +13,22 @@ export default class VoucherService {
       return validSeatTypes.includes(seatType);
     } catch (error) {
       console.error('Error validating seat type:', error);
+      return false;
+    }
+  }
+
+  // Tạo mã code 10 số ngẫu nhiên
+  private generatePromotionLineCode(): string {
+    return Math.floor(1000000000 + Math.random() * 9000000000).toString();
+  }
+
+  // Kiểm tra mã code có bị trùng không
+  private async isCodeUnique(code: string): Promise<boolean> {
+    try {
+      const existingVoucher = await Voucher.findOne({ 'lines.code': code });
+      return !existingVoucher;
+    } catch (error) {
+      console.error('Error checking code uniqueness:', error);
       return false;
     }
   }
@@ -170,6 +187,11 @@ export default class VoucherService {
       // Đảm bảo VoucherDetail có _id riêng để dùng làm voucherId cho UserVoucher
       const ensuredId = lineData.voucherDetail._id ?? new Types.ObjectId();
       detail = { _id: ensuredId, ...lineData.voucherDetail };
+      
+      // Tự động set totalQuantity nếu chưa có
+      if (typeof detail.quantity === 'number' && !detail.totalQuantity) {
+        detail.totalQuantity = detail.quantity;
+      }
       // Đồng bộ legacy fields ở cấp header để FE cũ đọc được
       try {
         if (typeof lineData.voucherDetail.quantity === 'number') {
@@ -193,6 +215,17 @@ export default class VoucherService {
       detail = lineData.itemDetail;
     }
 
+    // Tạo mã code duy nhất cho promotion line
+    let promotionLineCode: string;
+    let attempts = 0;
+    do {
+      promotionLineCode = this.generatePromotionLineCode();
+      attempts++;
+      if (attempts > 10) {
+        throw new Error('Không thể tạo mã code duy nhất sau 10 lần thử');
+      }
+    } while (!(await this.isCodeUnique(promotionLineCode)));
+
     // Tạo line mới
     const newLine = {
       promotionType: lineData.promotionType,
@@ -202,7 +235,8 @@ export default class VoucherService {
       },
       status: lineData.status,
       detail: detail,
-      rule: lineData.rule
+      rule: lineData.rule,
+      code: promotionLineCode // Tự động tạo mã code 10 số
     };
 
     // Thêm line vào voucher
@@ -236,12 +270,20 @@ export default class VoucherService {
     }
 
     // Xử lý detail theo promotionType
-    let detail = {};
+    let detail: any = {};
     if (lineData.promotionType === 'voucher' && lineData.voucherDetail) {
       // Giữ nguyên _id nếu có
       const existingDetail = voucher.lines[lineIndex].detail as any;
       const ensuredId = lineData.voucherDetail._id ?? existingDetail?._id ?? new Types.ObjectId();
       detail = { _id: ensuredId, ...lineData.voucherDetail };
+      
+      // Xử lý totalQuantity: chỉ cập nhật nếu được cung cấp, nếu không thì giữ nguyên giá trị cũ
+      if (typeof lineData.voucherDetail.totalQuantity === 'number') {
+        detail.totalQuantity = lineData.voucherDetail.totalQuantity;
+      } else if (!detail.totalQuantity && typeof detail.quantity === 'number') {
+        // Nếu chưa có totalQuantity và có quantity, set totalQuantity = quantity
+        detail.totalQuantity = detail.quantity;
+      }
       
       // Đồng bộ legacy fields ở cấp header
       try {
@@ -720,5 +762,132 @@ export default class VoucherService {
         data: null
       };
     }
+  }
+
+  // Tính tổng ngân sách đã dùng cho khuyến mãi tiền (amount) theo voucher line
+  async getAmountBudgetUsed(voucherId: string, lineIndex: number): Promise<{ usedBudget: number }> {
+    const voucher = await Voucher.findById(voucherId).lean();
+    if (!voucher) throw new Error("Voucher không tồn tại");
+    if (!Array.isArray(voucher.lines) || lineIndex < 0 || lineIndex >= voucher.lines.length) {
+      throw new Error("Line không tồn tại");
+    }
+    const line: any = (voucher.lines as any)[lineIndex];
+    if (line?.promotionType !== 'amount') {
+      return { usedBudget: 0 };
+    }
+    const detail: any = line.detail || {};
+    const minOrderValue = detail.minOrderValue;
+    const discountValue = detail.discountValue;
+    const exclusionGroup = line?.rule?.exclusionGroup || undefined;
+    const startDate = line?.validityPeriod?.startDate ? new Date(line.validityPeriod.startDate) : undefined;
+    const endDate = line?.validityPeriod?.endDate ? new Date(line.validityPeriod.endDate) : undefined;
+
+    // Xây dựng điều kiện tìm kiếm orders CONFIRMED áp dụng đúng amount discount tương ứng
+    const match: any = {
+      orderStatus: 'CONFIRMED',
+      amountDiscount: { $gt: 0 },
+      'amountDiscountInfo.minOrderValue': minOrderValue,
+      'amountDiscountInfo.discountValue': discountValue,
+    };
+    if (exclusionGroup) match['amountDiscountInfo.exclusionGroup'] = exclusionGroup;
+    if (startDate || endDate) {
+      match.createdAt = {} as any;
+      if (startDate) (match.createdAt as any).$gte = startDate;
+      if (endDate) (match.createdAt as any).$lte = endDate;
+    }
+
+    const agg = await Order.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: '$amountDiscount' } } }
+    ]);
+    const usedBudget = Array.isArray(agg) && agg.length > 0 ? (agg[0].total || 0) : 0;
+    return { usedBudget };
+  }
+
+  // Tính tổng ngân sách đã dùng cho khuyến mãi hàng (item): tổng rewardQuantity của các order CONFIRMED áp dụng promo này
+  async getItemBudgetUsed(voucherId: string, lineIndex: number): Promise<{ usedBudget: number }> {
+    const voucher = await Voucher.findById(voucherId).lean();
+    if (!voucher) throw new Error("Voucher không tồn tại");
+    if (!Array.isArray(voucher.lines) || lineIndex < 0 || lineIndex >= voucher.lines.length) {
+      throw new Error("Line không tồn tại");
+    }
+    const line: any = (voucher.lines as any)[lineIndex];
+    if (line?.promotionType !== 'item') {
+      return { usedBudget: 0 };
+    }
+    const detail: any = line.detail || {};
+    const description = detail?.description;
+    const rewardItem = detail?.rewardItem;
+    const startDate = line?.validityPeriod?.startDate ? new Date(line.validityPeriod.startDate) : undefined;
+    const endDate = line?.validityPeriod?.endDate ? new Date(line.validityPeriod.endDate) : undefined;
+
+    const match: any = {
+      orderStatus: 'CONFIRMED',
+      itemPromotions: { $elemMatch: { } }
+    };
+    if (description) match.itemPromotions.$elemMatch.description = description;
+    if (rewardItem) match.itemPromotions.$elemMatch.rewardItem = rewardItem;
+    if (startDate || endDate) {
+      match.createdAt = {} as any;
+      if (startDate) (match.createdAt as any).$gte = startDate;
+      if (endDate) (match.createdAt as any).$lte = endDate;
+    }
+
+    const agg = await Order.aggregate([
+      { $match: match },
+      { $unwind: '$itemPromotions' },
+      { $match: {
+          ...(description ? { 'itemPromotions.description': description } : {}),
+          ...(rewardItem ? { 'itemPromotions.rewardItem': rewardItem } : {})
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$itemPromotions.rewardQuantity' } } }
+    ]);
+    const usedBudget = Array.isArray(agg) && agg.length > 0 ? (agg[0].total || 0) : 0;
+    return { usedBudget };
+  }
+
+  // Tính tổng ngân sách đã dùng cho khuyến mãi chiết khấu (percent): tổng discountAmount của orders CONFIRMED khớp line
+  async getPercentBudgetUsed(voucherId: string, lineIndex: number): Promise<{ usedBudget: number }> {
+    const voucher = await Voucher.findById(voucherId).lean();
+    if (!voucher) throw new Error("Voucher không tồn tại");
+    if (!Array.isArray(voucher.lines) || lineIndex < 0 || lineIndex >= voucher.lines.length) {
+      throw new Error("Line không tồn tại");
+    }
+    const line: any = (voucher.lines as any)[lineIndex];
+    if (line?.promotionType !== 'percent') {
+      return { usedBudget: 0 };
+    }
+    const detail: any = line.detail || {};
+    const applyType = detail?.applyType;
+    const comboId = detail?.comboId;
+    const comboDiscountPercent = detail?.comboDiscountPercent;
+    const ticketDiscountPercent = detail?.ticketDiscountPercent;
+    const description = detail?.description;
+    const startDate = line?.validityPeriod?.startDate ? new Date(line.validityPeriod.startDate) : undefined;
+    const endDate = line?.validityPeriod?.endDate ? new Date(line.validityPeriod.endDate) : undefined;
+
+    const match: any = { orderStatus: 'CONFIRMED' };
+    if (startDate || endDate) {
+      match.createdAt = {} as any;
+      if (startDate) (match.createdAt as any).$gte = startDate;
+      if (endDate) (match.createdAt as any).$lte = endDate;
+    }
+
+    const pipeline: any[] = [ { $match: match }, { $unwind: '$percentPromotions' } ];
+    const innerMatch: any = {};
+    if (applyType === 'combo') {
+      if (comboId) innerMatch['percentPromotions.comboId'] = comboId;
+      if (typeof comboDiscountPercent === 'number') innerMatch['percentPromotions.discountPercent'] = comboDiscountPercent;
+    } else if (applyType === 'ticket') {
+      if (typeof ticketDiscountPercent === 'number') innerMatch['percentPromotions.discountPercent'] = ticketDiscountPercent;
+      if (description) innerMatch['percentPromotions.description'] = description;
+    }
+    if (Object.keys(innerMatch).length > 0) pipeline.push({ $match: innerMatch });
+    pipeline.push({ $group: { _id: null, total: { $sum: '$percentPromotions.discountAmount' } } });
+
+    const agg = await Order.aggregate(pipeline);
+    const usedBudget = Array.isArray(agg) && agg.length > 0 ? (agg[0].total || 0) : 0;
+    return { usedBudget };
   }
 }

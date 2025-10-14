@@ -15,6 +15,9 @@ router.get("/item-promotions", voucherController.getActiveItemPromotions.bind(vo
 router.post("/apply-item-promotions", voucherController.applyItemPromotions.bind(voucherController));
 router.get("/percent-promotions", voucherController.getActivePercentPromotions.bind(voucherController));
 router.post("/apply-percent-promotions", voucherController.applyPercentPromotions.bind(voucherController));
+router.get("/:id/amount-budget-used", voucherController.getAmountBudgetUsed.bind(voucherController));
+router.get("/:id/item-budget-used", voucherController.getItemBudgetUsed.bind(voucherController));
+router.get("/:id/percent-budget-used", voucherController.getPercentBudgetUsed.bind(voucherController));
 router.post("/add", voucherController.addVoucher.bind(voucherController));
 router.post("/:id/add-line", voucherController.addPromotionLine.bind(voucherController));
 router.put("/:id/update-line/:lineIndex", voucherController.updatePromotionLine.bind(voucherController));

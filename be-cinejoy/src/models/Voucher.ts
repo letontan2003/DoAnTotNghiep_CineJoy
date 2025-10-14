@@ -27,6 +27,7 @@ export interface VoucherDetail {
     description?: string;
     pointToRedeem?: number;
     quantity?: number;
+    totalQuantity?: number; // Tổng số lượng voucher ban đầu
     discountPercent?: number;
     maxDiscountValue?: number;
 }
@@ -40,12 +41,16 @@ export interface DiscountDetail {
     // Ticket
     seatType?: "normal" | "vip" | "couple" | "4dx";
     ticketDiscountPercent?: number;
+    // Ngân sách tổng cho khuyến mãi chiết khấu (VNĐ)
+    totalBudget?: number;
     description?: string; // Mô tả cho khuyến mãi chiết khấu
 }
 
 export interface AmountDetail {
     minOrderValue: number;
     discountValue: number;
+    // Ngân sách tổng cho khuyến mãi tiền (VNĐ)
+    totalBudget?: number;
     description?: string; // Mô tả cho khuyến mãi tiền
 }
 
@@ -62,6 +67,8 @@ export interface ItemDetail {
     rewardQuantity: number;
     rewardType: "free" | "discount";
     rewardDiscountPercent?: number;
+    // Ngân sách tổng cho sản phẩm tặng (ví dụ: tối đa 1000 sản phẩm tặng)
+    totalBudget?: number;
     description?: string; // Mô tả cho khuyến mãi hàng
 }
 
@@ -79,12 +86,14 @@ export interface IPromotionLine {
         stackingPolicy: 'STACKABLE' | 'EXCLUSIVE' | 'EXCLUSIVE_WITH_GROUP';
         exclusionGroup?: string; // chỉ dùng khi stackingPolicy = EXCLUSIVE_WITH_GROUP
     };
+    code?: string; // Mã 10 số ngẫu nhiên tự động tạo
 }
 
 const VoucherDetailSchema = new Schema<VoucherDetail>({
     description: { type: String },
     pointToRedeem: { type: Number },
     quantity: { type: Number },
+    totalQuantity: { type: Number }, // Tổng số lượng voucher ban đầu
     discountPercent: { type: Number },
     maxDiscountValue: { type: Number },
 });
@@ -96,12 +105,14 @@ const DiscountDetailSchema = new Schema<DiscountDetail>({
     comboDiscountPercent: { type: Number },
     seatType: { type: String }, // Dynamic validation sẽ được xử lý trong service
     ticketDiscountPercent: { type: Number },
+    totalBudget: { type: Number },
     description: { type: String }, // Mô tả cho khuyến mãi chiết khấu
 }, { _id: false });
 
 const AmountDetailSchema = new Schema<AmountDetail>({
     minOrderValue: { type: Number, required: true },
     discountValue: { type: Number, required: true },
+    totalBudget: { type: Number },
     description: { type: String }, // Mô tả cho khuyến mãi tiền
 }, { _id: false });
 
@@ -115,6 +126,7 @@ const ItemDetailSchema = new Schema<ItemDetail>({
     rewardQuantity: { type: Number, required: true },
     rewardType: { type: String, enum: ["free", "discount"], required: true },
     rewardDiscountPercent: { type: Number },
+    totalBudget: { type: Number },
     description: { type: String }, // Mô tả cho khuyến mãi hàng
 }, { _id: false });
 
@@ -131,6 +143,7 @@ const PromotionLineSchema = new Schema<IPromotionLine>({
         stackingPolicy: { type: String, enum: ["STACKABLE", "EXCLUSIVE", "EXCLUSIVE_WITH_GROUP"] },
         exclusionGroup: { type: String },
     },
+    code: { type: String, unique: true, immutable: true }, // Mã 10 số ngẫu nhiên, không thể thay đổi
 }, { _id: false });
 
 // Validator mềm cho detail theo promotionType
