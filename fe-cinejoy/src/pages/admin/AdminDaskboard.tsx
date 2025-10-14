@@ -2409,7 +2409,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {user.isActive ? '✅ Hoạt động' : '❌ Khóa'}
+                            {user.isActive ? 'Hoạt động' : 'Khóa'}
                           </span>
                         </td>
                         <td className="p-3">

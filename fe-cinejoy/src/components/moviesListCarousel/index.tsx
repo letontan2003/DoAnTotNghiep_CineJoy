@@ -119,7 +119,10 @@ const MoviesListCarousel = (props: IProps) => {
           containerClass="pb-12"
         >
           {movies
-            .filter((movie) => movie.status === props.status || movie.status === "Suất chiếu đặc biệt")
+            .filter((movie) => {
+              // Chỉ hiển thị phim có status chính xác, không gộp chung
+              return movie.status === props.status;
+            })
             .map((movie, index) => {
               return (
                 <Link to={`/movies/${movie._id}`} key={movie._id}>
@@ -153,7 +156,6 @@ const MoviesListCarousel = (props: IProps) => {
                             if (movie.trailer) {
                               setCurrentMovieForModal(movie);
                               setIsTrailerModalOpen(true);
-                              setIsModalOpen(true);
                             }
                           }}
                           style={{ zIndex: 10 }} // Đảm bảo nút play nằm trên Link

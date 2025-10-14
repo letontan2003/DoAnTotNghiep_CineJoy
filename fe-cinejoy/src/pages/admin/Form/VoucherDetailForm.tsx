@@ -535,7 +535,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
             disabled={promotionType === 'voucher' || promotionType === 'amount'}
             onChange={(value) => setStackingPolicy(value)}
           >
-            <Option value="STACKABLE">Cộng dồn</Option>
+            {promotionType !== 'percent' && <Option value="STACKABLE">Cộng dồn</Option>}
             {promotionType !== 'item' && promotionType !== 'percent' && <Option value="EXCLUSIVE">Độc quyền</Option>}
             <Option value="EXCLUSIVE_WITH_GROUP">Loại trừ theo nhóm</Option>
           </Select>
