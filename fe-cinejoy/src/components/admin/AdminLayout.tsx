@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import useAppStore from '@/store/app.store';
 
@@ -8,9 +8,10 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user } = useAppStore();
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['movieManagement']));
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex font-roboto">
       {/* Sidebar */}
       <aside className="w-64 bg-black shadow-lg fixed h-full">
         <div className="p-4 border-b border-gray-800">
@@ -32,102 +33,199 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <ul>
             {/* Quản lý Phim */}
             <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('movieManagement')) {
+                    newExpandedMenus.delete('movieManagement');
+                  } else {
+                    newExpandedMenus.add('movieManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">🎬</span>
                   <span>Quản lý Phim</span>
                 </div>
-              </Link>
+              </div>
+              {expandedMenus.has('movieManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🎬</span>
+                        <span>Phim</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🎭</span>
+                        <span>Ca chiếu</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">⏰</span>
+                        <span>Suất chiếu</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">💰</span>
+                        <span>Bảng giá</span>
+                      </div>
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
 
             {/* Quản lý Rạp */}
             <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('theaterManagement')) {
+                    newExpandedMenus.delete('theaterManagement');
+                  } else {
+                    newExpandedMenus.add('theaterManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">🏢</span>
                   <span>Quản lý Rạp</span>
                 </div>
-              </Link>
+              </div>
+              {expandedMenus.has('theaterManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🌍</span>
+                        <span>Khu vực</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🏢</span>
+                        <span>Rạp & Phòng chiếu</span>
+                      </div>
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
 
-            {/* Quản lý Combo */}
+            {/* Quản lý Bán hàng */}
             <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('salesManagement')) {
+                    newExpandedMenus.delete('salesManagement');
+                  } else {
+                    newExpandedMenus.add('salesManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-lg">🍿</span>
-                  <span>Quản lý Combo</span>
+                  <span className="text-lg">🛒</span>
+                  <span>Quản lý Bán hàng</span>
                 </div>
-              </Link>
+              </div>
+              {expandedMenus.has('salesManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🍿</span>
+                        <span>Sản phẩm & Combo</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🎫</span>
+                        <span>Khuyến mãi</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">📊</span>
+                        <span>Thống Kê</span>
+                      </div>
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
 
-            {/* Quản lý Khuyến mãi */}
+            {/* Hệ thống & Người dùng */}
             <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('systemManagement')) {
+                    newExpandedMenus.delete('systemManagement');
+                  } else {
+                    newExpandedMenus.add('systemManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-lg">🎫</span>
-                  <span>Quản lý Khuyến mãi</span>
+                  <span className="text-lg">⚙️</span>
+                  <span>Hệ thống & Người dùng</span>
                 </div>
-              </Link>
-            </li>
-
-            {/* Quản lý Blog */}
-            <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">📝</span>
-                  <span>Quản lý Blog</span>
-                </div>
-              </Link>
-            </li>
-
-            {/* Quản lý Người dùng */}
-            <li className="mb-2">
-              <Link
-                to="/admin"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">👥</span>
-                  <span>Quản lý Người dùng</span>
-                </div>
-              </Link>
-            </li>
-
-            {/* Báo cáo tổng kết */}
-            <li className="mb-2">
-              <Link
-                to="/admin/promotion-report"
-                className="px-4 py-3 block text-gray-200 hover:bg-gray-800 transition-colors duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">📊</span>
-                  <span>Báo cáo tổng kết</span>
-                </div>
-              </Link>
+              </div>
+              {expandedMenus.has('systemManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">👥</span>
+                        <span>Người dùng</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">📄</span>
+                        <span>Blog</span>
+                      </div>
+                    </Link>
+                  </li>
+                </ul>
+              )}
             </li>
           </ul>
         </nav>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64">
+      <div className="flex-1 ml-64 overflow-x-hidden">
         {/* Header */}
-        <header className="bg-black text-white p-4 flex justify-between items-center shadow-md">
+        <header className="bg-black text-white p-4 flex justify-between items-center shadow-md fixed top-0 left-64 right-0 z-10">
           <h1 className="text-xl font-semibold select-none">
             Admin Dashboard - CineJoy
           </h1>
@@ -140,7 +238,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </header>
 
         {/* Content */}
-        <main className="p-6">
+        <main className="pt-20 p-6">
           {children}
         </main>
       </div>
