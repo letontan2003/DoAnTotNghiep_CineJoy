@@ -17,6 +17,7 @@ import Error from 'pages/client/Error';
 import Dashboard from 'pages/admin/AdminDaskboard';
 import VoucherDetail from 'pages/admin/VoucherDetail';
 import PromotionReport from 'pages/admin/PromotionReport';
+import SalesReportByDay from 'pages/admin/SalesReportByDay';
 import AdminLayout from 'components/admin/AdminLayout';
 import { ToastContainer } from 'react-toastify';
 import Contact from 'pages/client/Contact';
@@ -95,6 +96,10 @@ const router = createBrowserRouter([
   {
     path: "/admin/promotion-report",
     element: <AdminLayout><PromotionReport /></AdminLayout>
+  },
+  {
+    path: "/admin/sales-report-by-day",
+    element: <AdminLayout><SalesReportByDay /></AdminLayout>
   },
   {
     path: "*",
