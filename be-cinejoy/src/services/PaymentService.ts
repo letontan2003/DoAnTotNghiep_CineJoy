@@ -297,12 +297,53 @@ class PaymentService {
           if (populatedOrder && populatedOrder.userId) {
             const userEmail = (populatedOrder.userId as any).email;
             
+            // Tìm roomType từ showtime
+            let roomType = undefined;
+            const showtime = populatedOrder.showtimeId as any;
+            console.log('🔍 Debug roomType - VNPay:', {
+              hasShowtime: !!showtime,
+              hasShowTimes: showtime?.showTimes?.length,
+              orderDate: populatedOrder.showDate,
+              orderRoom: populatedOrder.room
+            });
+            
+            if (showtime && showtime.showTimes) {
+              const matchingShowTime = showtime.showTimes.find((st: any) => {
+                const stDate = new Date(st.date).toISOString().split('T')[0];
+                const orderDate = populatedOrder.showDate;
+                console.log('🔍 Comparing dates:', { stDate, orderDate, match: stDate === orderDate });
+                return stDate === orderDate;
+              });
+              
+              console.log('🔍 Matching showtime:', {
+                found: !!matchingShowTime,
+                hasRoom: !!matchingShowTime?.room,
+                roomId: matchingShowTime?.room
+              });
+              
+              if (matchingShowTime && matchingShowTime.room) {
+                const Room = require('../models/Room').Room;
+                const roomDoc = await Room.findById(matchingShowTime.room);
+                console.log('🔍 Room document:', {
+                  found: !!roomDoc,
+                  roomType: roomDoc?.roomType,
+                  roomName: roomDoc?.name
+                });
+                if (roomDoc) {
+                  roomType = roomDoc.roomType;
+                }
+              }
+            }
+            
+            console.log('✅ Final roomType (VNPay):', roomType);
+            
             const emailData: PaymentEmailData = {
               userName: (populatedOrder.userId as any).fullName || 'Khách hàng',
               orderId: order._id.toString(),
               movieName: (populatedOrder.showtimeId as any)?.movieId?.title || 'N/A',
               cinema: (populatedOrder.showtimeId as any)?.theaterId?.name || 'N/A',
               room: populatedOrder.room || 'N/A',
+              roomType: roomType,
               showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
               seats: populatedOrder.seats.map(seat => seat.seatId),
               ticketPrice: populatedOrder.ticketPrice || 0,
@@ -512,12 +553,52 @@ class PaymentService {
           if (populatedOrder && populatedOrder.userId) {
             const userEmail = (populatedOrder.userId as any).email;
             
+            // Tìm roomType từ showtime (MoMo)
+            let roomType = undefined;
+            const showtime = populatedOrder.showtimeId as any;
+            console.log('🔍 Debug roomType - MoMo:', {
+              hasShowtime: !!showtime,
+              hasShowTimes: showtime?.showTimes?.length,
+              orderDate: populatedOrder.showDate,
+              orderRoom: populatedOrder.room
+            });
+            
+            if (showtime && showtime.showTimes) {
+              const matchingShowTime = showtime.showTimes.find((st: any) => {
+                const stDate = new Date(st.date).toISOString().split('T')[0];
+                const orderDate = populatedOrder.showDate;
+                return stDate === orderDate;
+              });
+              
+              console.log('🔍 Matching showtime (MoMo):', {
+                found: !!matchingShowTime,
+                hasRoom: !!matchingShowTime?.room,
+                roomId: matchingShowTime?.room
+              });
+              
+              if (matchingShowTime && matchingShowTime.room) {
+                const Room = require('../models/Room').Room;
+                const roomDoc = await Room.findById(matchingShowTime.room);
+                console.log('🔍 Room document (MoMo):', {
+                  found: !!roomDoc,
+                  roomType: roomDoc?.roomType,
+                  roomName: roomDoc?.name
+                });
+                if (roomDoc) {
+                  roomType = roomDoc.roomType;
+                }
+              }
+            }
+            
+            console.log('✅ Final roomType (MoMo):', roomType);
+            
             const emailData: PaymentEmailData = {
               userName: (populatedOrder.userId as any).fullName || 'Khách hàng',
               orderId: order._id.toString(),
               movieName: (populatedOrder.showtimeId as any)?.movieId?.title || 'N/A',
               cinema: (populatedOrder.showtimeId as any)?.theaterId?.name || 'N/A',
               room: populatedOrder.room || 'N/A', // Lấy từ Order.room
+              roomType: roomType,
               showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
               seats: populatedOrder.seats.map(seat => seat.seatId),
               ticketPrice: populatedOrder.ticketPrice || 0,

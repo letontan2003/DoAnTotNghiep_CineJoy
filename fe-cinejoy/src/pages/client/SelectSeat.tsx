@@ -489,6 +489,7 @@ export const SelectSeat = () => {
           totalPrice={totalTicketPrice}
           priceError={hasTicketPriceGap}
           showtimeId={showtimeId}
+          seatTypeMap={seatTypeMap}
           onContinue={async () => {
             // Reserve seats when user clicks Continue (this will reset reservation time to 8 minutes)
             if (selectedSeats.length > 0) {

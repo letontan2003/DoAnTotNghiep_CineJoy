@@ -23,6 +23,7 @@ interface SalesReportData {
   orderId: string;
   isSubtotal?: boolean;
   isGrandTotal?: boolean;
+  isFirstInGroup?: boolean;
 }
 
 const SalesReportByDay: React.FC = () => {
@@ -96,6 +97,10 @@ const SalesReportByDay: React.FC = () => {
           return dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf();
         });
         
+        // Tăng STT một lần cho mỗi rạp
+        const theaterStt = stt++;
+        let isFirstInGroup = true;
+        
         sortedOrders.forEach((order) => {
           const discount = order.totalAmount - order.finalAmount;
           // theaterId có thể là object được populate hoặc string
@@ -111,7 +116,7 @@ const SalesReportByDay: React.FC = () => {
           
           salesData.push({
             key: `${order._id}`,
-            stt: stt++,
+            stt: theaterStt,
             theaterCode: theater?.theaterCode || 'N/A',
             theaterName: theater?.name || 'N/A',
             city: theater?.location?.city || 'N/A',
@@ -119,9 +124,11 @@ const SalesReportByDay: React.FC = () => {
             discount: discount,
             totalAmount: order.totalAmount,
             finalAmount: order.finalAmount,
-            orderId: order._id
+            orderId: order._id,
+            isFirstInGroup: isFirstInGroup
           });
           
+          isFirstInGroup = false;
           theaterTotalDiscount += discount;
           theaterTotalAmount += order.totalAmount;
           theaterFinalAmount += order.finalAmount;
@@ -223,8 +230,12 @@ const SalesReportByDay: React.FC = () => {
         let theaterTotalAmount = 0;
         let theaterFinalAmount = 0;
         
-        items.forEach(item => {
-          filtered.push(item);
+        items.forEach((item, index) => {
+          // Đặt lại isFirstInGroup cho dòng đầu tiên của mỗi nhóm sau khi filter
+          filtered.push({
+            ...item,
+            isFirstInGroup: index === 0
+          });
           theaterTotalDiscount += item.discount;
           theaterTotalAmount += item.totalAmount;
           theaterFinalAmount += item.finalAmount;
@@ -375,7 +386,7 @@ const SalesReportByDay: React.FC = () => {
         ];
       } else {
         row.values = [
-          item.stt || '',
+          item.isFirstInGroup ? item.stt : '', // Chỉ ghi STT ở dòng đầu
           item.theaterCode,
           item.theaterName,
           item.city,
@@ -398,6 +409,54 @@ const SalesReportByDay: React.FC = () => {
       
       row.alignment = { horizontal: 'center', vertical: 'middle' };
     });
+    
+    // Merge STT cells cho cùng 1 nhóm rạp (giống SalesReportByCustomer)
+    let currentGroupStart: number | null = null;
+    let currentGroupStt: number | null = null;
+    
+    filteredData.forEach((item, index) => {
+      const rowIndex = 7 + index;
+      
+      if (item.isFirstInGroup && !item.isSubtotal && !item.isGrandTotal) {
+        // Nếu có nhóm trước đó, merge nó
+        if (currentGroupStart !== null && currentGroupStt !== null) {
+          const endRow = rowIndex - 1;
+          if (endRow > currentGroupStart) {
+            worksheet.mergeCells(`A${currentGroupStart}:A${endRow}`);
+            const cell = worksheet.getCell(`A${currentGroupStart}`);
+            cell.value = currentGroupStt;
+            cell.alignment = { horizontal: 'center', vertical: 'middle' } as unknown as ExcelJS.Alignment;
+          }
+        }
+        // Bắt đầu nhóm mới
+        currentGroupStart = rowIndex;
+        currentGroupStt = item.stt;
+      }
+      
+      // Nếu gặp subtotal hoặc grand total, kết thúc nhóm hiện tại
+      if ((item.isSubtotal || item.isGrandTotal) && currentGroupStart !== null && currentGroupStt !== null) {
+        const endRow = rowIndex - 1;
+        if (endRow > currentGroupStart) {
+          worksheet.mergeCells(`A${currentGroupStart}:A${endRow}`);
+          const cell = worksheet.getCell(`A${currentGroupStart}`);
+          cell.value = currentGroupStt;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' } as unknown as ExcelJS.Alignment;
+        }
+        currentGroupStart = null;
+        currentGroupStt = null;
+      }
+    });
+    
+    // Merge nhóm cuối cùng nếu còn
+    if (currentGroupStart !== null && currentGroupStt !== null) {
+      const lastRow = 7 + filteredData.length - 1;
+      if (lastRow > currentGroupStart) {
+        worksheet.mergeCells(`A${currentGroupStart}:A${lastRow}`);
+        const cell = worksheet.getCell(`A${currentGroupStart}`);
+        cell.value = currentGroupStt;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' } as unknown as ExcelJS.Alignment;
+      }
+    }
     
     // Set column widths
     worksheet.columns = [
@@ -445,7 +504,8 @@ const SalesReportByDay: React.FC = () => {
         if (record.isSubtotal) {
           return '';
         }
-        return value;
+        // Chỉ hiển thị STT ở dòng đầu tiên của mỗi rạp
+        return record.isFirstInGroup ? value : '';
       }
     },
     {
@@ -556,7 +616,7 @@ const SalesReportByDay: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => navigate('/admin', { state: { tab: 'statistics' } })}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 text-gray-700 hover:text-gray-900 font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 text-gray-700 hover:text-gray-900 font-medium cursor-pointer"
           >
             <ArrowLeftOutlined className="text-sm" />
             <span>Quay lại</span>

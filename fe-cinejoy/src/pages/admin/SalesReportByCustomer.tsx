@@ -251,7 +251,7 @@ const SalesReportByCustomer: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => navigate('/admin', { state: { tab: 'statistics' } })}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 text-gray-700 hover:text-gray-900 font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 text-gray-700 hover:text-gray-900 font-medium cursor-pointer"
           >
             <ArrowLeftOutlined className="text-sm" />
             <span>Quay lại</span>

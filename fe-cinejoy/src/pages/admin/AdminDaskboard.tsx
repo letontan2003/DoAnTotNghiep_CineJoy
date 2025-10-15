@@ -1978,6 +1978,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
+                    onClick={() => navigate('/admin/sales-chart-report')}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-400/20 via-amber-500/10 to-orange-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     
