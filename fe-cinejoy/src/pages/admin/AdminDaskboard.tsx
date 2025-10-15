@@ -1839,82 +1839,166 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
           {/* Statistics Tab */}
           {activeTab === "statistics" && (
-            <div>
-              <h2 className="text-2xl font-semibold mb-6 text-black select-none">
-                📊 Thống Kê Bán Hàng
-              </h2>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
+              {/* Header Section - simple style */}
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold mb-2 text-black select-none text-left">
+                  Thống Kê Bán Hàng
+                </h2>
+                <p className="text-left text-gray-600 text-sm">
+                  Báo cáo và phân tích dữ liệu kinh doanh
+                </p>
+              </div>
               
               {/* Menu chọn loại thống kê */}
-              <div className="bg-white rounded-xl shadow-lg p-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-12 border border-gray-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Card 1: Doanh số theo ngày */}
                   <motion.button
-                    className="p-8 border-2 border-blue-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="group relative p-8 rounded-2xl h-48 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                               bg-gradient-to-br from-blue-50 to-blue-100/50
+                               border-2 border-blue-200 hover:border-blue-400
+                               shadow-lg hover:shadow-2xl
+                               transition-all duration-300"
+                    whileHover={{ scale: 1.03, y: -4 }}
+                    whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
                     onClick={() => navigate('/admin/sales-report-by-day')}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-blue-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
-                      DOANH SỐ BÁN HÀNG THEO NGÀY
-                    </h3>
-                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                    {/* Animated background gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-blue-500/10 to-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    </div>
+                    
+                    {/* Icon */}
+                    <div className="relative z-10 mb-4 text-5xl transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                       📅
                     </div>
+                    
+                    {/* Title */}
+                    <h3 className="relative z-10 font-bold text-center text-xl leading-tight
+                                   text-gray-800 group-hover:text-blue-700
+                                   transform transition-all duration-300">
+                      DOANH SỐ BÁN HÀNG
+                      <br />
+                      <span className="text-2xl">THEO NGÀY</span>
+                    </h3>
+                    
+                    {/* Decorative corner */}
+                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-blue-300 rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-blue-300 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </motion.button>
 
+                  {/* Card 2: Doanh số theo khách hàng */}
                   <motion.button
-                    className="p-8 border-2 border-green-300 rounded-xl hover:border-green-500 hover:bg-green-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="group relative p-8 rounded-2xl h-48 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                               bg-gradient-to-br from-green-50 to-emerald-100/50
+                               border-2 border-green-200 hover:border-green-400
+                               shadow-lg hover:shadow-2xl
+                               transition-all duration-300"
+                    whileHover={{ scale: 1.03, y: -4 }}
+                    whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
+                    onClick={() => navigate('/admin/sales-report-by-customer')}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-green-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
-                      DOANH SỐ THEO KHÁCH HÀNG
-                    </h3>
-                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 via-emerald-500/10 to-green-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    </div>
+                    
+                    <div className="relative z-10 mb-4 text-5xl transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                       👥
                     </div>
+                    
+                    <h3 className="relative z-10 font-bold text-center text-xl leading-tight
+                                   text-gray-800 group-hover:text-green-700
+                                   transform transition-all duration-300">
+                      DOANH SỐ THEO
+                      <br />
+                      <span className="text-2xl">KHÁCH HÀNG</span>
+                    </h3>
+                    
+                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-green-300 rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-green-300 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </motion.button>
 
+                  {/* Card 3: Báo cáo khuyến mãi */}
                   <motion.button
-                    className="p-8 border-2 border-purple-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="group relative p-8 rounded-2xl h-48 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                               bg-gradient-to-br from-purple-50 to-violet-100/50
+                               border-2 border-purple-200 hover:border-purple-400
+                               shadow-lg hover:shadow-2xl
+                               transition-all duration-300"
+                    whileHover={{ scale: 1.03, y: -4 }}
+                    whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
                     onClick={() => navigate('/admin/promotion-report')}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-purple-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
-                      BÁO CÁO TỔNG KẾT CHƯƠNG TRÌNH KHUYẾN MÃI
-                    </h3>
-                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-violet-500/10 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    </div>
+                    
+                    <div className="relative z-10 mb-4 text-5xl transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                       🎟️
                     </div>
+                    
+                    <h3 className="relative z-10 font-bold text-center text-xl leading-tight
+                                   text-gray-800 group-hover:text-purple-700
+                                   transform transition-all duration-300">
+                      BÁO CÁO TỔNG KẾT
+                      <br />
+                      <span className="text-lg">CHƯƠNG TRÌNH KHUYẾN MÃI</span>
+                    </h3>
+                    
+                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-purple-300 rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-purple-300 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </motion.button>
 
+                  {/* Card 4: Thống kê biểu đồ */}
                   <motion.button
-                    className="p-8 border-2 border-orange-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 hover:shadow-xl transition-all duration-300 h-40 flex items-center justify-center group relative overflow-hidden"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="group relative p-8 rounded-2xl h-48 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                               bg-gradient-to-br from-orange-50 to-amber-100/50
+                               border-2 border-orange-200 hover:border-orange-400
+                               shadow-lg hover:shadow-2xl
+                               transition-all duration-300"
+                    whileHover={{ scale: 1.03, y: -4 }}
+                    whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400/10 to-orange-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-orange-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
-                      THỐNG KÊ DOANH THU THEO BIỂU ĐỒ
-                    </h3>
-                    <div className="absolute top-2 right-2 text-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:rotate-12">
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400/20 via-amber-500/10 to-orange-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    </div>
+                    
+                    <div className="relative z-10 mb-4 text-5xl transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                       📈
                     </div>
+                    
+                    <h3 className="relative z-10 font-bold text-center text-xl leading-tight
+                                   text-gray-800 group-hover:text-orange-700
+                                   transform transition-all duration-300">
+                      THỐNG KÊ DOANH THU
+                      <br />
+                      <span className="text-2xl">THEO BIỂU ĐỒ</span>
+                    </h3>
+                    
+                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-orange-300 rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-orange-300 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </motion.button>
                 </div>
               </div>

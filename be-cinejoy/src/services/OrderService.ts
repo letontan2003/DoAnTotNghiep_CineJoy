@@ -507,7 +507,7 @@ class OrderService {
 
     const [orders, totalOrders] = await Promise.all([
       Order.find()
-        .populate("userId", "fullName email phoneNumber")
+        .populate("userId", "fullName email phoneNumber gender")
         .populate("movieId", "title poster duration")
         .populate("theaterId", "theaterCode name location")
         .populate("showtimeId", "startTime date")
@@ -530,7 +530,7 @@ class OrderService {
   // Lấy order theo ID
   async getOrderById(orderId: string): Promise<IOrder | null> {
     return await Order.findById(orderId)
-      .populate("userId", "fullName email phoneNumber")
+      .populate("userId", "fullName email phoneNumber gender")
       .populate("movieId", "title poster duration posterImage")
       .populate("theaterId", "name location")
       .populate("showtimeId", "startTime date")
@@ -541,7 +541,7 @@ class OrderService {
   // Lấy order theo orderCode
   async getOrderByCode(orderCode: string): Promise<IOrder | null> {
     return await Order.findOne({ orderCode })
-      .populate("userId", "fullName email phoneNumber")
+      .populate("userId", "fullName email phoneNumber gender")
       .populate("movieId", "title poster duration posterImage")
       .populate("theaterId", "name location")
       .populate("showtimeId", "startTime date")
@@ -564,6 +564,7 @@ class OrderService {
 
     const [orders, totalOrders] = await Promise.all([
       Order.find({ userId })
+        .populate("userId", "fullName email phoneNumber gender")
         .populate("movieId", "title poster duration posterImage")
         .populate("theaterId", "theaterCode name location")
         .populate("showtimeId", "startTime date")

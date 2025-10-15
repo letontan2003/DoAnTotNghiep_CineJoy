@@ -18,6 +18,7 @@ import Dashboard from 'pages/admin/AdminDaskboard';
 import VoucherDetail from 'pages/admin/VoucherDetail';
 import PromotionReport from 'pages/admin/PromotionReport';
 import SalesReportByDay from 'pages/admin/SalesReportByDay';
+import SalesReportByCustomer from 'pages/admin/SalesReportByCustomer';
 import AdminLayout from 'components/admin/AdminLayout';
 import { ToastContainer } from 'react-toastify';
 import Contact from 'pages/client/Contact';
@@ -100,6 +101,10 @@ const router = createBrowserRouter([
   {
     path: "/admin/sales-report-by-day",
     element: <AdminLayout><SalesReportByDay /></AdminLayout>
+  },
+  {
+    path: "/admin/sales-report-by-customer",
+    element: <AdminLayout><SalesReportByCustomer /></AdminLayout>
   },
   {
     path: "*",
