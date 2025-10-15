@@ -113,7 +113,8 @@ export const getAllOrders = async (
   const res = await axiosClient.get(
     `/v1/api/orders?page=${page}&limit=${limit}`
   );
-  return res.data as {
+  // Backend returns {status, error, message, data: result}
+  return res.data.data as {
     orders: IOrder[];
     totalPages: number;
     currentPage: number;

@@ -509,7 +509,7 @@ class OrderService {
       Order.find()
         .populate("userId", "fullName email phoneNumber")
         .populate("movieId", "title poster duration")
-        .populate("theaterId", "name location")
+        .populate("theaterId", "theaterCode name location")
         .populate("showtimeId", "startTime date")
         .populate("foodCombos.comboId", "name description")
         .populate("voucherId", "code discountPercent")
@@ -565,7 +565,7 @@ class OrderService {
     const [orders, totalOrders] = await Promise.all([
       Order.find({ userId })
         .populate("movieId", "title poster duration posterImage")
-        .populate("theaterId", "name location")
+        .populate("theaterId", "theaterCode name location")
         .populate("showtimeId", "startTime date")
         .populate("foodCombos.comboId", "name description")
         .populate("voucherId", "code discountPercent")
@@ -676,7 +676,7 @@ class OrderService {
       )
         .populate("userId", "fullName email phoneNumber")
         .populate("movieId", "title poster duration")
-        .populate("theaterId", "name location")
+        .populate("theaterId", "theaterCode name location")
         .populate("showtimeId", "startTime date")
         .populate("foodCombos.comboId", "name description")
         .populate("voucherId", "code discountPercent");

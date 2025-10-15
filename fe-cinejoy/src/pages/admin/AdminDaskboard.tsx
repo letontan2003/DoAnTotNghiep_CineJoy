@@ -1854,6 +1854,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
+                    onClick={() => navigate('/admin/sales-report-by-day')}
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     <h3 className="font-bold text-gray-800 text-center leading-tight text-xl group-hover:text-blue-700 relative z-10 transform group-hover:scale-105 transition-transform duration-300">

@@ -113,6 +113,19 @@ const PriceListForm: React.FC<PriceListFormProps> = ({
         return;
       }
       
+      // Validate code uniqueness
+      const trimmedCode = values.code.trim().toUpperCase();
+      const isDuplicate = existingPriceLists.some(pl => {
+        // Khi chỉnh sửa, bỏ qua chính bảng giá đang được chỉnh sửa
+        if (priceList && pl._id === priceList._id) return false;
+        return pl.code.toUpperCase() === trimmedCode;
+      });
+      
+      if (isDuplicate) {
+        message.error("Mã bảng giá đã tồn tại, vui lòng chọn mã khác");
+        return;
+      }
+      
       // Validate name field
       if (!values.name || values.name.trim() === '') {
         message.error("Vui lòng nhập tên bảng giá");
@@ -186,7 +199,27 @@ const PriceListForm: React.FC<PriceListFormProps> = ({
           rules={[
             { required: true, message: "Vui lòng nhập mã bảng giá" },
             { min: 6, message: "Mã bảng giá phải có ít nhất 6 ký tự" },
-            { max: 20, message: "Mã bảng giá không được quá 20 ký tự" }
+            { max: 20, message: "Mã bảng giá không được quá 20 ký tự" },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                
+                const trimmedValue = value.trim().toUpperCase();
+                
+                // Kiểm tra trùng lặp với các bảng giá hiện có
+                const isDuplicate = existingPriceLists.some(pl => {
+                  // Khi chỉnh sửa, bỏ qua chính bảng giá đang được chỉnh sửa
+                  if (priceList && pl._id === priceList._id) return false;
+                  return pl.code.toUpperCase() === trimmedValue;
+                });
+                
+                if (isDuplicate) {
+                  return Promise.reject(new Error("Mã bảng giá đã tồn tại, vui lòng chọn mã khác"));
+                }
+                
+                return Promise.resolve();
+              }
+            }
           ]}
         >
           <Input 
