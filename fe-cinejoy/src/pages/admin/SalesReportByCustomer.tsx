@@ -358,8 +358,12 @@ const SalesReportByCustomer: React.FC = () => {
               }
 
               worksheet.columns = [
-                { width: 8 }, { width: 18 }, { width: 22 }, { width: 26 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 19 }, { width: 24 }, { width: 24 }, { width: 18 }, { width: 16 }, { width: 18 }
+                { width: 14 }, { width: 18 }, { width: 22 }, { width: 26 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 19 }, { width: 24 }, { width: 24 }, { width: 18 }, { width: 16 }, { width: 18 }
               ];
+
+              // Ensure STT column doesn't wrap
+              const sttCol = worksheet.getColumn(1);
+              sttCol.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false } as unknown as ExcelJS.Alignment;
 
               const buffer = await workbook.xlsx.writeBuffer();
               const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -414,7 +418,7 @@ const SalesReportByCustomer: React.FC = () => {
               title: 'STT', 
               dataIndex: 'stt', 
               key: 'stt', 
-              width: 70, 
+              width: 110, 
               render: (_: unknown, record: RowData) => {
                 // Hàng tổng cộng: hiển thị 'Tổng cộng' màu đỏ, cột khác rỗng
                 if (record.isGrandTotal) {
