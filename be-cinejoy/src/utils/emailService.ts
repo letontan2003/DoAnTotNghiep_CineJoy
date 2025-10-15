@@ -52,6 +52,7 @@ interface PaymentEmailData {
   movieName: string;
   cinema: string;
   room: string;
+  roomType?: string; // Thêm roomType
   showtime: string;
   seats: string[];
   ticketPrice: number;
@@ -84,7 +85,7 @@ interface PaymentEmailData {
 }
 
 const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
-  const { userName, orderId, movieName, cinema, room, showtime, seats, ticketPrice, comboPrice, totalAmount, voucherDiscount, voucherCode, amountDiscount, amountDiscountDescription, itemPromotions, percentPromotions, finalAmount, qrCodeDataUrl, foodCombos } = data;
+  const { userName, orderId, movieName, cinema, room, roomType, showtime, seats, ticketPrice, comboPrice, totalAmount, voucherDiscount, voucherCode, amountDiscount, amountDiscountDescription, itemPromotions, percentPromotions, finalAmount, qrCodeDataUrl, foodCombos } = data;
   
   // Debug logging
   console.log(`📧 Email Template Debug:`, {
@@ -132,7 +133,7 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Phòng chiếu:</td>
-                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${room}</td>
+                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${room}${roomType ? ` (${roomType})` : ''}</td>
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Suất chiếu:</td>
@@ -174,35 +175,35 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
                   ${amountDiscount && amountDiscount > 0 ? `-${amountDiscount.toLocaleString('vi-VN')}₫` : '0₫'}
                 </td>
               </tr>
-              ${amountDiscount && amountDiscount > 0 ? `
+              ${amountDiscount && amountDiscount > 0 && amountDiscountDescription ? `
               <tr>
-                <td colspan="2" style="padding: 2px 0; font-size: 12px; color: #666; font-style: italic; word-wrap: break-word;">
-                  ${amountDiscountDescription || ''}
+                <td colspan="2" style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
+                  ${amountDiscountDescription}
                 </td>
               </tr>
               ` : ''}
               ${percentPromotions && percentPromotions.length > 0 ? percentPromotions.map(promotion => `
               <tr>
-                <td style="padding: 2px 0; font-size: 12px; color: #16a34a; word-wrap: break-word;">
+                <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
                   ${promotion.description || `Giảm ${promotion.discountPercent}% ${promotion.comboName}`}
                 </td>
-                <td style="padding: 2px 0; font-size: 12px; color: #16a34a; word-wrap: break-word; text-align: right;">
+                <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word; text-align: right;">
                   -${promotion.discountAmount.toLocaleString('vi-VN')}₫
                 </td>
               </tr>
               `).join('') : ''}
               ${itemPromotions && itemPromotions.length > 0 ? itemPromotions.map(promotion => `
               <tr>
-                <td style="padding: 2px 0; font-size: 12px; color: #16a34a; word-wrap: break-word;">
-                  +${promotion.rewardQuantity} ${promotion.rewardItem}
-                </td>
-                <td style="padding: 2px 0; font-size: 12px; color: #16a34a; word-wrap: break-word; text-align: right;">
-                  ${promotion.rewardType === 'free' ? '(miễn phí)' : ''}
+                <td colspan="2" style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
+                  ${promotion.description}
                 </td>
               </tr>
               <tr>
-                <td colspan="2" style="padding: 2px 0; font-size: 12px; color: #666; font-style: italic; word-wrap: break-word;">
-                  ${promotion.description}
+                <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
+                  +${promotion.rewardQuantity} ${promotion.rewardItem}
+                </td>
+                <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word; text-align: right;">
+                  ${promotion.rewardType === 'free' ? '(miễn phí)' : ''}
                 </td>
               </tr>
               `).join('') : ''}

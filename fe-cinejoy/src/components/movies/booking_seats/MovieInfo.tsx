@@ -26,9 +26,10 @@ interface MovieInfoProps {
   totalPrice: number;
   priceError?: boolean; // true nếu thiếu giá vé đang hoạt động cho loại ghế đã chọn
   showtimeId?: string; // ID của suất chiếu để đặt ghế
+  seatTypeMap?: Record<string, string>; // Thêm seatTypeMap để kiểm tra loại ghế
 }
 
-const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, priceError = false, showtimeId }) => {
+const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, priceError = false, showtimeId, seatTypeMap }) => {
   const { isDarkMode } = useAppStore();
   const hasSelectedSeats = movie.seats.length > 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -59,6 +60,12 @@ const MovieInfo: React.FC<MovieInfoProps> = ({ movie, onContinue, totalPrice, pr
     };
 
     for (const sid of movie.seats) {
+      // Bỏ qua ràng buộc cho ghế cặp đôi (couple)
+      const seatType = seatTypeMap?.[sid];
+      if (seatType === 'couple') {
+        continue; // Ghế couple không áp dụng ràng buộc single gap
+      }
+
       const { row, col } = toCoord(sid);
 
       // Kiểm tra bên trái

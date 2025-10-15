@@ -122,7 +122,7 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
                 </span>
                 <select 
                   value={displayCount}
-                  onChange={(e) => setDisplayCount(e.target.value === 'ALL' ? (orders || []).length : Number(e.target.value))}
+                  onChange={(e) => setDisplayCount(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
                   className={`px-3 py-1 border rounded text-sm ${
                     isDarkMode 
                       ? 'bg-gray-800 border-gray-600 text-white' 
