@@ -1926,7 +1926,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                     {/* Card 1: Doanh số theo ngày */}
                   <motion.button
-                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-[2px] hover:shadow-2xl transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-[2px] hover:shadow-2xl transition-all duration-300 cursor-pointer"
                       whileHover={{ scale: 1.02, y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     initial={{ opacity: 0, y: 20 }}
@@ -1982,7 +1982,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
                     {/* Card 2: Doanh số theo khách hàng */}
                   <motion.button
-                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 p-[2px] hover:shadow-2xl transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 p-[2px] hover:shadow-2xl transition-all duration-300 cursor-pointer"
                       whileHover={{ scale: 1.02, y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     initial={{ opacity: 0, y: 20 }}
@@ -2031,7 +2031,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
                     {/* Card 3: Báo cáo khuyến mãi */}
                   <motion.button
-                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 p-[2px] hover:shadow-2xl transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 p-[2px] hover:shadow-2xl transition-all duration-300 cursor-pointer"
                       whileHover={{ scale: 1.02, y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     initial={{ opacity: 0, y: 20 }}
@@ -2080,7 +2080,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
                     {/* Card 4: Thống kê biểu đồ */}
                   <motion.button
-                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 p-[2px] hover:shadow-2xl transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 p-[2px] hover:shadow-2xl transition-all duration-300 cursor-pointer"
                       whileHover={{ scale: 1.02, y: -4 }}
                     whileTap={{ scale: 0.98 }}
                     initial={{ opacity: 0, y: 20 }}

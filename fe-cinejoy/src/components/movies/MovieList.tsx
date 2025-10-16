@@ -113,8 +113,19 @@ const MovieList: React.FC = () => {
                     Tất cả các phim
                 </button>
             </div>
-            <div className=" grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-6 px-4">
-                {(showMore ? filteredMovies : filteredMovies.slice(0, 7)).map((movie) => (
+            {filteredMovies.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                    <div className={`text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        <svg className="w-24 h-24 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                        </svg>
+                        <p className="text-xl font-semibold mb-2">Không có phim nào</p>
+                        <p className="text-sm">Hiện tại chưa có phim trong danh mục này</p>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-6 px-4">
+                    {(showMore ? filteredMovies : filteredMovies.slice(0, 7)).map((movie) => (
                     <div
                         key={movie._id}
                         className={`${isDarkMode ? "bg-[#282a36] text-gray-200 border-gray-700 shadow-lg" : "bg-white text-[#2d3a5a] border shadow-md"} rounded-xl overflow-hidden w-[270px] mx-auto flex flex-col items-center`}
@@ -159,7 +170,8 @@ const MovieList: React.FC = () => {
                         </div>
                     </div>
                 ))}
-            </div>
+                </div>
+            )}
             {filteredMovies.length > 7 && (
                 <div className="flex justify-center mt-4">
                     <button

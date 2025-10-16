@@ -34,7 +34,7 @@ const AppProvider: React.FC<Props> = ({ children }) => {
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-50">
           <Spin
             indicator={<LoadingOutlined style={{ fontSize: 48, color: "#A51717" }} spin />}
-          />
+          />  
         </div>
       </>
     );

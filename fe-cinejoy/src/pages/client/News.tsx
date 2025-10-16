@@ -7,9 +7,9 @@ import useAppStore from '@/store/app.store';
 
 const PAGE_SIZE = 6;
 // Offset điều chỉnh toàn bộ khối bao bọc (bao gồm tiêu đề + lưới tin tức)
-const WRAPPER_BLOCK_OFFSET_PX = -35;
+const WRAPPER_BLOCK_OFFSET_PX = 0;
 // Offset điều chỉnh vị trí lưới tin tức (qua trái/phải)
-const NEWS_GRID_OFFSET_PX = -5;
+const NEWS_GRID_OFFSET_PX = -10;
 
 const NewsPage: React.FC = () => {
   const { isDarkMode } = useAppStore();
@@ -75,8 +75,8 @@ const NewsPage: React.FC = () => {
   return (
     <div className={clsx("w-full min-h-screen overflow-x-hidden", isDarkMode ? "bg-[#181c24]" : "bg-white")}>
       <div className="max-w-6xl mx-auto px-4 py-8 overflow-x-hidden">
-        <div className="flex gap-6 items-stretch overflow-x-hidden">
-        <div className={clsx("rounded-2xl p-4 md:p-6 max-w-[820px] mx-auto flex-1 flex flex-col", isDarkMode ? "bg-[#23272f]" : "bg-[#f8f9fa]")} style={{ marginLeft: WRAPPER_BLOCK_OFFSET_PX }}>
+        <div className="flex gap-6 items-start overflow-x-hidden">
+        <div className={clsx("rounded-2xl p-4 md:p-6 max-w-[820px] mx-auto flex flex-col min-h-[1000px]", isDarkMode ? "bg-[#23272f]" : "bg-[#f8f9fa]")} style={{ marginLeft: WRAPPER_BLOCK_OFFSET_PX }}>
         <h1 className={clsx("text-lg md:text-xl font-bold mt-1 mb-2", isDarkMode ? "text-[#60a5fa]" : "text-[#1e62d0]")}>ƯU ĐÃI</h1>
 
         {loading ? (
@@ -125,16 +125,16 @@ const NewsPage: React.FC = () => {
         </div>
 
         <div className="hidden lg:flex w-[340px] flex-col">
-            <div className={clsx("rounded-xl shadow p-3 flex-1 flex flex-col", isDarkMode ? "bg-[#23272f]" : "bg-white")}>
+            <div className={clsx("rounded-xl shadow p-3 flex flex-col min-h-[1000px]", isDarkMode ? "bg-[#23272f]" : "bg-white")}>
                 <div className="flex justify-center gap-2 mb-3 items-center">
-                  <button className={`px-5 py-2 rounded cursor-pointer ${activeTab==='now'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('now')}>Phim đang chiếu</button>
-                  <button className={`px-5 py-2 rounded cursor-pointer ${activeTab==='soon'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('soon')}>Phim sắp chiếu</button>
+                  <button className={`px-5 py-2 w-[160px] whitespace-nowrap text-center rounded cursor-pointer ${activeTab==='now'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('now')}>Phim đang chiếu</button>
+                  <button className={`px-5 py-2 w-[160px] whitespace-nowrap text-center rounded cursor-pointer ${activeTab==='soon'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('soon')}>Phim sắp chiếu</button>
                 </div>
-              <div className="space-y-3 flex-1 overflow-y-auto">
+              <div className="space-y-3 overflow-x-hidden">
                 {(activeTab==='now' ? (showAllNow ? moviesNow : moviesNow.slice(0,7)) : (showAllSoon ? moviesSoon : moviesSoon.slice(0,7))).map((m)=> (
                   <div 
                     key={m._id} 
-                    className={clsx("flex gap-3 items-center pb-3 last:border-b-0 cursor-pointer hover:scale-[1.02] transition-all duration-200 rounded p-2", isDarkMode ? "border-b border-[#374151] hover:bg-[#2a2f38]" : "border-b hover:bg-gray-100")}
+                    className={clsx("flex gap-3 items-center pb-3 last:border-b-0 cursor-pointer hover:brightness-110 transition-all duration-200 rounded p-2", isDarkMode ? "border-b border-[#374151] hover:bg-[#2a2f38]" : "border-b hover:bg-gray-100")}
                     onClick={() => navigate(`/movies/${m._id}`)}
                   >
                     <img src={(m.image || m.posterImage) as any} alt={m.title} className="w-14 h-20 object-cover rounded" />
@@ -145,7 +145,7 @@ const NewsPage: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                <div className="flex justify-center pt-2">
+                <div className="flex justify-center pt-2 mt-12  ">
                   {activeTab==='now' ? (
                     moviesNow.length > 7 && (
                       <button onClick={()=>setShowAllNow(v=>!v)} className="px-4 py-1.5 rounded bg-[#ff6b6b] text-white cursor-pointer hover:bg-[#e05a5a] transition-colors">

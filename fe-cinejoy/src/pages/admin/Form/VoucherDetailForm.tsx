@@ -425,7 +425,17 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           label="Ngày bắt đầu"
           rules={[
             { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
-            ({ getFieldValue }) => ({
+            // Không cho phép chọn trước ngày hiện tại
+            () => ({
+              validator(_, value) {
+                if (!value) return Promise.resolve();
+                if (dayjs(value).isBefore(dayjs().startOf('day'))) {
+                  return Promise.reject(new Error('Ngày bắt đầu không được trước ngày hiện tại!'));
+                }
+                return Promise.resolve();
+              }
+            }),
+            () => ({
               validator(_, value) {
                 if (!value || !voucherStartDate || !voucherEndDate) {
                   return Promise.resolve();
@@ -447,10 +457,16 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
             format="DD/MM/YYYY"
             placeholder="Chọn ngày bắt đầu"
             disabledDate={(current) => {
-              if (!current || !voucherStartDate || !voucherEndDate) return false;
-              const voucherStart = dayjs(voucherStartDate);
-              const voucherEnd = dayjs(voucherEndDate);
-              return current.isBefore(voucherStart.startOf('day')) || current.isAfter(voucherEnd.endOf('day'));
+              if (!current) return false;
+              const today = dayjs().startOf('day');
+              // Nếu chưa truyền khoảng voucher, vẫn chặn trước hôm nay
+              if (!voucherStartDate || !voucherEndDate) {
+                return current.isBefore(today);
+              }
+              const voucherStart = dayjs(voucherStartDate).startOf('day');
+              const voucherEnd = dayjs(voucherEndDate).endOf('day');
+              const minStart = voucherStart.isAfter(today) ? voucherStart : today;
+              return current.isBefore(minStart) || current.isAfter(voucherEnd);
             }}
           />
         </Form.Item>
@@ -460,7 +476,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           label="Ngày kết thúc"
           rules={[
             { required: true, message: 'Vui lòng chọn ngày kết thúc!' },
-            ({ getFieldValue }) => ({
+            () => ({
               validator(_, value) {
                 if (!value || !voucherStartDate || !voucherEndDate) {
                   return Promise.resolve();
@@ -556,7 +572,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
               disabled={promotionType === 'amount'}
               options={getExclusionGroups(promotionType || '').map(group => ({ value: group, label: group }))}
               style={{ width: '100%' }}
-              onChange={(value) => {
+              onChange={() => {
                 // Reset buyItem khi thay đổi nhóm loại trừ
                 form.setFieldValue('buyItem', undefined);
                 form.setFieldValue('comboId', undefined);
@@ -761,7 +777,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                       rules={[
                         { required: true, message: 'Vui lòng chọn loại áp dụng!' },
                         {
-                          validator: (_, value) => {
+                          validator: () => {
                             if (!validation.canSelect) {
                               return Promise.reject(new Error(validation.message));
                             }
@@ -773,7 +789,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                       <Select 
                         placeholder={validation.canSelect ? "Chọn loại áp dụng" : validation.message}
                         disabled={!validation.canSelect}
-                        onChange={(value) => {
+                        onChange={() => {
                           // Reset buyItem khi thay đổi applyType
                           form.setFieldValue('buyItem', undefined);
                           form.setFieldValue('comboId', undefined);
@@ -1092,7 +1108,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                       rules={[
                         { required: true, message: 'Vui lòng chọn loại áp dụng!' },
                         {
-                          validator: (_, value) => {
+                          validator: () => {
                             if (!validation.canSelect) {
                               return Promise.reject(new Error(validation.message));
                             }

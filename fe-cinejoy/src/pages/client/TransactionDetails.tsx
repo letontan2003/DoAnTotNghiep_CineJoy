@@ -175,21 +175,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
                 </td>
                 <td><strong>${formatCurrency(order?.totalAmount || 0)}</strong></td>
               </tr>
-              ${order?.foodCombos && order.foodCombos.length > 0 
-                ? `<tr>
-                     <td></td>
-                     <td></td>
-                     <td></td>
-                     <td>
-                       ${order.foodCombos.map((combo: any) => 
-                         `<div><strong>${combo.comboId?.name || 'Food Combo'}</strong></div>
-                          <div>${combo.quantity} x ${formatCurrency(combo.price)}</div>`
-                       ).join('')}
-                     </td>
-                     <td></td>
-                   </tr>`
-                : ''
-              }
+              
             </tbody>
           </table>
           <div style="text-align: right; margin-top: 20px; font-size: 16px; font-weight: bold;">
