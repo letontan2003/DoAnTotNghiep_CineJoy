@@ -33,12 +33,173 @@ export default class VoucherService {
     }
   }
 
-  getVouchers(): Promise<IVoucher[]> {
-    return Voucher.find();
+  // Lấy ngân sách đã dùng cho promotion line
+  private async getUsedBudget(voucherId: string, lineIndex: number, promotionType: string): Promise<number> {
+    try {
+      if (promotionType === 'amount') {
+        const result = await this.getAmountBudgetUsed(voucherId, lineIndex);
+        return typeof result === 'number' ? result : (result as any)?.usedBudget || 0;
+      } else if (promotionType === 'item') {
+        const result = await this.getItemBudgetUsed(voucherId, lineIndex);
+        return typeof result === 'number' ? result : (result as any)?.usedBudget || 0;
+      } else if (promotionType === 'percent') {
+        const result = await this.getPercentBudgetUsed(voucherId, lineIndex);
+        return typeof result === 'number' ? result : (result as any)?.usedBudget || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting used budget:', error);
+      return 0;
+    }
   }
 
-  getVoucherById(id: string): Promise<IVoucher | null> {
-    return Voucher.findById(id);
+  // Kiểm tra xem promotion line có đủ ngân sách không
+  private async checkBudgetAvailability(
+    voucherId: string, 
+    lineIndex: number, 
+    promotionType: string, 
+    detail: any
+  ): Promise<{ isAvailable: boolean; message: string }> {
+    try {
+      if (promotionType === 'voucher') {
+        const quantity = detail?.quantity || 0;
+        if (quantity <= 0) {
+          return {
+            isAvailable: false,
+            message: 'Voucher đã hết số lượng. Vui lòng tăng số lượng voucher để kích hoạt lại.'
+          };
+        }
+        return { isAvailable: true, message: '' };
+      }
+
+      // Với item, percent, amount: kiểm tra ngân sách
+      const usedBudget = await this.getUsedBudget(voucherId, lineIndex, promotionType);
+      const totalBudget = detail?.totalBudget || 0;
+
+      if (usedBudget >= totalBudget) {
+        return {
+          isAvailable: false,
+          message: `Ngân sách đã hết (Đã dùng: ${usedBudget.toLocaleString('vi-VN')} / Tổng: ${totalBudget.toLocaleString('vi-VN')}). Vui lòng tăng ngân sách tổng để kích hoạt lại.`
+        };
+      }
+
+      // Kiểm tra xem còn đủ ngân sách cho ít nhất 1 lần khuyến mãi không
+      if (promotionType === 'amount') {
+        const discountValue = detail?.discountValue || 0;
+        const remaining = totalBudget - usedBudget;
+        if (remaining < discountValue) {
+          return {
+            isAvailable: false,
+            message: `Ngân sách còn lại ${remaining.toLocaleString('vi-VN')}₫ không đủ cho khuyến mãi ${discountValue.toLocaleString('vi-VN')}₫. Vui lòng tăng ngân sách tổng.`
+          };
+        }
+      } else if (promotionType === 'percent') {
+        const minOrderValue = detail?.minOrderValue || 0;
+        const discountPercent = detail?.comboDiscountPercent || detail?.ticketDiscountPercent || 0;
+        const minDiscountValue = (minOrderValue * discountPercent) / 100;
+        const remaining = totalBudget - usedBudget;
+        if (remaining < minDiscountValue) {
+          return {
+            isAvailable: false,
+            message: `Ngân sách còn lại ${remaining.toLocaleString('vi-VN')}₫ không đủ để tiếp tục khuyến mãi (tối thiểu ${minDiscountValue.toLocaleString('vi-VN')}₫). Vui lòng tăng ngân sách tổng.`
+          };
+        }
+      }
+
+      return { isAvailable: true, message: '' };
+    } catch (error) {
+      console.error('Error checking budget availability:', error);
+      return { isAvailable: true, message: '' }; // Mặc định cho phép nếu có lỗi
+    }
+  }
+
+  // Tự động cập nhật status dựa trên ngân sách/số lượng
+  private async autoUpdateStatus(
+    voucherId: string,
+    lineIndex: number,
+    promotionType: string,
+    detail: any,
+    currentStatus: string
+  ): Promise<string> {
+    // Chỉ auto-update nếu status hiện tại là 'hoạt động'
+    if (currentStatus !== 'hoạt động') {
+      return currentStatus;
+    }
+
+    const budgetCheck = await this.checkBudgetAvailability(voucherId, lineIndex, promotionType, detail);
+    
+    if (!budgetCheck.isAvailable) {
+      console.log(`🔴 Auto-deactivating promotion line ${lineIndex} for voucher ${voucherId}: ${budgetCheck.message}`);
+      return 'không hoạt động';
+    }
+
+    return currentStatus; // Giữ nguyên 'hoạt động'
+  }
+
+  async getVouchers(): Promise<IVoucher[]> {
+    const vouchers = await Voucher.find();
+    
+    // Tự động cập nhật status cho tất cả promotion lines
+    for (const voucher of vouchers) {
+      let hasChanges = false;
+      
+      if (voucher.lines && Array.isArray(voucher.lines)) {
+        for (let i = 0; i < voucher.lines.length; i++) {
+          const line = voucher.lines[i];
+          const newStatus = await this.autoUpdateStatus(
+            String(voucher._id),
+            i,
+            line.promotionType,
+            line.detail,
+            line.status
+          );
+          
+          if (newStatus !== line.status) {
+            voucher.lines[i].status = newStatus as 'hoạt động' | 'không hoạt động';
+            hasChanges = true;
+          }
+        }
+      }
+      
+      if (hasChanges) {
+        await voucher.save();
+      }
+    }
+    
+    return vouchers;
+  }
+
+  async getVoucherById(id: string): Promise<IVoucher | null> {
+    const voucher = await Voucher.findById(id);
+    
+    if (!voucher) return null;
+    
+    // Tự động cập nhật status cho tất cả promotion lines
+    let hasChanges = false;
+    
+    if (voucher.lines && Array.isArray(voucher.lines)) {
+      for (let i = 0; i < voucher.lines.length; i++) {
+        const line = voucher.lines[i];
+        const newStatus = await this.autoUpdateStatus(
+          String(voucher._id),
+          i,
+          line.promotionType,
+          line.detail,
+          line.status
+        );
+        
+        if (newStatus !== line.status) {
+          voucher.lines[i].status = newStatus as 'hoạt động' | 'không hoạt động';
+          hasChanges = true;
+        }
+      }
+    }
+    
+    if (hasChanges) {
+      await voucher.save();
+    }
+    
+    return voucher;
   }
 
   addVoucher(data: IVoucher): Promise<IVoucher> {
@@ -305,6 +466,30 @@ export default class VoucherService {
       detail = lineData.itemDetail;
     }
 
+    // Kiểm tra nếu admin đang cố gắng set status = 'hoạt động'
+    if (lineData.status === 'hoạt động') {
+      const budgetCheck = await this.checkBudgetAvailability(
+        voucherId,
+        lineIndex,
+        lineData.promotionType,
+        detail
+      );
+
+      if (!budgetCheck.isAvailable) {
+        throw new Error(budgetCheck.message);
+      }
+    }
+
+    // Tự động cập nhật status dựa trên ngân sách mới (sau khi admin sửa)
+    // Điều này đảm bảo nếu admin giảm ngân sách tổng, status sẽ tự động chuyển thành inactive
+    const finalStatus = await this.autoUpdateStatus(
+      voucherId,
+      lineIndex,
+      lineData.promotionType,
+      detail,
+      lineData.status
+    );
+
     // Cập nhật line
     voucher.lines[lineIndex] = {
       promotionType: lineData.promotionType,
@@ -312,7 +497,7 @@ export default class VoucherService {
         startDate: lineData.startDate,
         endDate: lineData.endDate,
       },
-      status: lineData.status,
+      status: finalStatus as 'hoạt động' | 'không hoạt động',
       detail: detail,
       rule: lineData.rule
     };

@@ -73,10 +73,10 @@ const NewsPage: React.FC = () => {
   const canMore = paginated.length < blogs.length;
 
   return (
-    <div className={clsx("w-full min-h-screen", isDarkMode ? "bg-[#181c24]" : "bg-white")}>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex gap-6">
-        <div className={clsx("rounded-2xl p-4 md:p-6 max-w-[820px] mx-auto flex-1", isDarkMode ? "bg-[#23272f]" : "bg-[#f8f9fa]")} style={{ marginLeft: WRAPPER_BLOCK_OFFSET_PX }}>
+    <div className={clsx("w-full min-h-screen overflow-x-hidden", isDarkMode ? "bg-[#181c24]" : "bg-white")}>
+      <div className="max-w-6xl mx-auto px-4 py-8 overflow-x-hidden">
+        <div className="flex gap-6 items-stretch overflow-x-hidden">
+        <div className={clsx("rounded-2xl p-4 md:p-6 max-w-[820px] mx-auto flex-1 flex flex-col", isDarkMode ? "bg-[#23272f]" : "bg-[#f8f9fa]")} style={{ marginLeft: WRAPPER_BLOCK_OFFSET_PX }}>
         <h1 className={clsx("text-lg md:text-xl font-bold mt-1 mb-2", isDarkMode ? "text-[#60a5fa]" : "text-[#1e62d0]")}>ƯU ĐÃI</h1>
 
         {loading ? (
@@ -124,13 +124,13 @@ const NewsPage: React.FC = () => {
         )}
         </div>
 
-        <div className="hidden lg:block w-[340px]">
-            <div className={clsx("rounded-xl shadow p-3", isDarkMode ? "bg-[#23272f]" : "bg-white")}>
+        <div className="hidden lg:flex w-[340px] flex-col">
+            <div className={clsx("rounded-xl shadow p-3 flex-1 flex flex-col", isDarkMode ? "bg-[#23272f]" : "bg-white")}>
                 <div className="flex justify-center gap-2 mb-3 items-center">
                   <button className={`px-5 py-2 rounded cursor-pointer ${activeTab==='now'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('now')}>Phim đang chiếu</button>
                   <button className={`px-5 py-2 rounded cursor-pointer ${activeTab==='soon'?'bg-[#ff6b6b] text-white':isDarkMode?'bg-[#374151] text-white':'bg-gray-100'}`} onClick={()=>setActiveTab('soon')}>Phim sắp chiếu</button>
                 </div>
-              <div className="space-y-3">
+              <div className="space-y-3 flex-1 overflow-y-auto">
                 {(activeTab==='now' ? (showAllNow ? moviesNow : moviesNow.slice(0,7)) : (showAllSoon ? moviesSoon : moviesSoon.slice(0,7))).map((m)=> (
                   <div 
                     key={m._id} 
