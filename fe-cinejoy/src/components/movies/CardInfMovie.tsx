@@ -267,12 +267,15 @@ const CardInfMovie = () => {
 
   // Khi đổi thành phố, chọn lại rạp đầu tiên hoặc reset nếu không có rạp
   useEffect(() => {
-    if (filteredCinemas.length > 0) {
-      setSelectedCinemaId(filteredCinemas[0]._id);
+    const filtered = theater.filter(
+      (c) => c.location.city === selectedCity
+    );
+    if (filtered.length > 0) {
+      setSelectedCinemaId(filtered[0]._id);
     } else {
       setSelectedCinemaId("");
     }
-  }, [selectedCity, theater, filteredCinemas]);
+  }, [selectedCity, theater]);
 
   // Set selectedDate mặc định là ngày hôm nay khi khởi tạo
   useEffect(() => {

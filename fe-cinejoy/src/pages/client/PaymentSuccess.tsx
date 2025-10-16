@@ -59,8 +59,8 @@ const PaymentSuccess: React.FC = () => {
   }
 
   return (
-    <div className={`py-8 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="max-w-4xl mx-auto px-4">
+    <div className={`min-h-[calc(100vh-360px)] flex items-center justify-center py-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="max-w-4xl mx-auto px-4 w-full">
          <Result
            status="success"
            icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: '64px' }} />}

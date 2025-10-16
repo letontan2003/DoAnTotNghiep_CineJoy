@@ -1844,7 +1844,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
               <div className="mb-6">
                 <h2 className="text-2xl font-semibold mb-2 text-black select-none text-left">
                   Thống Kê Bán Hàng
-                </h2>
+              </h2>
                 <p className="text-left text-gray-600 text-sm">
                   Báo cáo và phân tích dữ liệu kinh doanh
                 </p>
@@ -1925,13 +1925,13 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                     {/* Card 1: Doanh số theo ngày */}
-                    <motion.button
+                  <motion.button
                       className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-[2px] hover:shadow-2xl transition-all duration-300"
                       whileHover={{ scale: 1.02, y: -4 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.1 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
                       onClick={() => navigate('/admin/sales-report-by-day')}
                     >
                       <div className="relative bg-white rounded-xl p-8 h-full">
@@ -1959,7 +1959,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           {/* Title */}
                           <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors duration-300">
                             Doanh Số Theo Ngày
-                          </h3>
+                    </h3>
                           
                           {/* Description */}
                           <p className="text-sm text-gray-600 mb-4 flex-grow">
@@ -1977,17 +1977,17 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
                         {/* Corner decoration */}
                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-100/50 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      </div>
-                    </motion.button>
+                    </div>
+                  </motion.button>
 
                     {/* Card 2: Doanh số theo khách hàng */}
-                    <motion.button
+                  <motion.button
                       className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 p-[2px] hover:shadow-2xl transition-all duration-300"
                       whileHover={{ scale: 1.02, y: -4 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
                       onClick={() => navigate('/admin/sales-report-by-customer')}
                     >
                       <div className="relative bg-white rounded-xl p-8 h-full">
@@ -2011,7 +2011,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           
                           <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-emerald-600 transition-colors duration-300">
                             Doanh Số Theo Khách Hàng
-                          </h3>
+                    </h3>
                           
                           <p className="text-sm text-gray-600 mb-4 flex-grow">
                             Phân tích doanh thu theo khách hàng, thứ hạng và lịch sử giao dịch
@@ -2026,19 +2026,19 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         </div>
 
                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-100/50 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      </div>
-                    </motion.button>
+                    </div>
+                  </motion.button>
 
                     {/* Card 3: Báo cáo khuyến mãi */}
-                    <motion.button
+                  <motion.button
                       className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 p-[2px] hover:shadow-2xl transition-all duration-300"
                       whileHover={{ scale: 1.02, y: -4 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.3 }}
-                      onClick={() => navigate('/admin/promotion-report')}
-                    >
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    onClick={() => navigate('/admin/promotion-report')}
+                  >
                       <div className="relative bg-white rounded-xl p-8 h-full">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl"></div>
                         
@@ -2060,7 +2060,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           
                           <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
                             Báo Cáo Khuyến Mãi
-                          </h3>
+                    </h3>
                           
                           <p className="text-sm text-gray-600 mb-4 flex-grow">
                             Tổng hợp hiệu quả các chương trình khuyến mãi và voucher đã sử dụng
@@ -2075,17 +2075,17 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         </div>
 
                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-100/50 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      </div>
-                    </motion.button>
+                    </div>
+                  </motion.button>
 
                     {/* Card 4: Thống kê biểu đồ */}
-                    <motion.button
+                  <motion.button
                       className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 p-[2px] hover:shadow-2xl transition-all duration-300"
                       whileHover={{ scale: 1.02, y: -4 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.4 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
                       onClick={() => navigate('/admin/sales-chart-report')}
                     >
                       <div className="relative bg-white rounded-xl p-8 h-full">
@@ -2109,7 +2109,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           
                           <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors duration-300">
                             Biểu Đồ Doanh Thu
-                          </h3>
+                    </h3>
                           
                           <p className="text-sm text-gray-600 mb-4 flex-grow">
                             Trực quan hóa dữ liệu doanh thu qua biểu đồ theo thời gian và rạp chiếu
@@ -2124,8 +2124,8 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         </div>
 
                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-orange-100/50 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      </div>
-                    </motion.button>
+                    </div>
+                  </motion.button>
                   </div>
                 </div>
               </div>

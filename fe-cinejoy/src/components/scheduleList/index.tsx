@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getTheaters } from "@/apiservice/apiTheater";
 import useAppStore from "@/store/app.store";
 import dayjs from "dayjs";
@@ -92,6 +92,7 @@ const ScheduleList: React.FC = () => {
   const [selectedCinemaId, setSelectedCinemaId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedCity, setSelectedCity] = useState<string>("");
+  const previousCityRef = useRef<string>("");
   const [theater, setTheater] = useState<ITheater[]>([]);
   const [regions, setRegions] = useState<IRegion[]>();
   const [dates, setDates] = useState<{ label: string; value: string }[]>(
@@ -271,25 +272,36 @@ const ScheduleList: React.FC = () => {
   useEffect(() => {
     if (theater.length > 0) {
       const citiesWithCinemas = [
-        ...new Set(theater.map((c) => c.location.city)),
+        ...new Set(theater.map((c) => (c.location?.city || "").trim())),
       ];
-      if (!citiesWithCinemas.includes(selectedCity)) {
-        setSelectedCity(citiesWithCinemas[0]);
+      if (!citiesWithCinemas.map((n)=>n.toLowerCase()).includes(selectedCity.trim().toLowerCase())) {
+        setSelectedCity(citiesWithCinemas[0] || "");
       }
     }
   }, [theater]);
 
   const filteredCinemas = theater.filter(
-    (c) => c.location.city === selectedCity
+    (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
   );
 
   // Khi đổi thành phố, chọn lại rạp đầu tiên hoặc reset nếu không có rạp
   useEffect(() => {
-    if (filteredCinemas.length > 0) {
-      setSelectedCinemaId(filteredCinemas[0]._id);
-    } else {
-      setSelectedCinemaId("");
+    // Chỉ auto-select khi thành phố thực sự thay đổi (không phải lần render đầu tiên hoặc re-render)
+    const cityChanged = previousCityRef.current !== "" && previousCityRef.current !== selectedCity;
+    
+    if (cityChanged) {
+      const filtered = theater.filter(
+        (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
+      );
+      if (filtered.length > 0) {
+        setSelectedCinemaId(filtered[0]._id);
+      } else {
+        setSelectedCinemaId("");
+      }
     }
+    
+    // Cập nhật ref cho lần kiểm tra tiếp theo
+    previousCityRef.current = selectedCity;
   }, [selectedCity, theater]);
 
   return (
@@ -321,7 +333,7 @@ const ScheduleList: React.FC = () => {
                 : "bg-white text-gray-800 border-gray-200"
             } w-[250px] text-sm border rounded p-2 cursor-pointer`}
             value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
+            onChange={(e) => setSelectedCity(e.target.value.trim())}
           >
             {regions?.map((region) => (
               <option key={region._id} value={region.name.trim()}>
@@ -339,27 +351,24 @@ const ScheduleList: React.FC = () => {
                   Không có rạp nào ở khu vực này
                 </div>
               ) : (
-                filteredCinemas.map((cinema) => (
+                filteredCinemas.map((cinema) => {
+                  const isSelected = selectedCinemaId === cinema._id;
+                  return (
                   <button
                     key={cinema._id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded border w-full text-left cursor-pointer ${
-                      selectedCinemaId !== cinema._id
-                        ? `${
-                            isDarkMode
-                              ? "hover:bg-gray-700 hover:border-blue-400"
-                              : "hover:bg-[#f5f5f5] hover:border-[#0f1b4c]"
-                          } ${
-                            isDarkMode
-                              ? "bg-[#3a3c4a] border-gray-600 text-gray-200"
-                              : "bg-white border-gray-200"
-                          }`
-                        : `${
-                            isDarkMode
-                              ? "bg-blue-900 border-blue-400"
-                              : "bg-[#e4e6ee] border-[#0f1b4c]"
-                          } ${isDarkMode ? "text-gray-200" : "text-gray-800"}`
+                    className={`flex items-center gap-2 px-3 py-2 rounded border w-full text-left cursor-pointer transition-all duration-200 ${
+                      isSelected
+                        ? isDarkMode
+                          ? "bg-blue-600 border-blue-500 text-white shadow-lg"
+                          : "bg-blue-600 border-blue-700 text-white shadow-lg"
+                        : isDarkMode
+                        ? "bg-[#3a3c4a] border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-blue-400"
+                        : "bg-white border-gray-200 hover:bg-[#f5f5f5] hover:border-[#0f1b4c]"
                     }`}
-                    onClick={() => setSelectedCinemaId(cinema._id)}
+                    onClick={() => {
+                      console.log('Clicked cinema:', cinema._id, cinema.name);
+                      setSelectedCinemaId(cinema._id);
+                    }}
                   >
                     <img
                       src="https://res.cloudinary.com/dd1vwmybp/image/upload/v1757904774/cinejoy/bynlzrloegzerc5ucbxw.png"
@@ -368,13 +377,18 @@ const ScheduleList: React.FC = () => {
                     />
                     <span
                       className={`${
-                        isDarkMode ? "text-gray-200" : "text-gray-800"
+                        isSelected
+                          ? "text-white font-semibold"
+                          : isDarkMode
+                          ? "text-gray-200"
+                          : "text-gray-800"
                       }`}
                     >
                       {cinema.name}
                     </span>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
