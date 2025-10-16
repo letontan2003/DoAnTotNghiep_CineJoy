@@ -15,8 +15,11 @@ import {
   LinearScale,
   BarElement,
   Title as ChartTitle,
+  LineElement,
+  PointElement,
+  Filler,
 } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Pie, Bar, Line } from 'react-chartjs-2';
 
 dayjs.extend(isBetween);
 dayjs.extend(weekOfYear);
@@ -29,7 +32,10 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
-  ChartTitle
+  ChartTitle,
+  LineElement,
+  PointElement,
+  Filler
 );
 
 const { Title } = Typography;
@@ -237,6 +243,51 @@ const SalesChartReport: React.FC = () => {
     };
   }, [chartData]);
 
+  // Line chart data - Revenue trend with growth rate
+  const lineChartData = useMemo(() => {
+    const revenueData = chartData.map(item => item.revenue);
+    
+    // Calculate growth rate
+    const growthRates = revenueData.map((value, index) => {
+      if (index === 0) return 0;
+      const prevValue = revenueData[index - 1];
+      if (prevValue === 0) return 0;
+      return ((value - prevValue) / prevValue) * 100;
+    });
+
+    return {
+      labels: chartData.map(item => item.label),
+      datasets: [
+        {
+          label: 'Doanh thu (VNĐ)',
+          data: revenueData,
+          fill: true,
+          borderColor: 'rgb(59, 130, 246)',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          backgroundColor: (context: any) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+            gradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.2)');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.05)');
+            return gradient;
+          },
+          borderWidth: 3,
+          tension: 0.4,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: 'rgb(59, 130, 246)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgb(59, 130, 246)',
+          pointHoverBorderWidth: 3,
+        },
+      ],
+      growthRates,
+    };
+  }, [chartData]);
+
   const pieOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -352,6 +403,100 @@ const SalesChartReport: React.FC = () => {
           font: {
             size: 11,
           },
+        },
+      },
+    },
+  };
+
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          padding: 20,
+          font: {
+            size: 13,
+            weight: 500,
+          },
+          usePointStyle: true,
+          pointStyle: 'circle' as const,
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: 'bold' as const,
+        },
+        bodyFont: {
+          size: 13,
+        },
+        callbacks: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          label: function(context: any) {
+            const value = context.parsed.y;
+            const index = context.dataIndex;
+            const growthRate = lineChartData.growthRates[index];
+            
+            let label = `Doanh thu: ${value.toLocaleString('vi-VN')} VNĐ`;
+            
+            if (index > 0) {
+              const growthIcon = growthRate >= 0 ? '📈' : '📉';
+              const growthColor = growthRate >= 0 ? '+' : '';
+              label += `\nTăng trưởng: ${growthIcon} ${growthColor}${growthRate.toFixed(1)}%`;
+            }
+            
+            return label.split('\n');
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.08)',
+          drawBorder: false,
+        },
+        border: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          padding: 10,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          callback: function(value: any) {
+            if (value >= 1000000) {
+              return (value / 1000000).toFixed(1) + 'M';
+            } else if (value >= 1000) {
+              return (value / 1000).toFixed(0) + 'K';
+            }
+            return value.toLocaleString('vi-VN');
+          },
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        border: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          maxRotation: 45,
+          minRotation: 0,
         },
       },
     },
@@ -565,6 +710,85 @@ const SalesChartReport: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* Revenue Trend Line Chart */}
+      <Card 
+        title={
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-gray-800">Biểu Đồ Theo Dõi Biến Động Doanh Thu</div>
+              <div className="text-xs text-gray-500 font-normal">Phân tích xu hướng và tỷ lệ tăng trưởng theo thời gian</div>
+            </div>
+          </div>
+        }
+        className="shadow-md"
+        style={{ marginTop: '28px' }}
+        extra={
+          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-lg">
+            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs font-medium text-blue-700">Hover vào điểm để xem chi tiết tăng trưởng</span>
+          </div>
+        }
+      >
+
+        {/* Line Chart */}
+        <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-xl p-6 border border-gray-200">
+          <div style={{ height: '450px', overflowX: 'auto', overflowY: 'hidden' }}>
+            <div style={{ 
+              minWidth: chartData.length > 9 ? `${chartData.length * 120}px` : '100%', 
+              height: '100%',
+              paddingBottom: '10px'
+            }}>
+              <Line data={lineChartData} options={lineOptions} />
+            </div>
+          </div>
+        </div>
+
+        {/* Insights */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-semibold text-blue-800 mb-1"> Phân Tích Thông Minh</h4>
+                <p className="text-sm text-gray-700">
+                  {lineChartData.growthRates.filter(rate => rate > 0).length > lineChartData.growthRates.length / 2
+                    ? "Xu hướng tích cực! Doanh thu đang có chiều hướng tăng trưởng ổn định. Hãy duy trì các chiến lược hiện tại."
+                    : "Cần chú ý! Doanh thu có dấu hiệu biến động. Xem xét điều chỉnh chiến lược kinh doanh và marketing."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-semibold text-purple-800 mb-1"> Khuyến Nghị</h4>
+                <p className="text-sm text-gray-700">
+                  Tập trung vào các thời điểm có tăng trưởng cao để tối ưu hóa nguồn lực. 
+                  Phân tích sâu hơn về các yếu tố ảnh hưởng đến biến động.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 
