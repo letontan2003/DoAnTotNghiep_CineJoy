@@ -325,7 +325,7 @@ const SalesReportByCustomer: React.FC = () => {
                     currentGroupStart = null; currentGroupStt = null;
                   }
                 } else if (r.isSubtotal) {
-                  row.values = ['', '', '', '', '', '', '', '', '', '', fmt(r.totalAmount), fmt(r.discount), fmt(r.finalAmount)];
+                  row.values = ['', '', 'Tổng cộng', '', '', '', '', '', '', '', fmt(r.totalAmount), fmt(r.discount), fmt(r.finalAmount)];
                   row.font = { bold: true };
                   // Kết thúc nhóm: merge cột STT cho các dòng data của nhóm
                   if (currentGroupStart !== null && currentGroupStt !== null) {
@@ -430,7 +430,11 @@ const SalesReportByCustomer: React.FC = () => {
               }
             },
             { title: 'Mã KH', dataIndex: 'userCode', key: 'userCode', width: 160, render: (_: string, r: RowData) => (r.isSubtotal || r.isGrandTotal) ? '' : (_ || 'N/A') },
-            { title: 'Tên KH', dataIndex: 'fullName', key: 'fullName', width: 180 },
+            { title: 'Tên KH', dataIndex: 'fullName', key: 'fullName', width: 180, render: (t: string, r: RowData) => {
+              if (r.isGrandTotal) return '';
+              if (r.isSubtotal) return <span style={{ fontWeight: 700 }}>Tổng cộng</span>;
+              return t || '';
+            } },
             { title: 'Gmail', dataIndex: 'email', key: 'email', width: 220 },
             { title: 'Số điện thoại', dataIndex: 'phoneNumber', key: 'phoneNumber', width: 140 },
             { title: 'Giới tính', dataIndex: 'gender', key: 'gender', width: 100, render: (t: string, r: RowData) => (r.isSubtotal || r.isGrandTotal) ? '' : (t || '') },
