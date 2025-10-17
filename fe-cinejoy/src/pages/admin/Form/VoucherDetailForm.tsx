@@ -425,16 +425,6 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           label="Ngày bắt đầu"
           rules={[
             { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
-            // Không cho phép chọn trước ngày hiện tại
-            () => ({
-              validator(_, value) {
-                if (!value) return Promise.resolve();
-                if (dayjs(value).isBefore(dayjs().startOf('day'))) {
-                  return Promise.reject(new Error('Ngày bắt đầu không được trước ngày hiện tại!'));
-                }
-                return Promise.resolve();
-              }
-            }),
             () => ({
               validator(_, value) {
                 if (!value || !voucherStartDate || !voucherEndDate) {
