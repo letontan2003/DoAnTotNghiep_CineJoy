@@ -114,6 +114,11 @@ const ScheduleList: React.FC = () => {
           const movie = st.movieId as IMovie;
           const theaterData = st.theaterId as ITheater;
 
+          // Kiểm tra null/undefined trước khi truy cập thuộc tính
+          if (!movie || !theaterData) {
+            console.warn('Missing movie or theater data:', { movie, theaterData, st });
+            return [];
+          }
 
           return st.showTimes.map((innerSt) => ({
             ...innerSt,
@@ -146,7 +151,7 @@ const ScheduleList: React.FC = () => {
           if (start.hour() >= 22 && end.hour() < 6) {
             // Ca đêm: kiểm tra xem đã qua end time chưa
             const endTimeToday = end.format("YYYY-MM-DD HH:mm");
-            const nowFormatted = now.format("YYYY-MM-DD HH:mm");
+            // const nowFormatted = now.format("YYYY-MM-DD HH:mm");
             return dayjs(endTimeToday).add(5, "minute").isAfter(now);
           } else {
             // Ca bình thường: kiểm tra start time
@@ -266,7 +271,7 @@ const ScheduleList: React.FC = () => {
     ) {
       setSelectedDate(todayConst);
     }
-  }, [showtimes]);
+  }, [showtimes, selectedDate]);
 
   // Khi dữ liệu rạp thay đổi, nếu selectedCity không còn rạp nào, tự động chọn thành phố đầu tiên có rạp
   useEffect(() => {
@@ -278,31 +283,30 @@ const ScheduleList: React.FC = () => {
         setSelectedCity(citiesWithCinemas[0] || "");
       }
     }
-  }, [theater]);
+  }, [theater, selectedCity]);
 
   const filteredCinemas = theater.filter(
     (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
   );
 
-  // Khi đổi thành phố, chọn lại rạp đầu tiên hoặc reset nếu không có rạp
+  // Auto-select rạp đầu tiên khi load trang hoặc đổi thành phố
   useEffect(() => {
-    // Chỉ auto-select khi thành phố thực sự thay đổi (không phải lần render đầu tiên hoặc re-render)
-    const cityChanged = previousCityRef.current !== "" && previousCityRef.current !== selectedCity;
+    const filtered = theater.filter(
+      (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
+    );
     
-    if (cityChanged) {
-      const filtered = theater.filter(
-        (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
-      );
-      if (filtered.length > 0) {
-        setSelectedCinemaId(filtered[0]._id);
-      } else {
-        setSelectedCinemaId("");
-      }
+    // Auto-select rạp đầu tiên nếu:
+    // 1. Chưa có rạp nào được chọn (selectedCinemaId rỗng)
+    // 2. Hoặc rạp hiện tại không còn trong danh sách filtered
+    if (filtered.length > 0 && (!selectedCinemaId || !filtered.find(c => c._id === selectedCinemaId))) {
+      setSelectedCinemaId(filtered[0]._id);
+    } else if (filtered.length === 0) {
+      setSelectedCinemaId("");
     }
     
     // Cập nhật ref cho lần kiểm tra tiếp theo
     previousCityRef.current = selectedCity;
-  }, [selectedCity, theater]);
+  }, [selectedCity, theater, selectedCinemaId]);
 
   return (
     <div className={`${isDarkMode ? "bg-[#181a1f]" : "bg-white"} py-8`}>

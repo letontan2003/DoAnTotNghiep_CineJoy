@@ -71,16 +71,44 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
   };
 
   const calculateEndTime = (startTime: string, duration: number): string => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(hours, minutes, 0, 0);
-    
-    const endDate = new Date(startDate.getTime() + duration * 60000);
-    return endDate.toLocaleTimeString('vi-VN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
+    try {
+      // Xử lý định dạng thời gian 12 giờ (VD: "10:34 PM") hoặc 24 giờ (VD: "22:34")
+      let hours: number, minutes: number;
+      
+      if (startTime.includes('AM') || startTime.includes('PM')) {
+        // Định dạng 12 giờ
+        const timePart = startTime.replace(/\s*(AM|PM)/i, '');
+        const [h, m] = timePart.split(':').map(Number);
+        const isPM = /PM/i.test(startTime);
+        
+        if (isPM && h !== 12) {
+          hours = h + 12;
+        } else if (!isPM && h === 12) {
+          hours = 0;
+        } else {
+          hours = h;
+        }
+        minutes = m;
+      } else {
+        // Định dạng 24 giờ
+        const [h, m] = startTime.split(':').map(Number);
+        hours = h;
+        minutes = m;
+      }
+      
+      const startDate = new Date();
+      startDate.setHours(hours, minutes, 0, 0);
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+      
+      return endDate.toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error calculating end time:', error);
+      return 'Invalid Time';
+    }
   };
 
   if (loading) {

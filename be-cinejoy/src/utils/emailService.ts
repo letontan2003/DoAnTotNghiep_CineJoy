@@ -13,7 +13,7 @@ const getResetPasswordTemplate = (userName: string, otp: string) => {
   return {
     subject: "Mã xác nhận đặt lại mật khẩu",
     html: `
-      <h1>Yêu cầu đặt lại mật khẩu</h1>ngrok htt
+      <h1>Yêu cầu đặt lại mật khẩu</h1>
       <p>Xin chào ${userName},</p>
       <p>Bạn đã yêu cầu đặt lại mật khẩu. Đây là mã xác nhận của bạn:</p>
       <h2 style="color: #d32f2f;">${otp}</h2>
