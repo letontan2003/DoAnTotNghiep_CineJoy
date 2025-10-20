@@ -20,6 +20,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
   const [linePage, setLinePage] = useState<number>(1);
   const [editingLine, setEditingLine] = useState<IPromotionLine | null>(null);
   const [editingLineIndex, setEditingLineIndex] = useState<number>(-1);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['movieManagement']));
 
   // Tự động cập nhật trạng thái promotion lines dựa trên ngày hiện tại
   const updatePromotionLineStatuses = (voucherData: IVoucher): IVoucher => {
@@ -995,11 +996,30 @@ const VoucherDetail = ({ id: idProp }: Props) => {
           <ul>
             {/* Quản lý Phim */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🎬</span>
-                <span>Quản lý Phim</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('movieManagement')) {
+                    newExpandedMenus.delete('movieManagement');
+                  } else {
+                    newExpandedMenus.add('movieManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🎬</span>
+                  <span>Quản lý Phim</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('movieManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('movieManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Phim", value: "movies", icon: "🎬" },
                   { label: "Ca chiếu", value: "showSessions", icon: "🎭" },
@@ -1015,16 +1035,36 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Quản lý Rạp */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🏢</span>
-                <span>Quản lý Rạp</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('theaterManagement')) {
+                    newExpandedMenus.delete('theaterManagement');
+                  } else {
+                    newExpandedMenus.add('theaterManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🏢</span>
+                  <span>Quản lý Rạp</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('theaterManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('theaterManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Khu vực", value: "regions", icon: "🌏" },
                   { label: "Rạp & Phòng chiếu", value: "theaters", icon: "🏢" },
@@ -1038,16 +1078,36 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Quản lý Bán hàng */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🛒</span>
-                <span>Quản lý Bán hàng</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('salesManagement')) {
+                    newExpandedMenus.delete('salesManagement');
+                  } else {
+                    newExpandedMenus.add('salesManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🛒</span>
+                  <span>Quản lý Bán hàng</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('salesManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('salesManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
                   { label: "Khuyến mãi", value: "vouchers", icon: "🎟️" },
@@ -1066,16 +1126,36 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Hệ thống & Người dùng */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">⚙️</span>
-                <span>Hệ thống & Người dùng</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('systemManagement')) {
+                    newExpandedMenus.delete('systemManagement');
+                  } else {
+                    newExpandedMenus.add('systemManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">⚙️</span>
+                  <span>Hệ thống & Người dùng</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('systemManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('systemManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Người dùng", value: "users", icon: "👥" },
                   { label: "Blog", value: "blogs", icon: "📰" },
@@ -1089,7 +1169,8 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
           </ul>
         </nav>

@@ -34,7 +34,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             {/* Quản lý Phim */}
             <li className="mb-2">
               <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
                   if (expandedMenus.has('movieManagement')) {
@@ -49,6 +49,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🎬</span>
                   <span>Quản lý Phim</span>
                 </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('movieManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
               {expandedMenus.has('movieManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
@@ -91,7 +96,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             {/* Quản lý Rạp */}
             <li className="mb-2">
               <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
                   if (expandedMenus.has('theaterManagement')) {
@@ -106,6 +111,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🏢</span>
                   <span>Quản lý Rạp</span>
                 </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('theaterManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
               {expandedMenus.has('theaterManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
@@ -132,7 +142,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             {/* Quản lý Bán hàng */}
             <li className="mb-2">
               <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
                   if (expandedMenus.has('salesManagement')) {
@@ -147,6 +157,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🛒</span>
                   <span>Quản lý Bán hàng</span>
                 </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('salesManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
               {expandedMenus.has('salesManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
@@ -181,7 +196,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             {/* Hệ thống & Người dùng */}
             <li className="mb-2">
               <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
                   if (expandedMenus.has('systemManagement')) {
@@ -196,6 +211,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">⚙️</span>
                   <span>Hệ thống & Người dùng</span>
                 </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('systemManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
               {expandedMenus.has('systemManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
