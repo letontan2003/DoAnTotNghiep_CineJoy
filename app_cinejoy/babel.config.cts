@@ -23,6 +23,7 @@ export default function (api: ConfigAPI) {
           },
         },
       ],
+      "react-native-reanimated/plugin",
     ],
   };
 }
