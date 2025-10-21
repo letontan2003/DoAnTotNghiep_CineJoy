@@ -422,8 +422,8 @@ const Dashboard: React.FC = () => {
   // Showtimes
   const { paginated: paginatedShowtimes, totalPages: totalShowtimePages } =
     filterAndPaginate<IShowtime>(showtimes, (showtime) => {
-      const movie = movies.find((m) => m._id === showtime.movieId._id);
-      const theater = theaters.find((t) => t._id === showtime.theaterId._id);
+      const movie = movies.find((m) => m._id === showtime.movieId?._id);
+      const theater = theaters.find((t) => t._id === showtime.theaterId?._id);
       return (
         (movie?.title?.toLowerCase() ?? "").includes(
           searchTerm.toLowerCase()
@@ -2954,7 +2954,13 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedShowtimes.map((showtime, idx) => (
+                    {paginatedShowtimes.map((showtime, idx) => {
+                      // Kiểm tra dữ liệu hợp lệ trước khi render
+                      if (!showtime || !showtime._id) {
+                        return null;
+                      }
+                      
+                      return (
                       <tr
                         key={showtime._id}
                         className="border-b hover:bg-gray-100"
@@ -2962,8 +2968,8 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         <td className="p-3">
                           {(currentPage - 1) * itemsPerPage + idx + 1}
                         </td>
-                        <td className="p-3">{showtime.movieId.title}</td>
-                        <td className="p-3">{showtime.theaterId.name}</td>
+                        <td className="p-3">{showtime.movieId?.title || 'N/A'}</td>
+                        <td className="p-3">{showtime.theaterId?.name || 'N/A'}</td>
                         <td className="p-3">
                           {showtime.showTimes.length > 0 ? 
                             (() => {
@@ -3023,7 +3029,8 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -3456,12 +3463,12 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
             >
               <Descriptions.Item label="🎬 Phim" span={2}>
                 <span className="text-lg font-medium text-blue-600">
-                  {selectedShowtime.movieId.title}
+                  {selectedShowtime.movieId?.title || 'N/A'}
                 </span>
               </Descriptions.Item>
               <Descriptions.Item label="🏢 Rạp chiếu">
                 <Tag color="blue" className="text-sm">
-                  {selectedShowtime.theaterId.name}
+                  {selectedShowtime.theaterId?.name || 'N/A'}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="📅 Khoảng thời gian">

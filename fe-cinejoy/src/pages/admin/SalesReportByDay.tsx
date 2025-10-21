@@ -177,8 +177,8 @@ const SalesReportByDay: React.FC = () => {
       // Tính min/max date từ dữ liệu
       if (confirmedOrders.length > 0) {
         const dates = confirmedOrders.map(order => dayjs(order.createdAt));
-        const min = dates.reduce((min, d) => d.isBefore(min) ? d : min, dates[0]);
-        const max = dates.reduce((max, d) => d.isAfter(max) ? d : max, dates[0]);
+        const min = dates.reduce((min, d) => d.isBefore(min) ? d : min, dates[0]).startOf('day');
+        const max = dates.reduce((max, d) => d.isAfter(max) ? d : max, dates[0]).endOf('day');
         setMinDate(min);
         setMaxDate(max);
       }
