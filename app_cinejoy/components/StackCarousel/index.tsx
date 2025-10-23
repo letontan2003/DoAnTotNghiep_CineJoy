@@ -209,9 +209,13 @@ const StackCarousel = <T,>({
         onMomentumScrollEnd={handleMomentumScrollEnd}
         snapToInterval={itemWidth}
         decelerationRate={0.98}
+        style={{ backgroundColor: 'transparent' }}
         contentContainerStyle={[
           styles.contentContainer,
-          { paddingHorizontal: (screenWidth - itemWidth) / 2 }
+          { 
+            paddingHorizontal: (screenWidth - itemWidth) / 2,
+            backgroundColor: 'transparent',
+          }
         ]}
         keyExtractor={(_, index) => `infinite-${index}`}
         getItemLayout={(_, index) => ({
@@ -250,6 +254,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
 });
 

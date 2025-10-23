@@ -9,11 +9,13 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
 import banner from "assets/banner.png";
+import backgroundImage from "assets/background.jpg";
 
 const { width, height } = Dimensions.get("window");
 
@@ -89,7 +91,11 @@ const HomeScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      bounces={true}
+    >
       <StatusBar
         barStyle="light-content"
         backgroundColor="#1a1a1a"
@@ -105,7 +111,6 @@ const HomeScreen = () => {
 
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>CNJ</Text>
-            <Text style={styles.star}>*</Text>
           </View>
 
           <View style={styles.headerRight}>
@@ -157,8 +162,16 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      {/* Navigation Tabs */}
-      <View style={styles.tabsContainer}>
+      {/* Background Section - từ tabs đến button */}
+      <View style={styles.backgroundSection}>
+        <Image 
+          source={backgroundImage} 
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+        
+        {/* Navigation Tabs */}
+        <View style={styles.tabsContainer}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab}
@@ -186,19 +199,19 @@ const HomeScreen = () => {
       ) : (
         <View style={styles.carouselSection}>
           <StackCarousel
-            data={movies}
-            renderItem={(item: IMovie, index: number) => (
-              <Image
-                source={{ uri: item.posterImage }}
-                style={styles.carouselPoster}
-              />
-            )}
-            onIndexChange={(index) => setCurrentMovieIndex(index)}
-            itemWidth={width * 0.7}
-            itemHeight={height * 0.6}
-          />
-        </View>
-      )}
+              data={movies}
+              renderItem={(item: IMovie, index: number) => (
+                <Image
+                  source={{ uri: item.posterImage }}
+                  style={styles.carouselPoster}
+                />
+              )}
+              onIndexChange={(index) => setCurrentMovieIndex(index)}
+              itemWidth={width * 0.7}
+              itemHeight={height * 0.5}
+            />
+          </View>
+        )}
 
       {/* Movie Details Bar */}
       {movies.length > 0 && movies[currentMovieIndex] && (
@@ -234,7 +247,8 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+      </View>
+    </ScrollView>
   );
 };
 
@@ -538,24 +552,32 @@ const styles = StyleSheet.create({
     marginRight: 8,
     fontStyle: "italic",
   },
+  // Background Section styles
+  backgroundSection: {
+    position: "relative",
+  },
+  backgroundImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
   // Carousel styles
   carouselSection: {
-    flex: 1,
     paddingVertical: 20,
     backgroundColor: "transparent",
     justifyContent: "center",
     overflow: "hidden",
+    height: height * 0.5, // Giảm từ 0.6 xuống 0.45
   },
   carouselPoster: {
     width: "100%",
-    height: height * 0.6,
-    borderRadius: 12,
-    resizeMode: "contain",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.9,
-    shadowRadius: 15,
-    elevation: 20,
+    height: height * 0.5, // Giảm từ 0.6 xuống 0.45
+    borderRadius: 16,
+    resizeMode: "cover",
   },
   carouselQuote: {
     color: "#fff",
