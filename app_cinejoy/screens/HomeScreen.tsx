@@ -9,11 +9,11 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
-  Animated,
 } from "react-native";
-import banner from "assets/banner.png";
+import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
+import banner from "assets/banner.png";
 
 const { width, height } = Dimensions.get("window");
 
@@ -25,8 +25,6 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(false);
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const moviesCarouselRef = useRef<FlatList>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
 
@@ -61,59 +59,6 @@ const HomeScreen = () => {
       fetchMovies(status);
     }
   }, [selectedTab]);
-
-  // Render carousel item với hiệu ứng stack/overlap
-  const renderCarouselItem = ({
-    item,
-    index,
-  }: {
-    item: IMovie;
-    index: number;
-  }) => {
-    const inputRange = [
-      (index - 1) * (width * 0.7),
-      index * (width * 0.7),
-      (index + 1) * (width * 0.7),
-    ];
-
-    const scale = scrollX.interpolate({
-      inputRange,
-      outputRange: [0.85, 1, 0.85],
-      extrapolate: "clamp",
-    });
-
-    const translateY = scrollX.interpolate({
-      inputRange,
-      outputRange: [20, 0, 20],
-      extrapolate: "clamp",
-    });
-
-    const opacity = scrollX.interpolate({
-      inputRange,
-      outputRange: [0.7, 1, 0.7],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <View style={styles.carouselItemContainer}>
-        <Animated.View
-          style={[
-            styles.carouselItem,
-            {
-              transform: [{ scale }, { translateY }],
-              opacity,
-              zIndex: currentMovieIndex === index ? 10 : 1,
-            },
-          ]}
-        >
-          <Image
-            source={{ uri: item.posterImage }}
-            style={styles.carouselPoster}
-          />
-        </Animated.View>
-      </View>
-    );
-  };
 
   // Auto-play effect
   useEffect(() => {
@@ -159,7 +104,7 @@ const HomeScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>CGV</Text>
+            <Text style={styles.logo}>CNJ</Text>
             <Text style={styles.star}>*</Text>
           </View>
 
@@ -240,26 +185,17 @@ const HomeScreen = () => {
         </View>
       ) : (
         <View style={styles.carouselSection}>
-          <FlatList
-            ref={moviesCarouselRef}
+          <StackCarousel
             data={movies}
-            renderItem={renderCarouselItem}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: false }
+            renderItem={(item: IMovie, index: number) => (
+              <Image
+                source={{ uri: item.posterImage }}
+                style={styles.carouselPoster}
+              />
             )}
-            onMomentumScrollEnd={(event) => {
-              const index = Math.round(
-                event.nativeEvent.contentOffset.x / (width * 0.7)
-              );
-              setCurrentMovieIndex(index);
-            }}
-            snapToInterval={width * 0.7}
-            decelerationRate="fast"
-            contentContainerStyle={styles.carouselWrapper}
-            keyExtractor={(item) => item._id}
+            onIndexChange={(index) => setCurrentMovieIndex(index)}
+            itemWidth={width * 0.7}
+            itemHeight={height * 0.6}
           />
         </View>
       )}
@@ -435,7 +371,7 @@ const styles = StyleSheet.create({
   bannerImage: {
     width: "100%",
     height: 150,
-    objectFit: "cover",
+    resizeMode: "cover",
     marginBottom: 8,
   },
   bannerBottom: {
@@ -606,26 +542,15 @@ const styles = StyleSheet.create({
   carouselSection: {
     flex: 1,
     paddingVertical: 20,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "transparent",
     justifyContent: "center",
-    overflow: "visible",
-  },
-  carouselWrapper: {
-    paddingHorizontal: width * 0.15,
-  },
-  carouselItemContainer: {
-    width: width * 0.7,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  carouselItem: {
-    width: "100%",
-    alignItems: "center",
+    overflow: "hidden",
   },
   carouselPoster: {
     width: "100%",
-    height: height * 0.5,
+    height: height * 0.6,
     borderRadius: 12,
+    resizeMode: "contain",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.9,
