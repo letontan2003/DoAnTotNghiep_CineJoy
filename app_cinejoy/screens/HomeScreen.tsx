@@ -30,6 +30,20 @@ const HomeScreen = () => {
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
 
+  // Hàm tính toán giờ và phút từ duration (phút)
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (hours === 0) {
+      return `${remainingMinutes} phút`;
+    } else if (remainingMinutes === 0) {
+      return `${hours} giờ`;
+    } else {
+      return `${hours} giờ ${remainingMinutes} phút`;
+    }
+  };
+
   // Mapping giữa tab và status
   const tabStatusMap: { [key: string]: string } = {
     "Đang chiếu": "Phim đang chiếu",
@@ -213,40 +227,42 @@ const HomeScreen = () => {
           </View>
         )}
 
-      {/* Movie Details Bar */}
-      {movies.length > 0 && movies[currentMovieIndex] && (
-        <View style={styles.movieDetailsContainer}>
-          <View style={styles.movieDetailsBar}>
-            <View style={styles.movieInfo}>
-              <Text style={styles.movieTitleSmall} numberOfLines={1}>
-                {movies[currentMovieIndex].title.toUpperCase()}
-              </Text>
-              <View style={styles.movieMeta}>
-                <View style={styles.ratingBadge}>
-                  <Text style={styles.ratingText}>
-                    {movies[currentMovieIndex].ageRating}
+        {/* Movie Details Bar - nằm trong background */}
+        {movies.length > 0 && movies[currentMovieIndex] && (
+          <View style={styles.movieDetailsContainer}>
+            <View style={styles.movieDetailsBar}>
+              <View style={styles.movieInfo}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.movieTitleSmall} numberOfLines={1}>
+                    {movies[currentMovieIndex].title.toUpperCase()}
+                  </Text>
+                  <View style={styles.ratingBadge}>
+                    <Text style={styles.ratingText}>
+                      {movies[currentMovieIndex].ageRating}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.movieMeta}>
+                    <Text style={styles.duration}>
+                      {formatDuration(movies[currentMovieIndex].duration)}
+                    </Text>
+                  <Text style={styles.releaseDate}>
+                    {new Date(
+                      movies[currentMovieIndex].releaseDate
+                    ).toLocaleDateString("vi-VN", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
                   </Text>
                 </View>
-                <Text style={styles.duration}>
-                  1giờ {movies[currentMovieIndex].duration}phút
-                </Text>
-                <Text style={styles.releaseDate}>
-                  {new Date(
-                    movies[currentMovieIndex].releaseDate
-                  ).toLocaleDateString("vi-VN", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </Text>
               </View>
             </View>
+            <TouchableOpacity style={styles.bookButton}>
+              <Text style={styles.bookButtonText}>Đặt Vé</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.bookButton}>
-            <Text style={styles.bookButtonText}>Đặt Vé</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
       </View>
     </ScrollView>
   );
@@ -466,7 +482,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#FFD700",
   },
   tabText: {
-    color: "#888",
+    color: "#fff",
     fontSize: 15,
     fontWeight: "500",
   },
@@ -567,7 +583,6 @@ const styles = StyleSheet.create({
   },
   // Carousel styles
   carouselSection: {
-    paddingVertical: 20,
     backgroundColor: "transparent",
     justifyContent: "center",
     overflow: "hidden",
@@ -596,24 +611,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   movieDetailsContainer: {
-    backgroundColor: "#1a1a1a",
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   movieDetailsBar: {
-    paddingVertical: 16,
-    alignItems: "center",
+    flex: 1,
+    paddingVertical: 10,
   },
   movieInfo: {
+    alignItems: "flex-start",
+    flex: 1,
+  },
+  titleRow: {
+    display: "flex",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 10,
     width: "100%",
+    marginBottom: 8,
   },
   movieTitleSmall: {
     color: "#fff",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
-    textAlign: "center",
+    textAlign: "left",
   },
   movieMeta: {
     flexDirection: "row",
@@ -632,25 +665,26 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   duration: {
-    color: "#aaa",
-    fontSize: 13,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
   },
   releaseDate: {
-    color: "#aaa",
-    fontSize: 13,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
   },
   bookButton: {
     backgroundColor: "#E50914",
-    marginTop: 4,
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 25,
     alignItems: "center",
     shadowColor: "#E50914",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   bookButtonText: {
     color: "#fff",
