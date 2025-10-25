@@ -112,40 +112,9 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
   voucherEndDate,
 }) => {
   const [form] = Form.useForm();
-  const [stackingPolicy, setStackingPolicy] = useState<string | undefined>(undefined);
   const [promotionType, setPromotionType] = useState<string | undefined>(undefined);
   const [foodCombos, setFoodCombos] = useState<IFoodCombo[]>([]);
   const [seatTypes, setSeatTypes] = useState<string[]>([]);
-  
-  // Danh sách nhóm loại trừ có sẵn - tách riêng theo loại khuyến mãi
-  const getExclusionGroups = (promotionType: string) => {
-    if (promotionType === 'item') {
-      // Nhóm promo cho khuyến mãi hàng
-      return [
-        'ticket_normal_promo',
-        'ticket_vip_promo',
-        'ticket_couple_promo',
-        'ticket_4dx_promo',
-        // Thêm các nhóm từ combo names (promo)
-        ...foodCombos
-          .filter(combo => combo.type === 'combo')
-          .map(combo => `${combo.name} promo`)
-      ];
-    } else if (promotionType === 'percent') {
-      // Nhóm discount cho khuyến mãi chiết khấu
-      return [
-        'ticket_normal_discount',
-        'ticket_vip_discount',
-        'ticket_couple_discount',
-        'ticket_4dx_discount',
-        // Thêm các nhóm từ combo names (discount)
-        ...foodCombos
-          .filter(combo => combo.type === 'combo')
-          .map(combo => `${combo.name} discount`)
-      ];
-    }
-    return [];
-  };
 
   // Bơm CSS ẩn scrollbar một lần nếu chưa có
   useEffect(() => {
@@ -202,8 +171,8 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
         startDate: dayjs(editingLine.validityPeriod.startDate),
         endDate: dayjs(editingLine.validityPeriod.endDate),
         status: editingLine.status,
-        stackingPolicy: editingLine.rule?.stackingPolicy || 'STACKABLE',
-        exclusionGroup: editingLine.rule?.exclusionGroup,
+        stackingPolicy: editingLine.rule?.stackingPolicy || 'EXCLUSIVE_WITH_GROUP',
+        exclusionGroup: editingLine.rule?.exclusionGroup || 'order-discount',
         // Voucher detail fields
         voucherDescription: detail?.description,
         pointToRedeem: detail?.pointToRedeem,
@@ -232,13 +201,17 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
         rewardType: detail?.rewardType,
         rewardDiscountPercent: detail?.rewardDiscountPercent,
       });
-      setStackingPolicy(editingLine.rule?.stackingPolicy || 'STACKABLE');
       setPromotionType(editingLine.promotionType);
     } else if (visible) {
       // Reset form khi mở form mới (không có editingLine)
       form.resetFields();
-      setStackingPolicy(undefined);
       setPromotionType(undefined);
+      
+      // Set giá trị mặc định cho các trường ẩn
+      form.setFieldsValue({
+        stackingPolicy: 'EXCLUSIVE_WITH_GROUP',
+        exclusionGroup: 'order-discount'
+      });
       
       // Set trạng thái mặc định dựa trên trạng thái voucher header
       if (voucherStatus === 'không hoạt động') {
@@ -320,7 +293,6 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
       
       onSubmit(submitData);
       form.resetFields();
-      setStackingPolicy('STACKABLE');
     } catch (error) {
       console.error('Validation failed:', error);
     }
@@ -328,7 +300,6 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
 
   const handleCancel = () => {
     form.resetFields();
-    setStackingPolicy('STACKABLE');
     setPromotionType('voucher');
     onCancel();
   };
@@ -391,25 +362,15 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
             placeholder="Chọn kiểu khuyến mãi"
             onChange={(value) => {
               setPromotionType(value);
-              // Nếu chọn voucher thì tự động set quy tắc áp dụng là "Độc quyền" và khóa trường
-              if (value === 'voucher') {
-                form.setFieldValue('stackingPolicy', 'EXCLUSIVE');
-                setStackingPolicy('EXCLUSIVE');
-              } else if (value === 'amount') {
+              // Tự động set giá trị mặc định cho các trường ẩn
+              if (value === 'amount') {
                 // Nếu chọn khuyến mãi tiền thì tự động set "Loại trừ theo nhóm" và "order-discount"
                 form.setFieldValue('stackingPolicy', 'EXCLUSIVE_WITH_GROUP');
                 form.setFieldValue('exclusionGroup', 'order-discount');
-                setStackingPolicy('EXCLUSIVE_WITH_GROUP');
-              } else if (value === 'item') {
-                // Nếu chọn khuyến mãi hàng thì reset để người dùng chọn (chỉ có 2 quy tắc)
-                setStackingPolicy(undefined);
-                form.setFieldValue('stackingPolicy', undefined);
-                form.setFieldValue('exclusionGroup', undefined);
               } else {
-                // Nếu chọn kiểu khác thì reset về undefined để người dùng có thể chọn
-                setStackingPolicy(undefined);
-                form.setFieldValue('stackingPolicy', undefined);
-                form.setFieldValue('exclusionGroup', undefined);
+                // Các loại khác cũng set giá trị mặc định
+                form.setFieldValue('stackingPolicy', 'EXCLUSIVE_WITH_GROUP');
+                form.setFieldValue('exclusionGroup', 'order-discount');
               }
             }}
           >
@@ -546,41 +507,22 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
         </Form.Item>
 
 
+        {/* Ẩn các trường quy tắc áp dụng và nhóm loại trừ nhưng vẫn lưu dữ liệu mặc định */}
         <Form.Item
           name="stackingPolicy"
-          label="Quy tắc áp dụng"
-          rules={[{ required: true, message: 'Vui lòng chọn quy tắc áp dụng!' }]}
+          hidden
+          initialValue="EXCLUSIVE_WITH_GROUP"
         >
-          <Select 
-            placeholder="Chọn quy tắc"
-            disabled={promotionType === 'voucher' || promotionType === 'amount'}
-            onChange={(value) => setStackingPolicy(value)}
-          >
-            {promotionType !== 'percent' && <Option value="STACKABLE">Cộng dồn</Option>}
-            {promotionType !== 'item' && promotionType !== 'percent' && <Option value="EXCLUSIVE">Độc quyền</Option>}
-            <Option value="EXCLUSIVE_WITH_GROUP">Loại trừ theo nhóm</Option>
-          </Select>
+          <input type="hidden" />
         </Form.Item>
 
-        {stackingPolicy === 'EXCLUSIVE_WITH_GROUP' && (
-          <Form.Item
-            name="exclusionGroup"
-            label="Nhóm loại trừ"
-            rules={[{ required: true, message: 'Vui lòng chọn hoặc nhập nhóm loại trừ!' }]}
-          >
-            <Select
-              placeholder="Chọn nhóm loại trừ"
-              disabled={promotionType === 'amount'}
-              options={getExclusionGroups(promotionType || '').map(group => ({ value: group, label: group }))}
-              style={{ width: '100%' }}
-              onChange={() => {
-                // Reset buyItem khi thay đổi nhóm loại trừ
-                form.setFieldValue('buyItem', undefined);
-                form.setFieldValue('comboId', undefined);
-              }}
-            />
-          </Form.Item>
-        )}
+        <Form.Item
+          name="exclusionGroup"
+          hidden
+          initialValue="order-discount"
+        >
+          <input type="hidden" />
+        </Form.Item>
 
         {/* Chi tiết cho voucher */}
         {promotionType && promotionType === 'voucher' && (

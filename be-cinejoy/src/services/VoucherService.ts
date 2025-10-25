@@ -281,16 +281,36 @@ export default class VoucherService {
           currentVoucher.lines && 
           currentVoucher.lines.length > 0) {
         
-        // Cập nhật tất cả các line thành "không hoạt động"
+        // Lưu trạng thái ban đầu và cập nhật tất cả các line thành "không hoạt động"
         const updatedLines = currentVoucher.lines.map((line: any) => ({
           ...line.toObject(),
+          originalStatus: line.status, // Lưu trạng thái ban đầu
           status: 'không hoạt động'
         }));
         
         // Thêm lines đã cập nhật vào data
         data.lines = updatedLines;
         
-        console.log(`✅ Updating voucher ${id} header and all ${updatedLines.length} lines to 'không hoạt động'`);
+        console.log(`✅ Updating voucher ${id} header and all ${updatedLines.length} lines to 'không hoạt động' (saved original status)`);
+      }
+      
+      // Nếu trạng thái header thay đổi từ "không hoạt động" về "hoạt động", khôi phục trạng thái ban đầu của các line
+      if (data.status === 'hoạt động' && 
+          oldStatus === 'không hoạt động' && 
+          currentVoucher.lines && 
+          currentVoucher.lines.length > 0) {
+        
+        // Khôi phục trạng thái ban đầu của các line
+        const restoredLines = currentVoucher.lines.map((line: any) => ({
+          ...line.toObject(),
+          status: line.originalStatus || 'hoạt động', // Khôi phục trạng thái ban đầu, mặc định là "hoạt động"
+          originalStatus: undefined // Xóa trạng thái ban đầu đã lưu
+        }));
+        
+        // Thêm lines đã khôi phục vào data
+        data.lines = restoredLines;
+        
+        console.log(`✅ Restoring voucher ${id} header to 'hoạt động' and all ${restoredLines.length} lines to their original status`);
       }
       
       // Cập nhật voucher header với lines đã được cập nhật (nếu có)
@@ -307,7 +327,17 @@ export default class VoucherService {
     }
   }
 
-  deleteVoucher(id: string): Promise<IVoucher | null> {
+  async deleteVoucher(id: string): Promise<IVoucher | null> {
+    const voucher = await Voucher.findById(id);
+    if (!voucher) {
+      throw new Error('Voucher not found');
+    }
+    
+    // Kiểm tra nếu voucher đang hoạt động thì không cho phép xóa
+    if (voucher.status === 'hoạt động') {
+      throw new Error('Không thể xóa voucher đang hoạt động. Vui lòng thay đổi trạng thái thành "không hoạt động" trước khi xóa.');
+    }
+    
     return Voucher.findByIdAndDelete(id);
   }
 
@@ -438,6 +468,7 @@ export default class VoucherService {
         endDate: lineData.endDate,
       },
       status: lineData.status,
+      originalStatus: lineData.status, // Lưu trạng thái ban đầu khi tạo mới
       detail: detail,
       rule: lineData.rule,
       code: promotionLineCode // Tự động tạo mã code 10 số
@@ -546,6 +577,7 @@ export default class VoucherService {
         endDate: lineData.endDate,
       },
       status: finalStatus as 'hoạt động' | 'không hoạt động',
+      originalStatus: lineData.status, // Cập nhật originalStatus khi admin thay đổi
       detail: detail,
       rule: lineData.rule
     };
@@ -561,6 +593,12 @@ export default class VoucherService {
 
     if (!Array.isArray(voucher.lines) || lineIndex < 0 || lineIndex >= voucher.lines.length) {
       throw new Error("Line không tồn tại");
+    }
+
+    // Kiểm tra nếu line đang hoạt động thì không cho phép xóa
+    const lineToDelete = voucher.lines[lineIndex];
+    if (lineToDelete.status === 'hoạt động') {
+      throw new Error('Không thể xóa line đang hoạt động. Vui lòng thay đổi trạng thái thành "không hoạt động" trước khi xóa.');
     }
 
     // Xóa line tại index

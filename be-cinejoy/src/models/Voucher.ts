@@ -81,6 +81,7 @@ export interface IPromotionLine {
         endDate: Date;
     };
     status: "hoạt động" | "không hoạt động";
+    originalStatus?: "hoạt động" | "không hoạt động"; // Lưu trạng thái ban đầu để khôi phục
     detail: PromotionDetail;
     rule?: {
         stackingPolicy: 'STACKABLE' | 'EXCLUSIVE' | 'EXCLUSIVE_WITH_GROUP';
@@ -137,6 +138,7 @@ const PromotionLineSchema = new Schema<IPromotionLine>({
         endDate: { type: Date, required: true },
     },
     status: { type: String, enum: ["hoạt động", "không hoạt động"], default: "hoạt động" },
+    originalStatus: { type: String, enum: ["hoạt động", "không hoạt động"] }, // Lưu trạng thái ban đầu
     // detail là union, dùng oneOf theo promotionType
     detail: { type: Schema.Types.Mixed, required: true },
     rule: {

@@ -27,10 +27,13 @@ class PriceListService {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    end.setHours(0, 0, 0, 0); // Reset về đầu ngày để so sánh chính xác
 
+    // Nếu ngày kết thúc < ngày hiện tại → expired
     if (end < today) return 'expired';
-    if (start <= today && today <= end) return 'active';
+    // Nếu ngày hiện tại >= ngày bắt đầu và ngày hiện tại <= ngày kết thúc → active
+    if (today >= start && today <= end) return 'active';
+    // Còn lại → scheduled
     return 'scheduled';
   }
 
@@ -62,13 +65,17 @@ class PriceListService {
 
   // Lấy bảng giá hiện tại (active)
   async getCurrentPriceList(): Promise<IPriceList | null> {
-    const now = new Date();
-    const pl = await PriceList.findOne({
-      startDate: { $lte: now },
-      endDate: { $gte: now }
-    });
-    if (!pl) return null;
-    return await this.syncStatusIfNeeded(pl);
+    // Lấy tất cả bảng giá và kiểm tra trạng thái bằng logic computeStatusByDate
+    const allPriceLists = await PriceList.find().sort({ startDate: -1 });
+    
+    for (const priceList of allPriceLists) {
+      const status = this.computeStatusByDate(priceList.startDate, priceList.endDate);
+      if (status === 'active') {
+        return await this.syncStatusIfNeeded(priceList);
+      }
+    }
+    
+    return null;
   }
 
   // Kiểm tra mã bảng giá có tồn tại không

@@ -517,21 +517,23 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     >
                       Sửa
                     </Button>
-                    <Popconfirm
-                      title="Xóa chi tiết khuyến mãi"
-                      description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
-                      onConfirm={() => handleDeleteLine(startIdx + index)}
-                      okText="Có"
-                      cancelText="Không"
-                    >
-                      <Button 
-                        type="primary" 
-                        danger
-                        size="small"
+                    {record.status !== 'hoạt động' && (
+                      <Popconfirm
+                        title="Xóa chi tiết khuyến mãi"
+                        description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
+                        onConfirm={() => handleDeleteLine(startIdx + index)}
+                        okText="Có"
+                        cancelText="Không"
                       >
-                        Xóa
-                      </Button>
-                    </Popconfirm>
+                        <Button 
+                          type="primary" 
+                          danger
+                          size="small"
+                        >
+                          Xóa
+                        </Button>
+                      </Popconfirm>
+                    )}
                   </div>
                 )
               }
