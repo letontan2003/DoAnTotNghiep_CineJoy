@@ -14,6 +14,7 @@ import {
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
+import Fontisto from '@expo/vector-icons/Fontisto';
 import banner1 from "assets/banner1.png";
 import banner2 from "assets/banner2.jpg";
 import banner3 from "assets/banner3.png";
@@ -21,6 +22,7 @@ import banner4 from "assets/banner4.png";
 import banner5 from "assets/banner5.jpg";
 import bannerBG from "assets/bannerBG.png";
 import backgroundImage from "assets/background.jpg";
+import logo from "assets/logoCNJ.png";
 import icon from "assets/iconHome.png";
 
 const { width, height } = Dimensions.get("window");
@@ -134,12 +136,12 @@ const HomeScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.logoContainer}>
-              <Text style={styles.logo}>CNJ</Text>
+              <Image source={logo} style={styles.logoImage} />
             </View>
 
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.headerIcon}>
-                <Text style={styles.headerIconText}>🎫</Text>
+                <Fontisto name="ticket-alt" size={22} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.headerIcon}>
                 <Text style={styles.headerIconText}>☰</Text>
@@ -301,6 +303,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#000014",
     paddingHorizontal: 16,
+    paddingBottom: 10,
+    height: 80,
   },
   headerContent: {
     flexDirection: "row",
@@ -311,8 +315,8 @@ const styles = StyleSheet.create({
     padding: 7,
   },
    headerIconImage: {
-     width: 30,
-     height: 30,
+     width: 26,
+     height: 26,
      borderRadius: 15,
      resizeMode: 'cover',
    },
@@ -323,6 +327,11 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+    resizeMode: "contain",
   },
   logo: {
     fontSize: 28,
@@ -338,6 +347,7 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   carouselContainer: {
@@ -348,8 +358,8 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   banner: {
-    width: width - 60,
-    marginHorizontal: 30,
+    width: width - 70,
+    marginHorizontal: 35,
     borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",

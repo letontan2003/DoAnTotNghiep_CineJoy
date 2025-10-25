@@ -9,7 +9,7 @@ const Stack = createStackNavigator();
 export default function App() {
   return (
     <SafeAreaProvider >
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#000000" }} edges={['bottom']}>
         <NavigationContainer>
           <Stack.Navigator
             initialRouteName="HomeScreen"
