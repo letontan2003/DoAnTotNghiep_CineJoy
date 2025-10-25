@@ -10,6 +10,7 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
+  Animated,
 } from "react-native";
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
@@ -35,8 +36,11 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(false);
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
   const [currentPromotionalPage, setCurrentPromotionalPage] = useState(0);
+  const [isStickyHeader, setIsStickyHeader] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const headerOpacity = useRef(new Animated.Value(1)).current; // Opacity cho header
 
   // Promotional items data
   const promotionalItems = [
@@ -77,6 +81,30 @@ const HomeScreen = () => {
   ];
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
+
+  // Hàm xử lý scroll để detect sticky header
+  const handleMainScroll = (event: any) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    const bannerHeight = 179; // Chiều cao của banner section
+    const stickyThreshold = bannerHeight; // Khi tabs đụng header
+    
+    // Tính toán opacity dựa trên scroll position
+    // Bắt đầu mờ từ scrollY = 0, hoàn thành khi tabs đụng header (179px)
+    const opacityValue = Math.max(0, Math.min(1, scrollY / stickyThreshold));
+    
+    // Animate opacity
+    Animated.timing(headerOpacity, {
+      toValue: 1 - opacityValue,
+      duration: 0,
+      useNativeDriver: false,
+    }).start();
+    
+    if (scrollY >= stickyThreshold) {
+      setIsStickyHeader(true);
+    } else {
+      setIsStickyHeader(false);
+    }
+  };
 
   // Hàm xử lý scroll promotional carousel khi click pagination
   const handlePromotionalPageChange = (pageIndex: number) => {
@@ -169,32 +197,119 @@ const HomeScreen = () => {
         translucent
       />
 
-      {/* Header - CỐ ĐỊNH */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Image source={icon} style={styles.headerIconImage} />
-          </TouchableOpacity>
-
-          <View style={styles.logoContainer}>
-            <Image source={logo} style={styles.logoImage} />
-          </View>
-
-          <View style={styles.headerRight}>
+      {/* Sticky Header - chỉ có header */}
+      <View style={[
+        styles.stickyHeaderContainer,
+        isStickyHeader && styles.stickyHeaderActive
+      ]}>
+        {/* Header */}
+        <Animated.View style={[
+          styles.header,
+          isStickyHeader && styles.headerSticky,
+          { opacity: headerOpacity }
+        ]}>
+          <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
-              <Fontisto name="ticket-alt" size={22} color="#fff" />
+              <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>☰</Text>
-            </TouchableOpacity>
+
+            <View style={styles.logoContainer}>
+              <Image 
+                source={logo} 
+                style={[
+                  styles.logoImage,
+                  isStickyHeader && styles.logoImageSticky
+                ]} 
+              />
+            </View>
+
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Fontisto 
+                  name="ticket-alt" 
+                  size={22} 
+                  color={isStickyHeader ? "#E50914" : "#fff"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Text style={[
+                  styles.headerIconText,
+                  isStickyHeader && styles.headerIconTextSticky
+                ]}>☰</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </Animated.View>
+
+        {/* White background layer for fade effect */}
+        <Animated.View style={[
+          styles.headerWhiteLayer,
+          { opacity: Animated.subtract(1, headerOpacity) }
+        ]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Image source={icon} style={styles.headerIconImage} />
+            </TouchableOpacity>
+
+            <View style={styles.logoContainer}>
+              <Image 
+                source={logo} 
+                style={[
+                  styles.logoImage,
+                  styles.logoImageSticky
+                ]} 
+              />
+            </View>
+
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Fontisto 
+                  name="ticket-alt" 
+                  size={22} 
+                  color="#E50914"
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Text style={[
+                  styles.headerIconText,
+                  styles.headerIconTextSticky
+                ]}>☰</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Sticky Tabs - chỉ hiển thị khi sticky */}
+        {isStickyHeader && (
+          <View style={styles.tabsContainerSticky}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab]}
+                onPress={() => setSelectedTab(tab)}
+              >
+                <Text
+                  style={[
+                    styles.tabTextSticky,
+                    selectedTab === tab && styles.activeTabTextSticky,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       <ScrollView 
+        ref={scrollViewRef}
         style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         bounces={true}
+        onScroll={handleMainScroll}
+        scrollEventThrottle={16}
       >
         {/* Banner Section - SCROLL */}
         <View style={styles.bannerSection}>
@@ -246,27 +361,27 @@ const HomeScreen = () => {
           resizeMode="cover"
         />
         
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs - ban đầu nằm trong scroll */}
         <View style={styles.tabsContainer}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab]}
-            onPress={() => setSelectedTab(tab)}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                selectedTab === tab && styles.activeTabText,
-              ]}
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab]}
+              onPress={() => setSelectedTab(tab)}
             >
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Movies Carousel Section */}
+              <Text
+                style={[
+                  styles.tabText,
+                  selectedTab === tab && styles.activeTabText,
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Movies Carousel Section */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fff" />
@@ -418,6 +533,58 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
   },
+  scrollContentContainer: {
+    paddingTop: 90, // Chiều cao của header
+    paddingBottom: 20, // Thêm padding bottom để scroll hết nội dung
+    flexGrow: 1, // Đảm bảo ScrollView có đủ không gian
+  },
+  // Sticky Header styles
+  stickyHeaderContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    backgroundColor: "transparent",
+  },
+  stickyHeaderActive: {
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  headerSticky: {
+    backgroundColor: "#fff",
+  },
+  headerWhiteLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    paddingHorizontal: 6,
+    paddingTop: 10,
+    height: 90,
+  },
+  tabsContainerSticky: {
+    backgroundColor: "#333",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+  },
+  tabTextSticky: {
+    color: "#ccc",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  activeTabTextSticky: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 17,
+  },
   bannerSection: {
     position: "relative",
     width: "100%",
@@ -470,6 +637,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#fff",
   },
+  headerIconTextSticky: {
+    color: "#E50914",
+  },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -479,6 +649,9 @@ const styles = StyleSheet.create({
     height: 100,
     marginLeft: 25,
     resizeMode: "contain",
+  },
+  logoImageSticky: {
+    tintColor: "#E50914",
   },
   logo: {
     fontSize: 28,
