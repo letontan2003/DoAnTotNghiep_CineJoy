@@ -14,7 +14,12 @@ import {
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
-import banner from "assets/banner.png";
+import banner1 from "assets/banner1.png";
+import banner2 from "assets/banner2.jpg";
+import banner3 from "assets/banner3.png";
+import banner4 from "assets/banner4.png";
+import banner5 from "assets/banner5.jpg";
+import bannerBG from "assets/bannerBG.png";
 import backgroundImage from "assets/background.jpg";
 
 const { width, height } = Dimensions.get("window");
@@ -51,7 +56,7 @@ const HomeScreen = () => {
     "Sắp chiếu": "Phim sắp chiếu",
   };
 
-  const banners = [banner, banner, banner];
+  const banners = [banner1, banner2, banner3, banner4, banner5];
 
   // Hàm fetch movies theo status
   const fetchMovies = async (status: string) => {
@@ -116,63 +121,68 @@ const HomeScreen = () => {
         translucent
       />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Text style={styles.headerIconText}>🎬</Text>
-          </TouchableOpacity>
-
-          <View style={styles.logoContainer}>
-            <Text style={styles.logo}>CNJ</Text>
-          </View>
-
-          <View style={styles.headerRight}>
+      {/* Header và Banner Section với background chung */}
+      <View style={styles.headerBannerSection}>
+        <Image source={bannerBG} style={styles.headerBannerBackground} />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>🎫</Text>
+              <Text style={styles.headerIconText}>🎬</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>☰</Text>
-            </TouchableOpacity>
+
+            <View style={styles.logoContainer}>
+              <Text style={styles.logo}>CNJ</Text>
+            </View>
+
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Text style={styles.headerIconText}>🎫</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerIcon}>
+                <Text style={styles.headerIconText}>☰</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Banner Carousel */}
-      <View style={styles.carouselContainer}>
-        <FlatList
-          ref={flatListRef}
-          data={banners}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.flatListContent}
-          onMomentumScrollEnd={handleScroll}
-          renderItem={({ item }) => (
-            <View style={styles.banner}>
-              <Image source={item} style={styles.bannerImage} />
-            </View>
-          )}
-          keyExtractor={(item, index) => index.toString()}
-        />
+        {/* Banner Carousel */}
+        <View style={styles.carouselContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={banners}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.flatListContent}
+            onMomentumScrollEnd={handleScroll}
+            renderItem={({ item }) => (
+              <View style={styles.banner}>
+                <Image source={item} style={styles.bannerImage} />
+              </View>
+            )}
+            keyExtractor={(item, index) => index.toString()}
+          />
 
-        {/* Pagination Dots */}
-        <View style={styles.pagination}>
-          {banners.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.dot,
-                currentBannerIndex === index && styles.activeDot,
-              ]}
-              onPress={() => {
-                setCurrentBannerIndex(index);
-                flatListRef.current?.scrollToIndex({ index, animated: true });
-                setIsAutoPlaying(false);
-                setTimeout(() => setIsAutoPlaying(true), 3000);
-              }}
-            />
-          ))}
+          {/* Pagination Dots */}
+          <View style={styles.pagination}>
+            {banners.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dot,
+                  currentBannerIndex === index && styles.activeDot,
+                ]}
+                onPress={() => {
+                  setCurrentBannerIndex(index);
+                  flatListRef.current?.scrollToIndex({ index, animated: true });
+                  setIsAutoPlaying(false);
+                  setTimeout(() => setIsAutoPlaying(true), 3000);
+                }}
+              />
+            ))}
+          </View>
         </View>
       </View>
 
@@ -189,7 +199,7 @@ const HomeScreen = () => {
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab}
-            style={[styles.tab, selectedTab === tab && styles.activeTab]}
+            style={[styles.tab]}
             onPress={() => setSelectedTab(tab)}
           >
             <Text
@@ -273,8 +283,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1a1a1a",
   },
+  headerBannerSection: {
+    position: "relative",
+    width: "100%",
+  },
+  headerBannerBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
   header: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#000014",
     paddingHorizontal: 16,
   },
   headerContent: {
@@ -283,7 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerIcon: {
-    padding: 8,
+    padding: 7,
   },
   headerIconText: {
     fontSize: 24,
@@ -296,7 +320,7 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#E50914",
+    color: "#ffffff",
     letterSpacing: 2,
   },
   star: {
@@ -307,7 +331,7 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: "row",
-    gap: 8,
+    gap: 4,
   },
   carouselContainer: {
     marginVertical: 8,
@@ -317,12 +341,10 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   banner: {
-    width: width - 32,
+    width: width -32,
     marginHorizontal: 16,
-    marginBottom: 0,
     borderRadius: 16,
     overflow: "hidden",
-    elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -332,7 +354,6 @@ const styles = StyleSheet.create({
   bannerHeader: {
     flexDirection: "row",
     alignItems: "center",
-    // marginBottom: 8,
   },
   bannerLogo: {
     paddingHorizontal: 12,
@@ -400,7 +421,10 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: "100%",
-    height: 150,
+    height: 160,
+    alignSelf: "center",
+    borderRadius: 16,
+    marginHorizontal: 16,
     resizeMode: "cover",
     marginBottom: 8,
   },
@@ -466,24 +490,20 @@ const styles = StyleSheet.create({
   tabsContainer: {
     width: "100%",
     flexDirection: "row",
-    justifyContent: "center",
-    backgroundColor: "#1a1a1a",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: "space-between",
+    backgroundColor: "transparent",
+    paddingHorizontal: 5,
+    paddingVertical: 5,
     borderBottomWidth: 0,
   },
   tab: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    marginHorizontal: 8,
-  },
-  activeTab: {
-    borderBottomWidth: 3,
-    borderBottomColor: "#FFD700",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginHorizontal: 0,
   },
   tabText: {
-    color: "#fff",
-    fontSize: 15,
+    color: "#888",
+    fontSize: 16,
     fontWeight: "500",
   },
   activeTabText: {
@@ -614,7 +634,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     paddingHorizontal: 10,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
@@ -634,19 +653,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleRow: {
-    display: "flex",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: 10,
-    width: "100%",
     marginBottom: 8,
+    flex: 1,
+    marginRight: 10,
+    gap: 10,
   },
   movieTitleSmall: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
     textAlign: "left",
+    flexShrink: 1,
   },
   movieMeta: {
     flexDirection: "row",
@@ -658,6 +678,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
   },
   ratingText: {
     color: "#fff",
@@ -685,6 +706,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    flexShrink: 0,
   },
   bookButtonText: {
     color: "#fff",
