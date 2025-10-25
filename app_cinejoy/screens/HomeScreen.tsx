@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: "#000014",
-    paddingHorizontal: 16,
+    paddingHorizontal: 6,
     paddingBottom: 10,
     height: 80,
   },
@@ -331,6 +331,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 100,
     height: 100,
+    marginLeft: 25,
     resizeMode: "contain",
   },
   logo: {
@@ -348,7 +349,6 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
   carouselContainer: {
     marginVertical: 8,
