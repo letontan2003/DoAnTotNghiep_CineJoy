@@ -2,6 +2,7 @@ import { Voucher, IVoucher } from "../models/Voucher";
 import Order from "../models/Order";
 import { UserVoucher } from "../models/UserVoucher";
 import { Types } from "mongoose";
+import mongoose from "mongoose";
 import { User } from "../models/User";
 import SeatService from "./SeatService";
 
@@ -260,8 +261,50 @@ export default class VoucherService {
     }
   }
 
-  updateVoucher(id: string, data: Partial<IVoucher>): Promise<IVoucher | null> {
-    return Voucher.findByIdAndUpdate(id, data, { new: true });
+  async updateVoucher(id: string, data: Partial<IVoucher>): Promise<IVoucher | null> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      // Lấy voucher hiện tại để kiểm tra trạng thái cũ và lấy lines
+      const currentVoucher = await Voucher.findById(id).session(session);
+      if (!currentVoucher) {
+        throw new Error('Voucher not found');
+      }
+      
+      // Lưu trạng thái cũ để so sánh
+      const oldStatus = currentVoucher.status;
+      
+      // Nếu trạng thái header thay đổi thành "không hoạt động", cập nhật tất cả các line
+      if (data.status === 'không hoạt động' && 
+          oldStatus !== 'không hoạt động' && 
+          currentVoucher.lines && 
+          currentVoucher.lines.length > 0) {
+        
+        // Cập nhật tất cả các line thành "không hoạt động"
+        const updatedLines = currentVoucher.lines.map((line: any) => ({
+          ...line.toObject(),
+          status: 'không hoạt động'
+        }));
+        
+        // Thêm lines đã cập nhật vào data
+        data.lines = updatedLines;
+        
+        console.log(`✅ Updating voucher ${id} header and all ${updatedLines.length} lines to 'không hoạt động'`);
+      }
+      
+      // Cập nhật voucher header với lines đã được cập nhật (nếu có)
+      const updatedVoucher = await Voucher.findByIdAndUpdate(id, data, { new: true, session });
+      
+      await session.commitTransaction();
+      return updatedVoucher;
+    } catch (error) {
+      await session.abortTransaction();
+      console.error('Error updating voucher:', error);
+      throw error;
+    } finally {
+      session.endSession();
+    }
   }
 
   deleteVoucher(id: string): Promise<IVoucher | null> {
@@ -413,6 +456,11 @@ export default class VoucherService {
 
     if (!Array.isArray(voucher.lines) || lineIndex < 0 || lineIndex >= voucher.lines.length) {
       throw new Error("Line không tồn tại");
+    }
+
+    // Kiểm tra nếu voucher header là "không hoạt động" thì không cho phép line thành "hoạt động"
+    if (voucher.status === 'không hoạt động' && lineData.status === 'hoạt động') {
+      throw new Error('Không thể đặt trạng thái "hoạt động" cho line khi voucher header đang "không hoạt động"');
     }
 
     // Validate seat types if applicable

@@ -1029,13 +1029,17 @@ const updateVoucherStatuses = async (vouchers: IVoucher[]) => {
     // Kiểm tra xem ngày hiện tại có nằm trong khoảng thời gian của voucher không
     const isCurrentlyActive = today.isAfter(startDate.startOf('day')) && today.isBefore(endDate.endOf('day'));
     
-      // Xác định trạng thái mới dựa trên ngày hiện tại
-      let newStatus: 'hoạt động' | 'không hoạt động';
-      if (isCurrentlyActive) {
-        newStatus = 'hoạt động';
-      } else {
-        newStatus = 'không hoạt động';
-      }
+    // Chỉ tự động cập nhật thành "không hoạt động" nếu ngày hiện tại nằm ngoài khoảng thời gian
+    // Nếu ngày hiện tại nằm trong khoảng thời gian, giữ nguyên trạng thái hiện tại (cho phép người dùng sửa)
+    let newStatus: 'hoạt động' | 'không hoạt động';
+    
+    if (!isCurrentlyActive) {
+      // Ngày hiện tại nằm ngoài khoảng thời gian → tự động đổi thành "không hoạt động"
+      newStatus = 'không hoạt động';
+    } else {
+      // Ngày hiện tại nằm trong khoảng thời gian → giữ nguyên trạng thái hiện tại
+      newStatus = voucher.status;
+    }
     
     // Nếu trạng thái khác với trạng thái hiện tại, thêm vào danh sách cập nhật
     if (voucher.status !== newStatus) {

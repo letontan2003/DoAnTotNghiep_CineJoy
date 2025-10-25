@@ -332,6 +332,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
     }
   };
 
+
   if (loading) {
     const spinner = (
       <div className="min-h-[50vh] flex items-center justify-center">

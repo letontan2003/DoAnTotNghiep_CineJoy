@@ -523,13 +523,24 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
         <Form.Item
           name="status"
           label="Trạng thái"
-          rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
+          rules={[
+            { required: true, message: 'Vui lòng chọn trạng thái!' },
+            {
+              validator: (_, value) => {
+                // Nếu voucher header là "không hoạt động" thì không cho phép line thành "hoạt động"
+                if (voucherStatus === 'không hoạt động' && value === 'hoạt động') {
+                  return Promise.reject(new Error('Không thể đặt trạng thái "hoạt động" khi voucher header đang "không hoạt động"'));
+                }
+                return Promise.resolve();
+              }
+            }
+          ]}
         >
           <Select 
             placeholder="Chọn trạng thái"
             disabled={voucherStatus === 'không hoạt động'}
           >
-            <Option value="hoạt động">Hoạt động</Option>
+            <Option value="hoạt động" disabled={voucherStatus === 'không hoạt động'}>Hoạt động</Option>
             <Option value="không hoạt động">Không hoạt động</Option>
           </Select>
         </Form.Item>

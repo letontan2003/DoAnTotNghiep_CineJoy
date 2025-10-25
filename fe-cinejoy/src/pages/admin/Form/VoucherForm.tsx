@@ -74,9 +74,9 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                 status: voucher.status || 'hoạt động',
                 description: voucher.description || '',
             });
-            setStatusLocked(true); // Khóa trạng thái khi edit
+            setStatusLocked(false); // Không khóa trạng thái khi edit
         } else {
-            setStatusLocked(true); // Khóa trạng thái cả khi thêm mới
+            setStatusLocked(false); // Không khóa trạng thái khi thêm mới
             // Tự động cập nhật trạng thái ban đầu cho form thêm mới
             const today = dayjs();
             form.setFieldValue('status', 'không hoạt động'); // Mặc định là không hoạt động
