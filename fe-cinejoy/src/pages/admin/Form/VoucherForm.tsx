@@ -78,7 +78,6 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
         } else {
             setStatusLocked(false); // Không khóa trạng thái khi thêm mới
             // Tự động cập nhật trạng thái ban đầu cho form thêm mới
-            const today = dayjs();
             form.setFieldValue('status', 'không hoạt động'); // Mặc định là không hoạt động
         }
     }, [voucher, form]);
@@ -110,23 +109,61 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
         }
     };
 
-    // Kiểm tra trùng lặp khoảng thời gian
-    const checkDateOverlap = (startDate: dayjs.Dayjs, endDate: dayjs.Dayjs): boolean => {
-        if (!startDate || !endDate) return false;
-        
-        const currentStart = startDate.startOf('day');
-        const currentEnd = endDate.endOf('day');
-        
-        return existingVouchers.some(existingVoucher => {
-            // Bỏ qua voucher hiện tại khi edit
-            if (voucher && existingVoucher._id === voucher._id) return false;
-            
-            const existingStart = dayjs(existingVoucher.startDate).startOf('day');
-            const existingEnd = dayjs(existingVoucher.endDate).endOf('day');
-            
-            // Kiểm tra trùng lặp: (start1 <= end2) && (start2 <= end1)
-            return (currentStart.isSameOrBefore(existingEnd) && currentEnd.isSameOrAfter(existingStart));
+
+    // Kiểm tra ràng buộc riêng cho ngày bắt đầu
+    const validateStartDateWithLines = (startDate: dayjs.Dayjs): { isValid: boolean; message?: string } => {
+        if (!voucher || !voucher.lines || voucher.lines.length === 0) {
+            return { isValid: true };
+        }
+
+        const lines = voucher.lines;
+        let minLineStart = dayjs(lines[0].validityPeriod.startDate);
+
+        // Tìm ngày bắt đầu sớm nhất trong các line
+        lines.forEach(line => {
+            const lineStart = dayjs(line.validityPeriod.startDate);
+            if (lineStart.isBefore(minLineStart)) {
+                minLineStart = lineStart;
+            }
         });
+
+        // Kiểm tra ràng buộc
+        if (startDate.isAfter(minLineStart.startOf('day'))) {
+            return {
+                isValid: false,
+                message: `Phải trước hoặc bằng ngày bắt đầu sớm nhất: ${minLineStart.format('DD/MM/YYYY')}`
+            };
+        }
+
+        return { isValid: true };
+    };
+
+    // Kiểm tra ràng buộc riêng cho ngày kết thúc
+    const validateEndDateWithLines = (endDate: dayjs.Dayjs): { isValid: boolean; message?: string } => {
+        if (!voucher || !voucher.lines || voucher.lines.length === 0) {
+            return { isValid: true };
+        }
+
+        const lines = voucher.lines;
+        let maxLineEnd = dayjs(lines[0].validityPeriod.endDate);
+
+        // Tìm ngày kết thúc muộn nhất trong các line
+        lines.forEach(line => {
+            const lineEnd = dayjs(line.validityPeriod.endDate);
+            if (lineEnd.isAfter(maxLineEnd)) {
+                maxLineEnd = lineEnd;
+            }
+        });
+
+        // Kiểm tra ràng buộc
+        if (endDate.isBefore(maxLineEnd.endOf('day'))) {
+            return {
+                isValid: false,
+                message: `Phải sau hoặc bằng ngày kết thúc trễ nhất: ${maxLineEnd.format('DD/MM/YYYY')}`
+            };
+        }
+
+        return { isValid: true };
     };
 
     // Kiểm tra ngày có bị trùng lặp không
@@ -192,7 +229,7 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                 form={form}
                 layout="vertical"
                 onFinish={handleSubmit}
-                autoComplete="off"khi mới
+                autoComplete="off"
             >
                 {/* 1.1 Mã khuyến mãi */}
                 <Form.Item
@@ -243,7 +280,20 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                         name="startDate"
                         label="Ngày bắt đầu"
                         rules={[
-                            { required: true, message: 'Vui lòng chọn ngày bắt đầu!' }
+                            { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
+                            () => ({
+                                validator(_, value) {
+                                    if (!value) return Promise.resolve();
+                                    
+                                    // Kiểm tra ràng buộc riêng cho ngày bắt đầu
+                                    const validation = validateStartDateWithLines(value);
+                                    if (!validation.isValid) {
+                                        return Promise.reject(new Error(validation.message));
+                                    }
+                                    
+                                    return Promise.resolve();
+                                },
+                            }),
                         ]}
                     >
                         <DatePicker
@@ -261,6 +311,9 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                             onChange={(date) => {
                                 const endDate = form.getFieldValue('endDate');
                                 updateStatusBasedOnDates(date, endDate);
+                                
+                                // Trigger validation cho chính trường này
+                                form.validateFields(['startDate']);
                             }}
                         />
                     </Form.Item>
@@ -277,6 +330,11 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                                         return Promise.resolve();
                                     }
                                     if (value.isSame(startDate, 'day') || value.isAfter(startDate)) {
+                                        // Kiểm tra ràng buộc riêng cho ngày kết thúc
+                                        const validation = validateEndDateWithLines(value);
+                                        if (!validation.isValid) {
+                                            return Promise.reject(new Error(validation.message));
+                                        }
                                         return Promise.resolve();
                                     }
                                     return Promise.reject(new Error('Ngày kết thúc không được trước ngày bắt đầu!'));
@@ -302,6 +360,9 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
                             onChange={(date) => {
                                 const startDate = form.getFieldValue('startDate');
                                 updateStatusBasedOnDates(startDate, date);
+                                
+                                // Trigger validation cho chính trường này
+                                form.validateFields(['endDate']);
                             }}
                         />
                     </Form.Item>

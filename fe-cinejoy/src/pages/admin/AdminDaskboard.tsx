@@ -1031,15 +1031,15 @@ const updateVoucherStatuses = async (vouchers: IVoucher[]) => {
     
     // Chỉ tự động cập nhật thành "không hoạt động" nếu ngày hiện tại nằm ngoài khoảng thời gian
     // Nếu ngày hiện tại nằm trong khoảng thời gian, giữ nguyên trạng thái hiện tại (cho phép người dùng sửa)
-    let newStatus: 'hoạt động' | 'không hoạt động';
+      let newStatus: 'hoạt động' | 'không hoạt động';
     
     if (!isCurrentlyActive) {
       // Ngày hiện tại nằm ngoài khoảng thời gian → tự động đổi thành "không hoạt động"
-      newStatus = 'không hoạt động';
+        newStatus = 'không hoạt động';
     } else {
       // Ngày hiện tại nằm trong khoảng thời gian → giữ nguyên trạng thái hiện tại
       newStatus = voucher.status;
-    }
+      }
     
     // Nếu trạng thái khác với trạng thái hiện tại, thêm vào danh sách cập nhật
     if (voucher.status !== newStatus) {
@@ -2603,24 +2603,24 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                               Sửa
                             </motion.button>
                             {voucher.status !== 'hoạt động' && (
-                              <Popconfirm
-                                title="Xóa khuyến mãi"
-                                description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
-                                onConfirm={() => handleDeleteVoucher(voucher._id!)}
-                                okText="Có"
-                                cancelText="Không"
-                                 onOpenChange={(open) => setBlockVoucherRowNavigate(open)}
-                                 onCancel={() => setBlockVoucherRowNavigate(false)}
+                            <Popconfirm
+                              title="Xóa khuyến mãi"
+                              description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
+                              onConfirm={() => handleDeleteVoucher(voucher._id!)}
+                              okText="Có"
+                              cancelText="Không"
+                               onOpenChange={(open) => setBlockVoucherRowNavigate(open)}
+                               onCancel={() => setBlockVoucherRowNavigate(false)}
+                            >
+                              <motion.button
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                               >
-                                <motion.button
-                                onClick={(e) => e.stopPropagation()}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  Xóa
-                                </motion.button>
-                              </Popconfirm>
+                                Xóa
+                              </motion.button>
+                            </Popconfirm>
                             )}
                           </div>
                       </div>
