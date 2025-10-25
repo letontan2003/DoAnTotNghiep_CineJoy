@@ -34,9 +34,58 @@ const HomeScreen = () => {
   const [movies, setMovies] = useState<IMovie[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
+  const [currentPromotionalPage, setCurrentPromotionalPage] = useState(0);
   const flatListRef = useRef<FlatList>(null);
+  const promotionalFlatListRef = useRef<FlatList>(null);
+
+  // Promotional items data
+  const promotionalItems = [
+    { id: 1, title: "THẺ QUÀ TẶNG", image: banner1 },
+    { id: 2, title: "CNJ STORE", image: banner2 },
+    { id: 3, title: "QUÀ SINH NHẬT MIỄN PHÍ", image: banner3 },
+    { id: 4, title: "SWEETBOX", image: banner1 },
+    { id: 5, title: "THUÊ RẠP VÀ VÉ NHÓM", image: banner2 },
+    { id: 6, title: "4DX", image: banner3 },
+  ];
+
+  // Hot News banners data
+  const hotNewsItems = [
+    { 
+      id: 1, 
+      title: "ORION 2MIX - 2 LÁT KHOAI, CÚ NÓ VỊ GIÁC CỰC ĐÌNH! CHỈ TỪ 20.000Đ", 
+      image: banner1,
+      brand: "ORION"
+    },
+    { 
+      id: 2, 
+      title: "MUA VÉ XEM PHIM C18 TẠI CGV NHẬN QUÀ SPECIAL TỪ SWEETBOX", 
+      image: banner2,
+      brand: "SWEETBOX"
+    },
+    { 
+      id: 3, 
+      title: "KHUYẾN MÃI THÁNG 12 - ƯU ĐÃI ĐẶC BIỆT CHO THÀNH VIÊN", 
+      image: banner3,
+      brand: "CGV"
+    },
+    { 
+      id: 4, 
+      title: "COMBO BẮP NƯỚC GIÁ SỐC - TIẾT KIỆM ĐẾN 50%", 
+      image: banner4,
+      brand: "COMBO"
+    },
+  ];
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
+
+  // Hàm xử lý scroll promotional carousel khi click pagination
+  const handlePromotionalPageChange = (pageIndex: number) => {
+    setCurrentPromotionalPage(pageIndex);
+    promotionalFlatListRef.current?.scrollToOffset({
+      offset: pageIndex * width, // Mỗi trang = width màn hình
+      animated: true,
+    });
+  };
 
   // Hàm tính toán giờ và phút từ duration (phút)
   const formatDuration = (minutes: number): string => {
@@ -113,84 +162,84 @@ const HomeScreen = () => {
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      bounces={true}
-    >
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
         backgroundColor="#1a1a1a"
         translucent
       />
 
-      {/* Header và Banner Section với background chung */}
-      <View style={styles.headerBannerSection}>
-        <Image source={bannerBG} style={styles.headerBannerBackground} />
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.headerIcon}>
-              <Image source={icon} style={styles.headerIconImage} />
-            </TouchableOpacity>
+      {/* Header - CỐ ĐỊNH */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity style={styles.headerIcon}>
+            <Image source={icon} style={styles.headerIconImage} />
+          </TouchableOpacity>
 
-            <View style={styles.logoContainer}>
-              <Image source={logo} style={styles.logoImage} />
-            </View>
-
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerIcon}>
-                <Fontisto name="ticket-alt" size={22} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIcon}>
-                <Text style={styles.headerIconText}>☰</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.logoContainer}>
+            <Image source={logo} style={styles.logoImage} />
           </View>
-        </View>
 
-        {/* Banner Carousel */}
-        <View style={styles.carouselContainer}>
-          <FlatList
-            ref={flatListRef}
-            data={banners}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.flatListContent}
-            onMomentumScrollEnd={handleScroll}
-            renderItem={({ item }) => (
-              <View style={styles.banner}>
-                <Image source={item} style={styles.bannerImage} />
-              </View>
-            )}
-            keyExtractor={(item, index) => index.toString()}
-          />
-
-          {/* Pagination Dots */}
-          <View style={styles.pagination}>
-            {banners.map((_, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dot,
-                  currentBannerIndex === index && styles.activeDot,
-                ]}
-                onPress={() => {
-                  setCurrentBannerIndex(index);
-                  flatListRef.current?.scrollToIndex({ index, animated: true });
-                  setIsAutoPlaying(false);
-                  setTimeout(() => setIsAutoPlaying(true), 3000);
-                }}
-              />
-            ))}
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Fontisto name="ticket-alt" size={22} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Text style={styles.headerIconText}>☰</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {/* Background Section - từ tabs đến button */}
-      <View style={styles.backgroundSection}>
+      <ScrollView 
+        style={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Banner Section - SCROLL */}
+        <View style={styles.bannerSection}>
+          <Image source={bannerBG} style={styles.bannerBackground} />
+          
+          {/* Banner Carousel */}
+          <View style={styles.carouselContainer}>
+            <FlatList
+              ref={flatListRef}
+              data={banners}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.flatListContent}
+              onMomentumScrollEnd={handleScroll}
+              renderItem={({ item }) => (
+                <View style={styles.banner}>
+                  <Image source={item} style={styles.bannerImage} />
+                </View>
+              )}
+              keyExtractor={(item, index) => index.toString()}
+            />
+
+            {/* Pagination Dots */}
+            <View style={styles.pagination}>
+              {banners.map((_, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dot,
+                    currentBannerIndex === index && styles.activeDot,
+                  ]}
+                  onPress={() => {
+                    setCurrentBannerIndex(index);
+                    flatListRef.current?.scrollToIndex({ index, animated: true });
+                    setIsAutoPlaying(false);
+                    setTimeout(() => setIsAutoPlaying(true), 3000);
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+        {/* Background Section - từ tabs đến button */}
+        <View style={styles.backgroundSection}>
         <Image 
           source={backgroundImage} 
           style={styles.backgroundImage}
@@ -276,8 +325,88 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         )}
-      </View>
-    </ScrollView>
+
+        {/* Promotional Items Section */}
+        <View style={styles.promotionalSection}>
+          {/* Banner Image trong promotional section */}
+          <View style={styles.bannerImageInPromotional}>
+            <Image source={banner2} style={styles.bannerImageFull} />
+          </View>
+          
+          {/* Promotional Items Carousel */}
+          <FlatList
+            ref={promotionalFlatListRef}
+            data={promotionalItems}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            pagingEnabled={false}
+            snapToInterval={width}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            contentContainerStyle={styles.promotionalCarouselContent}
+            onMomentumScrollEnd={(event) => {
+              const offsetX = event.nativeEvent.contentOffset.x;
+              const pageIndex = Math.round(offsetX / width);
+              setCurrentPromotionalPage(pageIndex);
+            }}
+            renderItem={({ item }) => (
+              <View style={styles.promotionalItem}>
+                <View style={styles.promotionalCircle}>
+                  <Image source={item.image} style={styles.promotionalImage} />
+                </View>
+                <View style={styles.promotionalTextContainer}>
+                  <Text style={styles.promotionalText}>{item.title}</Text>
+                </View>
+              </View>
+            )}
+            keyExtractor={(item) => item.id.toString()}
+          />
+          
+          {/* Pagination Dots */}
+          <View style={styles.promotionalPagination}>
+            {[0, 1].map((pageIndex) => (
+              <TouchableOpacity
+                key={pageIndex}
+                style={[
+                  styles.promotionalDot,
+                  currentPromotionalPage === pageIndex && styles.activePromotionalDot,
+                ]}
+                onPress={() => handlePromotionalPageChange(pageIndex)}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Hot News Section */}
+        <View style={styles.hotNewsSection}>
+          <View style={styles.hotNewsHeader}>
+            <Text style={styles.hotNewsTitle}>Tin nóng</Text>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>TẤT CẢ</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={hotNewsItems}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hotNewsContent}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.hotNewsCard}>
+                <Image source={item.image} style={styles.hotNewsImage} />
+                <View style={styles.hotNewsCardContent}>
+                  <Text style={styles.hotNewsCardTitle} numberOfLines={3}>
+                    {item.title}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id.toString()}
+          />
+        </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -285,6 +414,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#1a1a1a",
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  bannerSection: {
+    position: "relative",
+    width: "100%",
+  },
+  bannerBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   headerBannerSection: {
     position: "relative",
@@ -526,6 +672,7 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 17,
   },
   moviesContainer: {
     flex: 1,
@@ -732,6 +879,147 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "bold",
     letterSpacing: 0.5,
+  },
+  // Promotional Section styles
+  promotionalSection: {
+    backgroundColor: "#f5f5f5",
+    paddingBottom: 10,
+  },
+  // Banner Image trong promotional section styles
+  bannerImageInPromotional: {
+    width: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  bannerImageFull: {
+    width: "100%",
+    height: 180,
+    borderRadius: 12,
+    resizeMode: "cover",
+  },
+  promotionalCarouselContent: {
+    paddingHorizontal: 0,
+    alignItems: "center",
+  },
+  promotionalItem: {
+    alignItems: "center",
+    width: width / 3, // Chia đều chính xác cho 3 items
+    paddingHorizontal: 8,
+    minHeight: 100, // Giảm chiều cao để gần nhau hơn
+    justifyContent: "flex-start", // Căn từ trên xuống
+    paddingTop: 10,
+  },
+  promotionalCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5, // Giảm khoảng cách từ 10 xuống 5
+  },
+  promotionalImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    resizeMode: "cover",
+  },
+  promotionalTextContainer: {
+    height: 28, // Giảm từ 32 xuống 28
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
+  promotionalText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  promotionalPagination: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  promotionalDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ccc",
+    marginHorizontal: 4,
+  },
+  activePromotionalDot: {
+    backgroundColor: "#E50914",
+  },
+  // Hot News Section styles
+  hotNewsSection: {
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  hotNewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  hotNewsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  viewAllButton: {
+    backgroundColor: "#E50914",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  viewAllText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
+  hotNewsContent: {
+    paddingRight: 16,
+  },
+  hotNewsCard: {
+    width: width * 0.7,
+    marginRight: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  hotNewsImage: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  hotNewsCardContent: {
+    padding: 12,
+  },
+  hotNewsBrand: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#E50914",
+    marginBottom: 4,
+  },
+  hotNewsCardTitle: {
+    fontSize: 15,
+    color: "#333",
+    lineHeight: 20,
+    fontWeight: "500",
   },
 });
 
