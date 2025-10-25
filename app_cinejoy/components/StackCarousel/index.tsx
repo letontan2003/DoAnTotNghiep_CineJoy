@@ -23,7 +23,7 @@ interface StackCarouselProps<T> {
 const StackCarousel = <T,>({
   data,
   renderItem,
-  itemWidth = screenWidth * 0.7,
+  itemWidth = screenWidth * 0.1,
   itemHeight = 400,
   onIndexChange,
   spacing = 20,
@@ -123,38 +123,45 @@ const StackCarousel = <T,>({
       (index + 1) * itemWidth,
     ];
 
-    // Scale animation - điều chỉnh để tránh vùng đen
+    // Scale animation - item chính giữa lớn nhất, 2 bên nhỏ hơn
     const scale = scrollX.interpolate({
       inputRange,
-      outputRange: [0.85, 0.8, 0.85],
+      outputRange: [0.75, 1.0, 0.75],
       extrapolate: 'clamp',
     });
 
-    // Rotation animation - nghiêng thẳng vào trong để không bị che
+    // Height animation - item chính giữa cao nhất nhưng giảm tiếp
+    const animatedHeight = scrollX.interpolate({
+      inputRange,
+      outputRange: [itemHeight * 0.8, itemHeight * 0.82, itemHeight * 0.8],
+      extrapolate: 'clamp',
+    });
+
+    // Rotation animation - nghiêng để tạo hiệu ứng cong vô mạnh hơn
     const rotateY = scrollX.interpolate({
       inputRange,
-      outputRange: ['-70deg', '0deg', '70deg'],
+      outputRange: ['-45deg', '0deg', '45deg'],
       extrapolate: 'clamp',
     });
 
-    // TranslateX - giảm khoảng cách để tránh vùng đen
+    // TranslateX - khoảng cách giữa các item, giảm để tạo hiệu ứng cong vô
     const translateX = scrollX.interpolate({
       inputRange,
-      outputRange: [-screenWidth * 0.2, 0, screenWidth * 0.2],
+      outputRange: [-screenWidth * 0.1, 0, screenWidth * 0.1],
       extrapolate: 'clamp',
     });
 
-    // TranslateY - giảm chiều sâu để tránh vùng đen
+    // TranslateY - căn giữa hoàn hảo các item bên theo chiều dọc của item chính
     const translateY = scrollX.interpolate({
       inputRange,
-      outputRange: [20, 0, 20],
+      outputRange: [itemHeight * 0.02, 0, itemHeight * 0.02],
       extrapolate: 'clamp',
     });
 
-    // Opacity - tất cả phần tử đều rõ nét, không bị mờ
+    // Opacity - đảm bảo các item bên không bị mờ
     const opacity = scrollX.interpolate({
       inputRange,
-      outputRange: [1, 1, 1],
+      outputRange: [0.9, 1, 0.9],
       extrapolate: 'clamp',
     });
 
@@ -169,6 +176,7 @@ const StackCarousel = <T,>({
           style={[
             styles.itemWrapper,
             {
+              height: animatedHeight,
               transform: [
                 { perspective: 1000 },
                 { translateX },

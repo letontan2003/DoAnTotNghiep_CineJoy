@@ -21,6 +21,7 @@ import banner4 from "assets/banner4.png";
 import banner5 from "assets/banner5.jpg";
 import bannerBG from "assets/bannerBG.png";
 import backgroundImage from "assets/background.jpg";
+import icon from "assets/iconHome.png";
 
 const { width, height } = Dimensions.get("window");
 
@@ -129,7 +130,7 @@ const HomeScreen = () => {
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>🎬</Text>
+              <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
 
             <View style={styles.logoContainer}>
@@ -231,8 +232,8 @@ const HomeScreen = () => {
                 />
               )}
               onIndexChange={(index) => setCurrentMovieIndex(index)}
-              itemWidth={width * 0.7}
-              itemHeight={height * 0.5}
+              itemWidth={width * 0.65}
+              itemHeight={height * 0.53}
             />
           </View>
         )}
@@ -260,8 +261,8 @@ const HomeScreen = () => {
                     {new Date(
                       movies[currentMovieIndex].releaseDate
                     ).toLocaleDateString("vi-VN", {
-                      day: "2-digit",
-                      month: "2-digit",
+                      day: "numeric",
+                      month: "short",
                       year: "numeric",
                     })}
                   </Text>
@@ -309,6 +310,12 @@ const styles = StyleSheet.create({
   headerIcon: {
     padding: 7,
   },
+   headerIconImage: {
+     width: 30,
+     height: 30,
+     borderRadius: 15,
+     resizeMode: 'cover',
+   },
   headerIconText: {
     fontSize: 24,
     color: "#fff",
@@ -341,9 +348,9 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   banner: {
-    width: width -32,
-    marginHorizontal: 16,
-    borderRadius: 16,
+    width: width - 60,
+    marginHorizontal: 30,
+    borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -421,9 +428,9 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: "100%",
-    height: 160,
+    height: 150,
     alignSelf: "center",
-    borderRadius: 16,
+    borderRadius: 12,
     marginHorizontal: 16,
     resizeMode: "cover",
     marginBottom: 8,
@@ -656,14 +663,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    marginBottom: 8,
+    marginBottom: 2,
     flex: 1,
     marginRight: 10,
     gap: 10,
   },
   movieTitleSmall: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     textAlign: "left",
     flexShrink: 1,
@@ -682,23 +689,23 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "bold",
   },
   duration: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12.5,
+    fontWeight: "400",
   },
   releaseDate: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12.5,
+    fontWeight: "400",
   },
   bookButton: {
     backgroundColor: "#E50914",
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    paddingVertical: 7,
+    paddingHorizontal: 18,
     borderRadius: 25,
     alignItems: "center",
     shadowColor: "#E50914",
@@ -707,10 +714,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: "#ffffff",
   },
   bookButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 12.5,
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
