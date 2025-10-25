@@ -155,8 +155,8 @@ const VoucherForm: React.FC<VoucherFormProps> = ({ voucher, onSubmit, onCancel }
             }
         });
 
-        // Kiểm tra ràng buộc
-        if (endDate.isBefore(maxLineEnd.endOf('day'))) {
+        // Kiểm tra ràng buộc - ngày kết thúc phải sau hoặc bằng ngày kết thúc trễ nhất
+        if (endDate.isBefore(maxLineEnd.startOf('day'))) {
             return {
                 isValid: false,
                 message: `Phải sau hoặc bằng ngày kết thúc trễ nhất: ${maxLineEnd.format('DD/MM/YYYY')}`
