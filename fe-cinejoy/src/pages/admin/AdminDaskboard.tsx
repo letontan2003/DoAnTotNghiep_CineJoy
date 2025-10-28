@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";/* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
@@ -12,6 +12,7 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import viVN from 'antd/locale/vi_VN';
 import { getVouchers, addVoucher, updateVoucher, deleteVoucher } from "@/apiservice/apiVoucher";
+import { getAllOrders } from "@/apiservice/apiOrder";
 import { getFoodCombos, addSingleProduct, addCombo, updateFoodCombo, deleteFoodCombo } from "@/apiservice/apiFoodCombo";
 import { getTheaters, addTheater, updateTheater, deleteTheater } from "@/apiservice/apiTheater";
 import { getAllPriceLists, createPriceList, updatePriceList, deletePriceList, checkTimeGaps, getProductsForPriceList } from "@/apiservice/apiPriceList";
@@ -110,6 +111,136 @@ const Dashboard: React.FC = () => {
   const [editingShowtime, setEditingShowtime] = useState<IShowtime | null>(
     null
   );
+  const [orders, setOrders] = useState<IOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [ordersLoaded, setOrdersLoaded] = useState<boolean>(false);
+  // Orders filters & pagination (đặt ở ngoài bảng)
+  const [ordersPage, setOrdersPage] = useState<number>(1);
+  const [orderSearch, setOrderSearch] = useState<string>("");
+  const [filterFrom, setFilterFrom] = useState<string>(""); // yyyy-MM-dd
+  const [filterTo, setFilterTo] = useState<string>("");
+  const ordersItemsPerPage = 10;
+
+  const loadOrders = useCallback(async () => {
+    try {
+      setOrdersLoading(true);
+      const res = await getAllOrders(1, 1000); // lấy nhiều để tổng hợp theo khách
+      const list = (res as any)?.orders || (Array.isArray((res as any)) ? res : []);
+      setOrders(list);
+      setOrdersLoaded(true);
+    } catch (e) {
+      console.error("Load orders failed", e);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+
+  // Chỉ tải đơn hàng khi mở tab Đơn vé lần đầu
+  useEffect(() => {
+    if (activeTab === 'orders' && !ordersLoaded && !ordersLoading) {
+      void loadOrders();
+    }
+  }, [activeTab, ordersLoaded, ordersLoading, loadOrders]);
+
+  // Gom theo khách hàng (email) -> tính from/to
+  const groupedOrders = useMemo(() => {
+      const map = new Map<string, { fullName: string; email: string; from: string; to: string }>();
+      for (const od of orders) {
+        const email = od?.customerInfo?.email || "";
+        const fullName = od?.customerInfo?.fullName || "";
+        const created = od?.createdAt ? new Date(od.createdAt) : null;
+        if (!email || !created) continue;
+        const key = email.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            fullName,
+            email,
+            from: created.toISOString(),
+            to: created.toISOString(),
+          });
+        } else {
+          const item = map.get(key)!;
+          if (created.toISOString() < item.from) item.from = created.toISOString();
+          if (created.toISOString() > item.to) item.to = created.toISOString();
+        }
+      }
+      // chuyển thành mảng và sắp xếp theo tên
+      return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
+    }, [orders]);
+
+  // Lọc theo text và ngày (áp dụng cho groupedOrders)
+  const filteredOrders = useMemo(() => {
+      const text = orderSearch.trim().toLowerCase();
+      const hasText = text.length > 0;
+      const hasFrom = !!filterFrom;
+      const hasTo = !!filterTo;
+
+      const fromDate = hasFrom ? new Date(filterFrom) : null;
+      const toDate = hasTo ? new Date(filterTo) : null;
+      if (toDate) {
+        toDate.setHours(23, 59, 59, 999);
+      }
+
+      const isWithin = (d: Date) => {
+        if (fromDate && toDate) return d >= fromDate && d <= toDate;
+        if (fromDate && !toDate) return d >= fromDate;
+        if (!fromDate && toDate) return d <= toDate;
+        return true; // không lọc
+      };
+
+      return groupedOrders.filter((g) => {
+        const matchText = !hasText || g.fullName.toLowerCase().includes(text) || g.email.toLowerCase().includes(text);
+        if (!matchText) return false;
+        if (!hasFrom && !hasTo) return true;
+        const from = new Date(g.from);
+        const to = new Date(g.to);
+        // Chỉ cần 1 trong 2 mốc nằm trong khoảng chọn
+        return isWithin(from) || isWithin(to);
+      });
+    }, [groupedOrders, orderSearch, filterFrom, filterTo]);
+
+  const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ordersItemsPerPage));
+  const startIndexOrders = (ordersPage - 1) * ordersItemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndexOrders, startIndexOrders + ordersItemsPerPage);
+
+  useEffect(() => {
+    if (ordersPage > totalOrderPages) setOrdersPage(1);
+  }, [totalOrderPages, ordersPage]);
+
+  const OrdersTable: React.FC<{ rows: { fullName: string; email: string; from: string; to: string }[] }>
+    = ({ rows }) => {
+    return (
+      <div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-100 text-black border-b border-gray-200">
+              <tr>
+                <th className="p-3 text-left font-semibold text-black">Từ ngày</th>
+                <th className="p-3 text-left font-semibold text-black">Đến ngày</th>
+                <th className="p-3 text-left font-semibold text-black">Người mua</th>
+                <th className="p-3 text-left font-semibold text-black">Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((g: { fullName: string; email: string; from: string; to: string }) => (
+                <tr key={g.email} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/orders/invoice/${encodeURIComponent(g.email)}`)}>
+                  <td className="p-3">{new Date(g.from).toLocaleDateString("vi-VN")}</td>
+                  <td className="p-3">{new Date(g.to).toLocaleDateString("vi-VN")}</td>
+                  <td className="p-3">{g.fullName}</td>
+                  <td className="p-3">{g.email}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && !ordersLoading && (
+                <tr>
+                  <td className="p-4 text-center text-gray-500" colSpan={4}>Không có dữ liệu</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
   const [showFoodComboForm, setShowFoodComboForm] = useState<boolean>(false);
   const [selectedFoodCombo, setSelectedFoodCombo] = useState<IFoodCombo | undefined>(
     undefined
@@ -207,7 +338,7 @@ const Dashboard: React.FC = () => {
   
   const { user } = useAppStore();
 
-  const itemsPerPage = 5;
+  const itemsPerPage = 5; // dùng cho phần Bảng giá, tránh trùng tên với phân trang đơn vé
 
   // Function to load price lists and check for time gaps
   const loadPriceLists = async () => {
@@ -1418,6 +1549,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
                     { label: "Khuyến mãi", value: "vouchers", icon: "🎟️" },
                     { label: "Thống Kê", value: "statistics", icon: "📊" },
+                    { label: "Đơn vé", value: "orders", icon: "🧾" },
                   ].map((subItem) => (
                     <li
                       key={subItem.value}
@@ -2633,6 +2765,64 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Orders Tab */}
+          {activeTab === "orders" && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-6 text-black select-none">
+                Quản lý Đơn vé
+              </h2>
+              {/* Thanh công cụ lọc & phân trang nằm ngoài bảng */}
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <input
+                    value={orderSearch}
+                    onChange={(e) => { setOrdersPage(1); setOrderSearch(e.target.value); }}
+                    type="text"
+                    placeholder="Tìm theo tên hoặc email..."
+                    className="border border-gray-300 bg-white text-black rounded-lg p-2 w-64 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                  <DatePicker.RangePicker
+                    value={[filterFrom ? (dayjs as any)(filterFrom) : null, filterTo ? (dayjs as any)(filterTo) : null] as any}
+                    onChange={(vals) => {
+                      setOrdersPage(1);
+                      const [start, end] = vals || [];
+                      setFilterFrom(start ? (start as any).format('YYYY-MM-DD') : '');
+                      setFilterTo(end ? (end as any).format('YYYY-MM-DD') : '');
+                    }}
+                    format="DD/MM/YYYY"
+                  />
+                  <button
+                    className="px-3 py-1 bg-gray-100 text-black rounded hover:bg-gray-200 cursor-pointer"
+                    onClick={() => { setOrderSearch(""); setFilterFrom(""); setFilterTo(""); setOrdersPage(1); }}
+                  >
+                    Xóa lọc
+                  </button>
+                </div>
+                <div className="text-sm text-gray-700">
+                  Trang {ordersPage} / {totalOrderPages}
+                  <button
+                    className="ml-2 px-3 py-1 bg-gray-200 text-black rounded disabled:opacity-50 cursor-pointer"
+                    disabled={ordersPage === 1}
+                    onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                  >
+                    Trước
+                  </button>
+                  <button
+                    className="ml-2 px-3 py-1 bg-gray-200 text-black rounded disabled:opacity-50 cursor-pointer"
+                    disabled={ordersPage === totalOrderPages}
+                    onClick={() => setOrdersPage((p) => Math.min(totalOrderPages, p + 1))}
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6 text-black">
+                <OrdersTable rows={paginatedOrders} />
               </div>
             </div>
           )}

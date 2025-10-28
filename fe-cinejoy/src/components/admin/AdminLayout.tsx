@@ -58,7 +58,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               {expandedMenus.has('movieManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'movies' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎬</span>
                         <span>Phim</span>
@@ -66,7 +66,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'showSessions' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎭</span>
                         <span>Ca chiếu</span>
@@ -74,7 +74,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'showtimes' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">⏰</span>
                         <span>Suất chiếu</span>
@@ -82,7 +82,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'priceLists' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">💰</span>
                         <span>Bảng giá</span>
@@ -120,7 +120,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               {expandedMenus.has('theaterManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'regions' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🌍</span>
                         <span>Khu vực</span>
@@ -128,7 +128,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'theaters' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🏢</span>
                         <span>Rạp & Phòng chiếu</span>
@@ -166,7 +166,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               {expandedMenus.has('salesManagement') && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'foodCombos' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🍿</span>
                         <span>Sản phẩm & Combo</span>
@@ -174,7 +174,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'vouchers' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎫</span>
                         <span>Khuyến mãi</span>
@@ -182,10 +182,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'statistics' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">📊</span>
                         <span>Thống Kê</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to={{ pathname: "/admin" }} state={{ tab: 'orders' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🧾</span>
+                        <span>Đơn vé</span>
                       </div>
                     </Link>
                   </li>
