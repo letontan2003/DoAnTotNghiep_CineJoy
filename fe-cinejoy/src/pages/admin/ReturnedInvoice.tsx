@@ -4,9 +4,8 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { getAllOrders } from "@/apiservice/apiOrder";
 import dayjs from "dayjs";
 import { DatePicker, Modal } from "antd";
-import { cancelOrder } from "@/apiservice/apiOrder";
 
-const OrderInvoicePage: React.FC = () => {
+const ReturnedInvoicePage: React.FC = () => {
   const { email } = useParams<{ email: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
@@ -17,9 +16,6 @@ const OrderInvoicePage: React.FC = () => {
   const currency = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
   const formatDate = (d?: string | Date | null) => d ? dayjs(d).format('DD/MM/YYYY') : '—';
   const formatTime = (d?: string | Date | null) => d ? dayjs(d).format('HH:mm DD/MM/YYYY') : '—';
-  const [refundReason, setRefundReason] = useState<string>("");
-  const [refundTarget, setRefundTarget] = useState<IOrder | null>(null);
-  const [isRefunding, setIsRefunding] = useState<boolean>(false);
 
   const getStatusDisplay = (status: string) => {
     if (status === "CONFIRMED") return "Đã đặt";
@@ -40,6 +36,7 @@ const OrderInvoicePage: React.FC = () => {
         : (amountDiscountInfo?.amount ?? 0);
     const percentPromotions = (v?.percentPromotions as Array<{ description?: string; amount?: number; discountAmount?: number }>) || [];
     const itemPromotions = (v?.itemPromotions as Array<{ rewardItem?: string; rewardQuantity?: number; description?: string }>) || [];
+    const returnInfo = (v?.returnInfo as { reason?: string; returnDate?: Date } | undefined);
 
     const theater = (order.theaterId as any)?.name || '';
     const movieTitle = (order.movieId as any)?.title || '';
@@ -49,7 +46,7 @@ const OrderInvoicePage: React.FC = () => {
     const html = `
       <html>
       <head>
-        <title>Đơn vé ${order.orderCode}</title>
+        <title>Hóa đơn trả - ${order.orderCode}</title>
         <meta charset="utf-8" />
         <style>
           body { font-family: Arial, sans-serif; margin: 24px; color: #000; }
@@ -72,6 +69,8 @@ const OrderInvoicePage: React.FC = () => {
               <th>Trạng thái</th>
               <th>Phương thức thanh toán</th>
               <th>Tên khách hàng</th>
+              <th>Lý do trả</th>
+              <th>Thời gian trả</th>
             </tr>
           </thead>
           <tbody>
@@ -82,6 +81,8 @@ const OrderInvoicePage: React.FC = () => {
               <td>${getStatusDisplay(order.orderStatus || '')}</td>
               <td>${order.paymentMethod || ''}</td>
               <td>${order.customerInfo?.fullName || ''}</td>
+              <td>${returnInfo?.reason || '—'}</td>
+              <td>${formatTime(returnInfo?.returnDate)}</td>
             </tr>
           </tbody>
         </table>
@@ -163,15 +164,15 @@ const OrderInvoicePage: React.FC = () => {
         setLoading(true);
         const res = await getAllOrders(1, 1000);
         const list: IOrder[] = (res as any)?.orders || (Array.isArray((res as any)) ? (res as any) : []);
-        const confirmedForCustomer = list
+        const returnedForCustomer = list
           .filter((o) => {
             const orderEmail = (o?.customerInfo?.email || "").toLowerCase();
             const targetEmail = decodeURIComponent(email).toLowerCase();
             const status = (o?.orderStatus || "").toUpperCase();
-            return orderEmail === targetEmail && status === "CONFIRMED";
+            return orderEmail === targetEmail && status === "RETURNED";
           })
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setOrders(confirmedForCustomer);
+        setOrders(returnedForCustomer);
       } finally {
         setLoading(false);
       }
@@ -195,16 +196,21 @@ const OrderInvoicePage: React.FC = () => {
   }, [orders, filterFrom, filterTo]);
 
   const rows = useMemo(() => {
-    return filtered.map((o) => ({
-      id: o._id,
-      code: o.orderCode,
-      orderDate: dayjs(o.createdAt).format("DD/MM/YYYY"),
-      paymentTime: o?.paymentInfo?.paymentDate ? dayjs(o.paymentInfo.paymentDate).format("HH:mm DD/MM/YYYY") : "—",
-      status: getStatusDisplay(o.orderStatus || ""),
-      method: o.paymentMethod,
-      customer: o.customerInfo?.fullName || "",
-      raw: o,
-    }));
+    return filtered.map((o) => {
+      const returnInfo = (o as any)?.returnInfo as { reason?: string; returnDate?: Date } | undefined;
+      return {
+        id: o._id,
+        code: o.orderCode,
+        orderDate: dayjs(o.createdAt).format("DD/MM/YYYY"),
+        paymentTime: o?.paymentInfo?.paymentDate ? dayjs(o.paymentInfo.paymentDate).format("HH:mm DD/MM/YYYY") : "—",
+        status: getStatusDisplay(o.orderStatus || ""),
+        method: o.paymentMethod,
+        customer: o.customerInfo?.fullName || "",
+        returnReason: returnInfo?.reason || "—",
+        returnDate: returnInfo?.returnDate ? dayjs(returnInfo.returnDate).format("HH:mm DD/MM/YYYY") : "—",
+        raw: o,
+      };
+    });
   }, [filtered]);
 
   return (
@@ -212,13 +218,13 @@ const OrderInvoicePage: React.FC = () => {
       <div>
         {/* Action Bar */}
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-black leading-tight">Hóa đơn bán</h2>
+          <h2 className="text-2xl font-semibold text-black leading-tight">Hóa đơn trả</h2>
           <div className="flex gap-2">
             <button
               className="px-3 py-1.5 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer shadow-sm"
-              onClick={() => navigate(`/admin/orders/returned/${email}`)}
+              onClick={() => navigate(`/admin/orders/invoice/${email}`)}
             >
-              Hóa đơn trả →
+              ← Hóa đơn bán
             </button>
             <button
               className="px-3 py-1.5 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer shadow-sm"
@@ -232,71 +238,77 @@ const OrderInvoicePage: React.FC = () => {
         {/* Filter Bar */}
         <div className="mb-4 bg-white rounded-lg border border-gray-200 p-3 shadow-sm flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            {rows.length > 0 ? `Tổng hóa đơn: ${rows.length}` : ""}
+            {rows.length > 0 ? `Tổng hóa đơn trả: ${rows.length}` : ""}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex gap-2 items-center">
+            <span className="text-sm text-gray-600">Lọc theo ngày đặt:</span>
             <DatePicker.RangePicker
-              value={[filterFrom ? (dayjs as any)(filterFrom) : null, filterTo ? (dayjs as any)(filterTo) : null] as any}
-              onChange={(vals) => {
-                const [start, end] = vals || [];
-                setFilterFrom(start ? (start as any).format('YYYY-MM-DD') : '');
-                setFilterTo(end ? (end as any).format('YYYY-MM-DD') : '');
-              }}
+              placeholder={["Từ ngày", "Đến ngày"]}
               format="DD/MM/YYYY"
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  setFilterFrom(dates[0].format("YYYY-MM-DD"));
+                  setFilterTo(dates[1].format("YYYY-MM-DD"));
+                } else {
+                  setFilterFrom("");
+                  setFilterTo("");
+                }
+              }}
             />
-            <button
-              className="px-3 py-1.5 bg-gray-100 text-black rounded hover:bg-gray-200 cursor-pointer border border-gray-300"
-              onClick={() => { setFilterFrom(""); setFilterTo(""); }}
-            >
-              Xóa lọc
-            </button>
+            {(filterFrom || filterTo) && (
+              <button
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                onClick={() => { setFilterFrom(""); setFilterTo(""); }}
+              >
+                Xóa lọc
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="bg-white text-black rounded-lg shadow p-6">
-          {loading && <div>Đang tải...</div>}
-          {!loading && rows.length === 0 && (
-            <div>Không tìm thấy đơn đã xác nhận của khách hàng này.</div>
-          )}
-          {!loading && rows.length > 0 && (
+        {/* Table */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Đang tải...</div>
+          ) : rows.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">Không có hóa đơn trả</div>
+          ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-100 text-black border-b border-gray-200">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="p-3 text-left font-semibold text-black">Mã hóa đơn</th>
-                    <th className="p-3 text-left font-semibold text-black">Ngày đặt</th>
-                    <th className="p-3 text-left font-semibold text-black">Thời gian thanh toán</th>
-                    <th className="p-3 text-left font-semibold text-black">Trạng thái</th>
-                    <th className="p-3 text-left font-semibold text-black">Phương thức thanh toán</th>
-                    <th className="p-3 text-left font-semibold text-black">Tên khách hàng</th>
-                    <th className="p-3 text-left font-semibold text-black">Thao tác</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Mã hóa đơn</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Ngày đặt</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Thời gian thanh toán</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Trạng thái</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Phương thức thanh toán</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Tên khách hàng</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Lý do trả</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Thời gian trả</th>
+                    <th className="text-left p-3 font-medium text-gray-700">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="text-black divide-y divide-gray-200">
                   {rows.map((r) => (
-                    <tr key={r.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-medium">{r.code}</td>
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="p-3">{r.code}</td>
                       <td className="p-3">{r.orderDate}</td>
                       <td className="p-3">{r.paymentTime}</td>
                       <td className="p-3">
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                        <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">
                           {r.status}
                         </span>
                       </td>
                       <td className="p-3">{r.method}</td>
                       <td className="p-3">{r.customer}</td>
+                      <td className="p-3 max-w-xs truncate" title={r.returnReason}>{r.returnReason}</td>
+                      <td className="p-3">{r.returnDate}</td>
                       <td className="p-3">
                         <button
                           className="px-3 py-1 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer mr-2"
                           onClick={() => setViewOrder(r.raw)}
                         >
                           Xem chi tiết
-                        </button>
-                        <button
-                          className="px-3 py-1 rounded border border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer mr-2"
-                          onClick={() => { setRefundTarget(r.raw); setRefundReason(""); }}
-                        >
-                          Trả vé
                         </button>
                         <button
                           className="px-3 py-1 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer"
@@ -313,29 +325,28 @@ const OrderInvoicePage: React.FC = () => {
           )}
         </div>
 
-        {/* Modal chi tiết hóa đơn */}
+        {/* Modal chi tiết */}
         <Modal
-          title="Chi tiết đơn vé"
+          title="Chi tiết đơn vé trả"
           open={!!viewOrder}
           onCancel={() => setViewOrder(null)}
           footer={null}
           width={1200}
         >
-          {viewOrder && (
+          {viewOrder && promoInfo && (
             <div className="text-black">
-              {/* Header giống trang Hóa đơn trả (không có lý do/ thời gian trả) */}
               <div className="mb-4 grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
                 <div>
                   <strong>Mã hóa đơn:</strong> {viewOrder.orderCode}
                 </div>
                 <div>
-                  <strong>Ngày đặt:</strong> {dayjs(viewOrder.createdAt).format('DD/MM/YYYY')}
+                  <strong>Ngày đặt:</strong> {formatDate(viewOrder.createdAt)}
                 </div>
                 <div>
-                  <strong>Thời gian thanh toán:</strong> {viewOrder?.paymentInfo?.paymentDate ? dayjs(viewOrder.paymentInfo.paymentDate).format('HH:mm DD/MM/YYYY') : '—'}
+                  <strong>Thời gian thanh toán:</strong> {formatTime((viewOrder as any)?.paymentInfo?.paymentDate)}
                 </div>
                 <div>
-                  <strong>Trạng thái:</strong> <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">{getStatusDisplay(viewOrder.orderStatus || '')}</span>
+                  <strong>Trạng thái:</strong> <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-700">{getStatusDisplay(viewOrder.orderStatus || '')}</span>
                 </div>
                 <div>
                   <strong>Phương thức thanh toán:</strong> {viewOrder.paymentMethod}
@@ -343,143 +354,101 @@ const OrderInvoicePage: React.FC = () => {
                 <div>
                   <strong>Tên khách hàng:</strong> {viewOrder.customerInfo?.fullName || ''}
                 </div>
+                <div>
+                  <strong>Lý do trả:</strong> {((viewOrder as any)?.returnInfo as { reason?: string })?.reason || '—'}
+                </div>
+                <div>
+                  <strong>Thời gian trả:</strong> {formatTime(((viewOrder as any)?.returnInfo as { returnDate?: Date })?.returnDate)}
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="p-3 text-left font-semibold">Sản phẩm</th>
-                      <th className="p-3 text-left font-semibold">Suất chiếu</th>
-                      <th className="p-3 text-left font-semibold">Vé</th>
-                      <th className="p-3 text-left font-semibold">Concession(s)</th>
-                      {promoInfo?.hasVoucher && <th className="p-3 text-left font-semibold" style={{minWidth: 100}}>Voucher</th>}
-                      {promoInfo?.hasAmountDiscount && <th className="p-3 text-left font-semibold">Khuyến mãi tiền</th>}
-                      {promoInfo?.hasPercentPromotions && <th className="p-3 text-left font-semibold">Khuyến mãi chiết khấu</th>}
-                      {promoInfo?.hasItemPromotions && <th className="p-3 text-left font-semibold">Khuyến mãi hàng</th>}
-                      <th className="p-3 text-left font-semibold">Thành tiền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b align-top">
-                      <td className="p-3 font-medium">{(viewOrder.movieId as any)?.title || '—'}</td>
-                      <td className="p-3">
-                        <div>{(viewOrder.theaterId as any)?.name || '—'}</div>
-                        <div>{viewOrder.room}</div>
-                        <div>{dayjs(viewOrder.showDate).format('DD/MM/YYYY')}</div>
-                        <div>
-                          Từ {viewOrder.showTime}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div>{viewOrder.seats?.[0]?.type || 'VIP'}</div>
-                        <div>{viewOrder.seats?.map((s: any) => s.seatId).join(', ')}</div>
-                        <div className="font-semibold">{currency(viewOrder.seats?.[0]?.price || 0)}</div>
-                      </td>
-                      <td className="p-3">
-                        {viewOrder.foodCombos && viewOrder.foodCombos.length > 0 ? (
-                          <div className="space-y-2">
-                            {viewOrder.foodCombos.map((combo: any, idx: number) => (
-                              <div key={idx}>
-                                <div className="font-medium">{combo.comboId?.name || 'Food Combo'}</div>
-                                <div>{combo.quantity} x {currency(combo.price)}</div>
-                              </div>
-                            ))}
+              <table className="w-full text-sm border-collapse border border-gray-300">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border border-gray-300 p-2 text-left">Sản phẩm</th>
+                    <th className="border border-gray-300 p-2 text-left">Suất chiếu</th>
+                    <th className="border border-gray-300 p-2 text-left">Vé</th>
+                    <th className="border border-gray-300 p-2 text-left">Concession(s)</th>
+                    {promoInfo.hasVoucher && <th className="border border-gray-300 p-2 text-left min-w-[120px]">Voucher</th>}
+                    {promoInfo.hasAmountDiscount && <th className="border border-gray-300 p-2 text-left">Khuyến mãi tiền</th>}
+                    {promoInfo.hasPercentPromotions && <th className="border border-gray-300 p-2 text-left">Khuyến mãi chiết khấu</th>}
+                    {promoInfo.hasItemPromotions && <th className="border border-gray-300 p-2 text-left">Khuyến mãi hàng</th>}
+                    <th className="border border-gray-300 p-2 text-right">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-300 p-2">
+                      <strong>{((viewOrder as any).movieId as any)?.title || '—'}</strong>
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      <div>{((viewOrder as any).theaterId as any)?.name || '—'}</div>
+                      <div>{viewOrder.room}</div>
+                      <div>{formatDate(viewOrder.showDate)}</div>
+                      <div>Từ {viewOrder.showTime}</div>
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      <div>{viewOrder.seats?.[0]?.type || 'VIP'}</div>
+                      <div>{viewOrder.seats?.map((s: any) => s.seatId).join(', ')}</div>
+                      <div><strong>{currency(viewOrder.seats?.[0]?.price || 0)}</strong></div>
+                    </td>
+                    <td className="border border-gray-300 p-2">
+                      {viewOrder.foodCombos && viewOrder.foodCombos.length > 0 ? (
+                        viewOrder.foodCombos.map((combo: any, idx: number) => (
+                          <div key={idx}>
+                            <strong>{combo.comboId?.name || 'Food Combo'}</strong>
+                            <div>{combo.quantity} x {currency(combo.price)}</div>
                           </div>
-                        ) : (
-                          <span className="text-gray-500">-</span>
-                        )}
+                        ))
+                      ) : '-'}
+                    </td>
+                    {promoInfo.hasVoucher && (
+                      <td className="border border-gray-300 p-2">
+                        - {currency(viewOrder.voucherDiscount || 0)}
                       </td>
-
-                      {promoInfo?.hasVoucher && (
-                        <td className="p-3">- {currency(viewOrder.voucherDiscount || 0)}</td>
-                      )}
-
-                      {promoInfo?.hasAmountDiscount && (
-                        <td className="p-3">
-                          <div>{promoInfo?.amountDiscountInfo?.description}</div>
-                          <div>- {currency(promoInfo?.amountDiscountVal || 0)}</div>
-                        </td>
-                      )}
-
-                      {promoInfo?.hasPercentPromotions && (
-                        <td className="p-3">
-                          {promoInfo?.percentPromotions.map((p: any, i: number) => {
-                            const cut = typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0);
-                            return (
-                              <div key={i}>
-                                <div>{p?.description}</div>
-                                <div>- {currency(cut)}</div>
-                              </div>
-                            );
-                          })}
-                        </td>
-                      )}
-
-                      {promoInfo?.hasItemPromotions && (
-                        <td className="p-3">
-                          {promoInfo?.itemPromotions.map((it: any, i: number) => (
-                            <div key={i}>
-                              <div>{it.description || ''}</div>
-                              <div>+{it.rewardQuantity || 0} {it.rewardItem || ''}</div>
-                            </div>
-                          ))}
-                        </td>
-                      )}
-
-                      <td className="p-3 font-semibold">{currency(viewOrder.totalAmount || 0)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    )}
+                    {promoInfo.hasAmountDiscount && (
+                      <td className="border border-gray-300 p-2">
+                        <div>{promoInfo.amountDiscountInfo?.description || ''}</div>
+                        <div>- {currency(promoInfo.amountDiscountVal)}</div>
+                      </td>
+                    )}
+                    {promoInfo.hasPercentPromotions && (
+                      <td className="border border-gray-300 p-2">
+                        {promoInfo.percentPromotions.map((p: any, idx: number) => (
+                          <div key={idx}>
+                            <div>{p?.description || ''}</div>
+                            <div>- {currency(typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0))}</div>
+                          </div>
+                        ))}
+                      </td>
+                    )}
+                    {promoInfo.hasItemPromotions && (
+                      <td className="border border-gray-300 p-2">
+                        {promoInfo.itemPromotions.map((it: any, idx: number) => (
+                          <div key={idx}>
+                            <div>{it.description || ''}</div>
+                            <div>+{it.rewardQuantity || 0} {it.rewardItem || ''}</div>
+                          </div>
+                        ))}
+                      </td>
+                    )}
+                    <td className="border border-gray-300 p-2 text-right">
+                      <strong>{currency(viewOrder.totalAmount || 0)}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="mt-4 text-right text-lg">
+                <strong>Tổng cộng: {currency(viewOrder.finalAmount || 0)}</strong>
               </div>
-              <div className="mt-4 text-right font-bold">Tổng cộng: {currency(viewOrder.finalAmount || 0)}</div>
             </div>
           )}
-        </Modal>
-
-        {/* Modal Trả vé */}
-        <Modal
-          title="Trả vé"
-          open={!!refundTarget}
-          onCancel={() => setRefundTarget(null)}
-          okText={isRefunding ? 'Đang xử lý...' : 'Xác nhận'}
-          okButtonProps={{ disabled: isRefunding || !refundReason.trim() }}
-          onOk={async () => {
-            if (!refundTarget) return;
-            try {
-              setIsRefunding(true);
-              await cancelOrder(refundTarget._id as any, refundReason.trim());
-              setRefundReason("");
-              setRefundTarget(null);
-              // Loại bỏ đơn vừa trả khỏi danh sách (vì đã chuyển sang RETURNED)
-              setOrders(prev => prev.filter(o => o._id !== refundTarget._id));
-              // Thông báo thành công
-              alert("Trả vé thành công!");
-            } catch (error: any) {
-              console.error("Lỗi khi trả vé:", error);
-              alert(error?.message || "Không thể trả vé");
-            } finally {
-              setIsRefunding(false);
-            }
-          }}
-        >
-          <div className="text-black">
-            <label className="block mb-2">Lý do trả vé</label>
-            <textarea
-              className="w-full border border-gray-300 rounded p-2"
-              rows={4}
-              placeholder="Nhập lý do trả vé..."
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-            />
-            <p className="mt-2 text-sm text-gray-500">Đơn sẽ được cập nhật trạng thái "Trả vé" sau khi xác nhận.</p>
-          </div>
         </Modal>
       </div>
     </AdminLayout>
   );
 };
 
-export default OrderInvoicePage;
-
+export default ReturnedInvoicePage;
 

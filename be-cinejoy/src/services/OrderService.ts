@@ -33,12 +33,16 @@ export interface CreateOrderData {
 
 export interface UpdateOrderData {
   paymentStatus?: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
-  orderStatus?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  orderStatus?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RETURNED";
   paymentMethod?: "MOMO" | "VNPAY";
   paymentInfo?: {
     transactionId?: string;
     paymentDate?: Date;
     paymentGatewayResponse?: any;
+  };
+  returnInfo?: {
+    reason?: string;
+    returnDate?: Date;
   };
   expiresAt?: Date;
 }
@@ -720,10 +724,51 @@ class OrderService {
         throw new Error("Order đã được hủy");
       }
 
-      if (order.paymentStatus === "PAID") {
-        throw new Error("Không thể hủy order đã thanh toán");
+      if (order.orderStatus === "RETURNED") {
+        throw new Error("Order đã được trả vé");
       }
 
+      // Nếu đơn đã thanh toán, đây là trả vé (RETURNED), không phải hủy
+      if (order.paymentStatus === "PAID") {
+        // Trả vé cho đơn đã thanh toán
+        // Release ghế trong showtime khi trả vé
+        try {
+          const seatIds = order.seats.map((seat) => seat.seatId);
+          
+          // Cập nhật trạng thái ghế về available
+          await showtimeService.setSeatsStatus(
+            order.showtimeId.toString(),
+            order.showDate,
+            order.showTime,
+            order.room,
+            seatIds,
+            'available'
+          );
+          console.log("Seats released for returned order:", order.orderCode);
+        } catch (seatError) {
+          console.error("Error releasing seats for returned order:", seatError);
+          // Log error nhưng vẫn tiếp tục trả vé
+        }
+
+        // Cập nhật trạng thái order thành RETURNED với thông tin trả vé
+        const updatedOrder = await Order.findByIdAndUpdate(
+          orderId,
+          {
+            $set: {
+              orderStatus: "RETURNED",
+              paymentStatus: "REFUNDED",
+              returnInfo: {
+                reason: reason || "Khách hàng yêu cầu trả vé",
+                returnDate: new Date(),
+              },
+            },
+          },
+          { new: true }
+        );
+        return updatedOrder;
+      }
+
+      // Hủy order chưa thanh toán
       // Bỏ logic hoàn trả FoodCombo vì đã xóa các trường quantity, price
 
       // Release ghế trong showtime khi hủy order

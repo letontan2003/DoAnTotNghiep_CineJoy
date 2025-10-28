@@ -28,6 +28,7 @@ import NewsDetailPage from 'pages/client/NewsDetail';
 import BookingHistory from 'pages/client/BookingHistory';
 import TransactionDetails from 'pages/client/TransactionDetails';
 import OrderInvoicePage from 'pages/admin/OrderInvoice';
+import ReturnedInvoicePage from 'pages/admin/ReturnedInvoice';
 
 const router = createBrowserRouter([
   {
@@ -95,6 +96,10 @@ const router = createBrowserRouter([
   {
     path: "/admin/orders/invoice/:email",
     element: <OrderInvoicePage />
+  },
+  {
+    path: "/admin/orders/returned/:email",
+    element: <ReturnedInvoicePage />
   },
   {
     path: "/admin/vouchers/:id",
