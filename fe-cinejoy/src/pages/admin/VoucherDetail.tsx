@@ -596,16 +596,53 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         }}
       >
         {selectedLine && (
-          <div className="p-4 border rounded-lg" style={{ borderColor: '#e5e7eb', backgroundColor: '#fafafa' }}>
-            <h4 className="font-semibold mb-4 text-lg">
-              {
-                selectedLine.promotionType === 'voucher' ? 'Voucher' : 
-                selectedLine.promotionType === 'percent' ? 'Khuyến mãi chiết khấu' :
-                selectedLine.promotionType === 'amount' ? 'Khuyến mãi tiền' :
-                selectedLine.promotionType === 'item' ? 'Khuyến mãi hàng' :
-                selectedLine.promotionType
-              }
-            </h4>
+          <div>
+            {/* Header với thông tin line */}
+            <div className="bg-gray-100 p-4 rounded-lg border border-gray-300 mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="font-medium text-gray-600">Kiểu khuyến mãi</span>
+                  <div className="mt-1">
+                    <Tag color="blue">
+                      {
+                        selectedLine.promotionType === 'voucher' ? 'Voucher' : 
+                        selectedLine.promotionType === 'percent' ? 'Khuyến mãi chiết khấu' :
+                        selectedLine.promotionType === 'amount' ? 'Khuyến mãi tiền' :
+                        selectedLine.promotionType === 'item' ? 'Khuyến mãi hàng' :
+                        selectedLine.promotionType
+                      }
+                    </Tag>
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Ngày bắt đầu</span>
+                  <div className="mt-1 text-gray-800">{dayjs(selectedLine.validityPeriod.startDate).format('DD/MM/YYYY')}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Ngày kết thúc</span>
+                  <div className="mt-1 text-gray-800">{dayjs(selectedLine.validityPeriod.endDate).format('DD/MM/YYYY')}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Mô tả</span>
+                  <div className="mt-1 text-gray-800">{(selectedLine.detail as VoucherDetail | DiscountDetail | AmountDetail | ItemDetail)?.description || 'Không có mô tả'}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Trạng thái: </span>
+              
+                    <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${
+                      selectedLine.status === 'hoạt động' ? 'bg-green-100 text-green-700' :
+                      selectedLine.status === 'không hoạt động' ? 'bg-gray-100 text-gray-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {selectedLine.status === 'hoạt động' ? 'Hoạt động' : selectedLine.status === 'không hoạt động' ? 'Không hoạt động' : 'Đang chờ'}
+                    </span>
+    
+                </div>
+              </div>
+            </div>
+
+            {/* Chi tiết ưu đãi áp dụng */}
+            <div className="bg-white">
             {selectedLine.promotionType === 'voucher' && selectedLine.detail && (
               <Table
                 dataSource={[selectedLine.detail as unknown as { quantity?: number; totalQuantity?: number; pointToRedeem?: number; discountPercent?: number; maxDiscountValue?: number; description?: string }]}
@@ -966,6 +1003,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                 Chi tiết cho loại {selectedLine.promotionType} sẽ được hiển thị khi có dữ liệu
               </div>
             )}
+            </div>
           </div>
         )}
       </Modal>

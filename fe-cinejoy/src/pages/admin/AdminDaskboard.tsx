@@ -38,6 +38,7 @@ import { getBlogs, addBlog, updateBlog, deleteBlog } from "@/apiservice/apiBlog"
 import {
   getAllShowtimesForAdmin,
   deleteShowtime,
+  checkShowtimeOccupiedSeats,
 } from "@/apiservice/apiShowTime";
 import MovieForm from "@/pages/admin/Form/MovieForm";
 import ShowtimeForm from "@/pages/admin/Form/ShowtimeForm";
@@ -93,6 +94,7 @@ const Dashboard: React.FC = () => {
   const [showBlogForm, setShowBlogForm] = useState<boolean>(false);
   const [selectedBlog, setSelectedBlog] = useState<IBlog | undefined>(undefined);
   const [showtimes, setShowtimes] = useState<IShowtime[]>([]);
+  const [showtimeOccupiedStatus, setShowtimeOccupiedStatus] = useState<Record<string, boolean>>({});
   const [users, setUsers] = useState<IUser[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [showSessions, setShowSessions] = useState<IShowSession[]>([]);
@@ -402,8 +404,24 @@ const Dashboard: React.FC = () => {
         setBlogs([]);
       });
     getAllShowtimesForAdmin()
-      .then((data) => {
-        setShowtimes(data && Array.isArray(data) ? data : []);
+      .then(async (data) => {
+        const showtimesData = data && Array.isArray(data) ? data : [];
+        setShowtimes(showtimesData);
+        
+        // Load occupied status for each showtime
+        const occupiedStatuses: Record<string, boolean> = {};
+        for (const showtime of showtimesData) {
+          try {
+            const result = await checkShowtimeOccupiedSeats(showtime._id);
+            console.log(`Showtime ${showtime._id} occupied check:`, result);
+            occupiedStatuses[showtime._id] = result.hasOccupiedSeats;
+          } catch (error) {
+            console.error(`Error checking occupied seats for showtime ${showtime._id}:`, error);
+            occupiedStatuses[showtime._id] = false;
+          }
+        }
+        console.log('Final occupiedStatuses:', occupiedStatuses);
+        setShowtimeOccupiedStatus(occupiedStatuses);
       })
       .catch((error) => {
         console.error("Error fetching showtimes:", error);
@@ -3198,7 +3216,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           </motion.button>
                         </td>
                         <td className="p-3">
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 items-center">
                             <motion.button
                               onClick={() => handleEditShowtime(showtime)}
                               className="bg-yellow-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-yellow-600 mr-2"
@@ -3207,21 +3225,36 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                             >
                               Sửa
                             </motion.button>
-                            <Popconfirm
-                              title="Xóa suất chiếu"
-                              description="Bạn có chắc chắn muốn xóa suất chiếu này? (Xóa suất chiếu sẽ xóa tất cả các suất chiếu của phim trong rạp)"
-                              okText="Xóa"
-                              cancelText="Hủy"
-                              onConfirm={() => handleDeleteShowtime(showtime._id)}
-                            >
-                              <motion.button
-                                className="bg-red-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-red-600"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
+                            {(() => {
+                              const isOccupied = showtimeOccupiedStatus[showtime._id];
+                              const hasStatus = showtime._id in showtimeOccupiedStatus;
+                              console.log(`Rendering showtime ${showtime._id}, occupied:`, isOccupied, 'hasStatus:', hasStatus, 'all status:', showtimeOccupiedStatus);
+                              return isOccupied ? (
+                                <motion.button
+                                  className="bg-gray-400 text-white px-3 py-1 rounded cursor-not-allowed"
+                                  disabled
+                                  title="Suất chiếu này đã có ghế được đặt nên không thể xóa"
+                                >
+                                  Xóa
+                                </motion.button>
+                              ) : (
+                              <Popconfirm
+                                title="Xóa suất chiếu"
+                                description="Bạn có chắc chắn muốn xóa suất chiếu này? (Xóa suất chiếu sẽ xóa tất cả các suất chiếu của phim trong rạp)"
+                                okText="Xóa"
+                                cancelText="Hủy"
+                                onConfirm={() => handleDeleteShowtime(showtime._id)}
                               >
-                                Xóa
-                              </motion.button>
-                            </Popconfirm>
+                                <motion.button
+                                  className="bg-red-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-red-600"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                >
+                                  Xóa
+                                </motion.button>
+                              </Popconfirm>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -3875,8 +3908,23 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
             setEditingShowtime(null);
             // Refresh showtimes data
             getAllShowtimesForAdmin()
-              .then((data) => {
-                setShowtimes(data && Array.isArray(data) ? data : []);
+              .then(async (data) => {
+                const showtimesData = data && Array.isArray(data) ? data : [];
+                setShowtimes(showtimesData);
+                
+                // Load occupied status for each showtime
+                const occupiedStatuses: Record<string, boolean> = {};
+                for (const showtime of showtimesData) {
+                  try {
+                    const result = await checkShowtimeOccupiedSeats(showtime._id);
+                    console.log(`Showtime ${showtime._id} occupied check (refresh):`, result);
+                    occupiedStatuses[showtime._id] = result.hasOccupiedSeats;
+                  } catch {
+                    occupiedStatuses[showtime._id] = false;
+                  }
+                }
+                console.log('Final occupiedStatuses (refresh):', occupiedStatuses);
+                setShowtimeOccupiedStatus(occupiedStatuses);
               })
               .catch(() => {
                 setShowtimes([]);

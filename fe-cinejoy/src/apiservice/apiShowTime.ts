@@ -66,6 +66,26 @@ export const deleteShowtime = async (id: string) => {
   }
 };
 
+export const checkShowtimeOccupiedSeats = async (id: string): Promise<{
+  hasOccupiedSeats: boolean;
+  occupiedCount: number;
+  totalSeats: number;
+}> => {
+  try {
+    const response = await axiosClient.get<IBackendResponse<{
+      hasOccupiedSeats: boolean;
+      occupiedCount: number;
+      totalSeats: number;
+    }>>(`/showtimes/check-occupied/${id}`);
+    // Response format: { status: true, error: 0, message: '...', data: { hasOccupiedSeats, occupiedCount, totalSeats } }
+    const responseData = response as unknown as { data: { data: { hasOccupiedSeats: boolean; occupiedCount: number; totalSeats: number } } };
+    return responseData.data?.data || response.data;
+  } catch (error) {
+    console.error("Error checking occupied seats:", error);
+    throw error;
+  }
+};
+
 export const getShowTimesByFilter = async (
   movieId: string,
   theaterId: string
