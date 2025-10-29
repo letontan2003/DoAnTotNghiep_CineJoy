@@ -410,7 +410,8 @@ class OrderService {
       }
 
       // Tạo order với thời gian hết hạn 1 giờ cho order chưa thanh toán
-      // Chỉ set TTL cho order PENDING, CONFIRMED sẽ không bị xóa tự động
+      // Orders PENDING/CANCELLED/COMPLETED sẽ bị xóa sau 1 giờ
+      // Orders CONFIRMED và RETURNED sẽ set expiresAt = null (không bao giờ xóa)
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
       // **KIỂM TRA GHẾ TRƯỚC KHI TẠO ORDER**
@@ -603,13 +604,19 @@ class OrderService {
         throw new Error("Order không tồn tại");
       }
 
-      // Nếu order được thanh toán thành công hoặc được confirm, extend expiresAt để không bị tự động xóa
+      // Nếu order được thanh toán thành công hoặc được confirm, set expiresAt = null để không bao giờ xóa
       if (updateData.paymentStatus === "PAID" || updateData.orderStatus === "CONFIRMED") {
-        updateData.expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+        updateData.expiresAt = undefined; // CONFIRMED orders never expire
         if (updateData.paymentStatus === "PAID") {
         updateData.orderStatus = "CONFIRMED";
         }
-        console.log(`✅ Order ${orderId} confirmed and expiresAt extended to 1 year from now`);
+        console.log(`✅ Order ${orderId} confirmed and set to never expire`);
+      }
+      
+      // Nếu order được trả vé (RETURNED), set expiresAt = null để không bao giờ xóa
+      if (updateData.orderStatus === "RETURNED") {
+        updateData.expiresAt = undefined; // RETURNED orders never expire
+        console.log(`✅ Order ${orderId} returned and set to never expire`);
 
         // Mark voucher as used khi thanh toán thành công (fallback cho trường hợp updateOrder được gọi)
         if (currentOrder.voucherId && currentOrder.voucherDiscount > 0) {
@@ -757,6 +764,7 @@ class OrderService {
             $set: {
               orderStatus: "RETURNED",
               paymentStatus: "REFUNDED",
+              expiresAt: undefined, // RETURNED orders never expire
               returnInfo: {
                 reason: reason || "Khách hàng yêu cầu trả vé",
                 returnDate: new Date(),

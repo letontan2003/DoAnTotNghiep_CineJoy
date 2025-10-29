@@ -5,6 +5,7 @@ import { getAllOrders } from "@/apiservice/apiOrder";
 import dayjs from "dayjs";
 import { DatePicker, Modal } from "antd";
 import { cancelOrder } from "@/apiservice/apiOrder";
+import { toast } from "react-toastify";
 
 const OrderInvoicePage: React.FC = () => {
   const { email } = useParams<{ email: string }>();
@@ -194,6 +195,31 @@ const OrderInvoicePage: React.FC = () => {
     return orders.filter((o) => within(new Date(o.createdAt)));
   }, [orders, filterFrom, filterTo]);
 
+  // Hàm kiểm tra có thể trả vé hay không (trước giờ chiếu 25 phút)
+  const canRefundTicket = (order: IOrder) => {
+    try {
+      const showDate = dayjs(order.showDate);
+      const showTime = order.showTime;
+      
+      // Tạo datetime đầy đủ cho suất chiếu
+      const showDateTime = showDate.hour(parseInt(showTime.split(':')[0]))
+        .minute(parseInt(showTime.split(':')[1]))
+        .second(0);
+      
+      // Thời gian hiện tại
+      const now = dayjs();
+      
+      // Thời gian giới hạn (25 phút trước giờ chiếu)
+      const cutoffTime = showDateTime.subtract(25, 'minute');
+      
+      // Có thể trả vé nếu thời gian hiện tại < thời gian giới hạn
+      return now.isBefore(cutoffTime);
+    } catch (error) {
+      console.error('Error checking refund eligibility:', error);
+      return false; // Mặc định không cho phép trả vé nếu có lỗi
+    }
+  };
+
   const rows = useMemo(() => {
     return filtered.map((o) => ({
       id: o._id,
@@ -204,6 +230,7 @@ const OrderInvoicePage: React.FC = () => {
       method: o.paymentMethod,
       customer: o.customerInfo?.fullName || "",
       raw: o,
+      canRefund: canRefundTicket(o),
     }));
   }, [filtered]);
 
@@ -293,10 +320,21 @@ const OrderInvoicePage: React.FC = () => {
                           Xem chi tiết
                         </button>
                         <button
-                          className="px-3 py-1 rounded border border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer mr-2"
-                          onClick={() => { setRefundTarget(r.raw); setRefundReason(""); }}
+                          className={`px-3 py-1 rounded border mr-2 ${
+                            r.canRefund
+                              ? "border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer"
+                              : "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
+                          }`}
+                          onClick={() => { 
+                            if (r.canRefund) {
+                              setRefundTarget(r.raw); 
+                              setRefundReason(""); 
+                            }
+                          }}
+                          disabled={!r.canRefund}
+                          title={!r.canRefund ? "Không thể trả vé sau 25 phút trước giờ chiếu" : ""}
                         >
-                          Trả vé
+                          {r.canRefund ? "Trả vé" : "Hết hạn trả vé"}
                         </button>
                         <button
                           className="px-3 py-1 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer"
@@ -446,6 +484,14 @@ const OrderInvoicePage: React.FC = () => {
           okButtonProps={{ disabled: isRefunding || !refundReason.trim() }}
           onOk={async () => {
             if (!refundTarget) return;
+            
+            // Kiểm tra lại thời gian trước khi xử lý trả vé
+            if (!canRefundTicket(refundTarget)) {
+              toast.error("Không thể trả vé sau 25 phút trước giờ chiếu!");
+              setRefundTarget(null);
+              return;
+            }
+            
             try {
               setIsRefunding(true);
               await cancelOrder(refundTarget._id as any, refundReason.trim());
@@ -454,10 +500,10 @@ const OrderInvoicePage: React.FC = () => {
               // Loại bỏ đơn vừa trả khỏi danh sách (vì đã chuyển sang RETURNED)
               setOrders(prev => prev.filter(o => o._id !== refundTarget._id));
               // Thông báo thành công
-              alert("Trả vé thành công!");
+              toast.success("Trả vé thành công!");
             } catch (error: any) {
               console.error("Lỗi khi trả vé:", error);
-              alert(error?.message || "Không thể trả vé");
+              toast.error(error?.message || "Không thể trả vé");
             } finally {
               setIsRefunding(false);
             }

@@ -207,7 +207,7 @@ class PaymentService {
             $set: {
               paymentStatus: "PAID",
               orderStatus: "CONFIRMED",
-              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Extend to 1 year
+              expiresAt: undefined, // CONFIRMED orders never expire
               "paymentInfo.transactionId": callbackData.vnp_TransactionNo,
               "paymentInfo.paymentDate": new Date(),
               "paymentInfo.paymentGatewayResponse": callbackData,
@@ -469,7 +469,7 @@ class PaymentService {
             $set: {
               paymentStatus: "PAID",
               orderStatus: "CONFIRMED",
-              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // Extend to 1 year
+              expiresAt: undefined, // CONFIRMED orders never expire
               "paymentInfo.transactionId": transId,
               "paymentInfo.paymentDate": new Date(),
               "paymentInfo.paymentGatewayResponse": callbackData,

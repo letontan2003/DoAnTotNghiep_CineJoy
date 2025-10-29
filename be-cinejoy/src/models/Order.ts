@@ -66,7 +66,7 @@ export interface IOrder extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
-  expiresAt: Date;
+  expiresAt?: Date; // Optional để có thể null cho CONFIRMED/RETURNED
 }
 
 const OrderSchema: Schema = new Schema(
@@ -307,7 +307,7 @@ const OrderSchema: Schema = new Schema(
     },
     expiresAt: {
       type: Date,
-      required: true,
+      required: false, // Không bắt buộc để có thể set null cho CONFIRMED/RETURNED
       index: { expireAfterSeconds: 0 },
     },
   },
