@@ -530,7 +530,7 @@ const HomeScreen = () => {
               <TouchableOpacity style={styles.hotNewsCard}>
                 <Image source={item.image} style={styles.hotNewsImage} />
                 <View style={styles.hotNewsCardContent}>
-                  <Text style={styles.hotNewsCardTitle} numberOfLines={3}>
+                  <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
                     {item.title}
                   </Text>
                 </View>
@@ -1105,10 +1105,10 @@ const styles = StyleSheet.create({
   },
   promotionalItem: {
     alignItems: "center",
-    width: width / 3, // Chia đều chính xác cho 3 items
+    width: width / 3,
     paddingHorizontal: 8,
-    minHeight: 100, // Giảm chiều cao để gần nhau hơn
-    justifyContent: "flex-start", // Căn từ trên xuống
+    minHeight: 100,
+    justifyContent: "flex-start",
     paddingTop: 10,
   },
   promotionalCircle: {
@@ -1117,7 +1117,7 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 5, // Giảm khoảng cách từ 10 xuống 5
+    marginBottom: 5,
   },
   promotionalImage: {
     width: 70,
@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   promotionalTextContainer: {
-    height: 28, // Giảm từ 32 xuống 28
+    height: 28,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
@@ -1158,13 +1158,15 @@ const styles = StyleSheet.create({
   hotNewsSection: {
     backgroundColor: "#fff",
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 0,
   },
   hotNewsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
+    paddingRight: 16,
   },
   hotNewsTitle: {
     fontSize: 18,
@@ -1172,28 +1174,30 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   viewAllButton: {
-    backgroundColor: "#E50914",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#000",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   viewAllText: {
-    color: "#fff",
-    fontSize: 13,
+    color: "#000",
+    fontSize: 10,
     fontWeight: "bold",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   hotNewsContent: {
-    paddingRight: 16,
+    paddingLeft: 0,
   },
   hotNewsCard: {
-    width: width * 0.7,
-    marginRight: 12,
+    width: width * 0.44,
+    marginRight: 8,
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
@@ -1205,23 +1209,24 @@ const styles = StyleSheet.create({
   },
   hotNewsImage: {
     width: "100%",
-    height: 120,
+    height: 80,
     resizeMode: "cover",
   },
   hotNewsCardContent: {
-    padding: 12,
+    padding: 10,
+    minHeight: 50,
   },
   hotNewsBrand: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "bold",
     color: "#E50914",
     marginBottom: 4,
   },
   hotNewsCardTitle: {
-    fontSize: 15,
+    fontSize: 12,
     color: "#333",
-    lineHeight: 20,
-    fontWeight: "500",
+    lineHeight: 16,
+    fontWeight: "600",
   },
 });
 
