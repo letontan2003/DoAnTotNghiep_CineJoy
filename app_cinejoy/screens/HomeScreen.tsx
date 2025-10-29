@@ -23,6 +23,7 @@ import banner4 from "assets/banner4.png";
 import banner5 from "assets/banner5.jpg";
 import bannerBG from "assets/bannerBG.png";
 import backgroundImage from "assets/background.jpg";
+import backgroundTab from "assets/backgroundTab.png";
 import logo from "assets/logoCNJ.png";
 import icon from "assets/iconHome.png";
 
@@ -111,6 +112,16 @@ const HomeScreen = () => {
     setCurrentPromotionalPage(pageIndex);
     promotionalFlatListRef.current?.scrollToOffset({
       offset: pageIndex * width, // Mỗi trang = width màn hình
+      animated: true,
+    });
+  };
+
+  // Hàm xử lý khi click tab trong sticky header
+  const handleStickyTabClick = (tab: string) => {
+    setSelectedTab(tab);
+    const stickySectionHeight = 0;
+    scrollViewRef.current?.scrollTo({
+      y: stickySectionHeight,
       animated: true,
     });
   };
@@ -279,6 +290,15 @@ const HomeScreen = () => {
           </View>
         </Animated.View>
 
+        {/* Background Image cho sticky tabs */}
+        {isStickyHeader && (
+          <Image 
+            source={backgroundTab} 
+            style={styles.stickyBackgroundImage}
+            resizeMode="cover"
+          />
+        )}
+        
         {/* Sticky Tabs - chỉ hiển thị khi sticky */}
         {isStickyHeader && (
           <View style={styles.tabsContainerSticky}>
@@ -286,7 +306,7 @@ const HomeScreen = () => {
               <TouchableOpacity
                 key={tab}
                 style={[styles.tab]}
-                onPress={() => setSelectedTab(tab)}
+                onPress={() => handleStickyTabClick(tab)}
               >
                 <Text
                   style={[
@@ -548,12 +568,21 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   stickyHeaderActive: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  stickyBackgroundImage: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 50, // Chiều cao của tabs
+    width: "100%",
+    zIndex: -1, // Đặt ảnh nền phía sau tabs
   },
   headerSticky: {
     backgroundColor: "#fff",
@@ -569,14 +598,14 @@ const styles = StyleSheet.create({
     height: 90,
   },
   tabsContainerSticky: {
-    backgroundColor: "#333",
+    backgroundColor: "transparent",
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 5,
     paddingVertical: 5,
   },
   tabTextSticky: {
-    color: "#ccc",
+    color: "#888",
     fontSize: 16,
     fontWeight: "500",
   },
