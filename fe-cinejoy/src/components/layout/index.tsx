@@ -39,13 +39,15 @@ const Layout = () => {
   }, [location.pathname]);
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       <Header />
-      <Outlet />
+      <main className="flex-grow">
+        <Outlet />
+      </main>
       <Footer />
       <Chatbot />
-    </>
-  );
+    </div>
+  ); 
 }
 
 export default Layout;
