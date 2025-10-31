@@ -216,7 +216,7 @@ const PromotionReport: React.FC = () => {
     }
     
     // Add title row (Row 1) - BÁO CÁO TỔNG KẾT CTKM
-    worksheet.mergeCells('A1:N1');
+    worksheet.mergeCells('A1:M1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'BÁO CÁO TỔNG KẾT CTKM';
     titleCell.font = { bold: true, size: 16 };
@@ -237,7 +237,6 @@ const PromotionReport: React.FC = () => {
       'Trạng thái',
       'Ngày bắt đầu',
       'Ngày kết thúc',
-      'Mã SP tặng',
       'Tên SP tặng',
       'SL tặng',
       'Đơn vị tính',
@@ -281,7 +280,6 @@ const PromotionReport: React.FC = () => {
         item.status,
         item.startDate,
         item.endDate,
-        item.productCode || '',
         item.productName || '',
         item.giftQuantity || '',
         item.unit,
@@ -301,7 +299,6 @@ const PromotionReport: React.FC = () => {
       { width: 15 },  // Trạng thái
       { width: 15 },  // Ngày bắt đầu
       { width: 15 },  // Ngày kết thúc
-      { width: 20 },  // Mã SP tặng
       { width: 20 },  // Tên SP tặng
       { width: 10 },  // SL tặng
       { width: 15 },  // Đơn vị tính
@@ -381,13 +378,6 @@ const PromotionReport: React.FC = () => {
       dataIndex: 'endDate',
       key: 'endDate',
       width: 120
-    },
-    {
-      title: 'Mã SP tặng',
-      dataIndex: 'productCode',
-      key: 'productCode',
-      width: 120,
-      render: (text: string) => text || ''
     },
     {
       title: 'Tên SP tặng',

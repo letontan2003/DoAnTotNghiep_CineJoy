@@ -116,6 +116,10 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
   const [promotionType, setPromotionType] = useState<string | undefined>(undefined);
   const [foodCombos, setFoodCombos] = useState<IFoodCombo[]>([]);
   const [seatTypes, setSeatTypes] = useState<string[]>([]);
+  const [currentStatus, setCurrentStatus] = useState<'hoạt động' | 'không hoạt động'>('không hoạt động');
+  
+  // Kiểm tra xem có đang ở chế độ "chỉ cho phép sửa trạng thái" không
+  const isStatusOnlyEditable = Boolean(editingLine && currentStatus === 'hoạt động');
   
   // Danh sách nhóm loại trừ có sẵn - tách riêng theo loại khuyến mãi
   const getExclusionGroups = (promotionType: string) => {
@@ -197,6 +201,9 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
     if (editingLine) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detail = editingLine.detail as any;
+      // Cập nhật currentStatus khi có editingLine
+      setCurrentStatus(editingLine.status);
+      
       form.setFieldsValue({
         promotionType: editingLine.promotionType,
         startDate: dayjs(editingLine.validityPeriod.startDate),
@@ -387,6 +394,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           rules={[{ required: true, message: 'Vui lòng chọn kiểu khuyến mãi!' }]}
         >
           <Select 
+            disabled={isStatusOnlyEditable}
             placeholder="Chọn kiểu khuyến mãi"
             onChange={(value) => {
               setPromotionType(value);
@@ -450,6 +458,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           ]}
         >
           <DatePicker
+            disabled={isStatusOnlyEditable}
             style={{ width: '100%' }}
             format="DD/MM/YYYY"
             placeholder="Chọn ngày bắt đầu"
@@ -503,6 +512,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           ]}
         >
           <DatePicker
+            disabled={isStatusOnlyEditable}
             style={{ width: '100%' }}
             format="DD/MM/YYYY"
             placeholder="Chọn ngày kết thúc"
@@ -546,6 +556,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           <Select 
             placeholder="Chọn trạng thái"
             disabled={voucherStatus === 'không hoạt động'}
+            onChange={(value) => setCurrentStatus(value)}
           >
             <Option value="hoạt động" disabled={voucherStatus === 'không hoạt động'}>Hoạt động</Option>
             <Option value="không hoạt động">Không hoạt động</Option>
@@ -584,7 +595,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
             >
               <Select 
                 placeholder="Chọn quy tắc"
-                disabled={promotionType === 'voucher'}
+                disabled={isStatusOnlyEditable || promotionType === 'voucher'}
                 onChange={(value) => setStackingPolicy(value)}
               >
                 {promotionType !== 'percent' && <Option value="STACKABLE">Cộng dồn</Option>}
@@ -600,6 +611,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 rules={[{ required: true, message: 'Vui lòng chọn hoặc nhập nhóm loại trừ!' }]}
               >
                 <Select
+                  disabled={isStatusOnlyEditable}
                   placeholder="Chọn nhóm loại trừ"
                   options={getExclusionGroups(promotionType || '').map(group => ({ value: group, label: group }))}
                   style={{ width: '100%' }}
@@ -625,6 +637,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 label="Mô tả"
               >
                 <Input.TextArea
+                  disabled={isStatusOnlyEditable}
                   rows={3}
                   placeholder="VD: Voucher giảm 10% tối đa 30K"
                 />
@@ -637,6 +650,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập điểm đổi!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập điểm đổi"
                     min={0}
@@ -649,6 +663,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập số lượng!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập số lượng"
                     min={1}
@@ -661,6 +676,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập phần trăm giảm!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập phần trăm giảm"
                     min={0}
@@ -674,6 +690,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   label="Giảm tối đa (VNĐ)"
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập giảm tối đa"
                     min={0}
@@ -700,6 +717,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 ]}
               >
                 <Input.TextArea
+                  disabled={isStatusOnlyEditable}
                   rows={3}
                   placeholder="Nhập mô tả khuyến mãi tiền"
                 />
@@ -712,6 +730,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập giá trị đơn hàng tối thiểu!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập giá trị tối thiểu"
                     min={0}
@@ -728,6 +747,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập giá trị giảm!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập giá trị giảm"
                     min={0}
@@ -745,6 +765,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                   rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
                 >
                   <InputNumber
+                    disabled={isStatusOnlyEditable}
                     style={{ width: '100%' }}
                     placeholder="Nhập ngân sách tổng"
                     min={0}
@@ -774,6 +795,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 ]}
               >
                 <Input.TextArea
+                  disabled={isStatusOnlyEditable}
                   placeholder="Ví dụ: Mua 2 vé thường được tặng 1 combo nước"
                   rows={2}
                 />
@@ -787,6 +809,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 rules={[{ required: true, message: 'Vui lòng chọn loại áp dụng!' }]}
               >
                 <Select 
+                  disabled={isStatusOnlyEditable}
                   placeholder="Chọn loại áp dụng"
                   onChange={() => {
                     // Reset buyItem khi thay đổi applyType
@@ -867,6 +890,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                         rules={[{ required: true, message: 'Vui lòng chọn loại vé!' }]}
                       >
                         <Select 
+                          disabled={isStatusOnlyEditable}
                           placeholder="Chọn loại vé"
                           onChange={(value) => {
                             // Tự động tạo exclusionGroup cho item
@@ -913,6 +937,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập số lượng mua!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập số lượng mua"
                             min={1}
@@ -937,6 +962,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           ]}
                         >
                           <Select
+                            disabled={isStatusOnlyEditable}
                             placeholder="Chọn sản phẩm/combo tặng"
                             showSearch
                             optionFilterProp="children"
@@ -969,6 +995,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập số lượng tặng!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập số lượng tặng"
                             min={1}
@@ -993,6 +1020,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập ngân sách tổng"
                             min={0}
@@ -1010,6 +1038,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                                   rules={[{ required: true, message: 'Vui lòng nhập phần trăm giảm!' }]}
                                 >
                                   <InputNumber
+                                    disabled={isStatusOnlyEditable}
                                     style={{ width: '100%' }}
                                     placeholder="Nhập phần trăm giảm"
                                     min={1}
@@ -1049,6 +1078,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 ]}
               >
                 <Input.TextArea
+                  disabled={isStatusOnlyEditable}
                   rows={3}
                   placeholder="VD: Giảm 20% Sweet Combo"
                 />
@@ -1059,7 +1089,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                 label="Loại áp dụng"
                 rules={[{ required: true, message: 'Vui lòng chọn loại áp dụng!' }]}
               >
-                <Select placeholder="Chọn loại áp dụng">
+                <Select disabled={isStatusOnlyEditable} placeholder="Chọn loại áp dụng">
                   <Option value="combo">Combo</Option>
                   <Option value="ticket">Vé</Option>
                 </Select>
@@ -1079,6 +1109,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng chọn combo!' }]}
                         >
                           <Select
+                            disabled={isStatusOnlyEditable}
                             placeholder="Chọn combo"
                             showSearch
                             optionFilterProp="children"
@@ -1157,6 +1188,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                       rules={[{ required: true, message: 'Vui lòng chọn loại vé!' }]}
                     >
                       <Select 
+                        disabled={isStatusOnlyEditable}
                         placeholder="Chọn loại vé"
                         onChange={(value) => {
                           // Tự động tạo exclusionGroup cho percent
@@ -1189,6 +1221,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           label="Phần trăm giảm (%)"
                           rules={[{ required: true, message: 'Vui lòng nhập phần trăm giảm!' }]}>
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập phần trăm giảm"
                             min={1}
@@ -1205,6 +1238,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập ngân sách tổng"
                             min={0}

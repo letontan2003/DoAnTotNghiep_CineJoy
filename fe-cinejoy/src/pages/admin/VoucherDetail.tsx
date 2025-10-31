@@ -195,7 +195,9 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         voucherDetail: values.voucherDetail,
         discountDetail: values.discountDetail,
         amountDetail: values.amountDetail,
-        itemDetail: values.itemDetail
+        itemDetail: values.itemDetail,
+        // Giữ lại code từ editingLine nếu có
+        ...(editingLine?.code && { code: editingLine.code })
       };
 
       const updatedVoucher = await updatePromotionLine(id, editingLineIndex, lineData);

@@ -237,68 +237,122 @@ const FoodComboForm: React.FC<FoodComboFormProps> = ({ combo, onSubmit, onCancel
                 {productType === 'combo' && (
                     <>
                         <Divider orientation="left">Thành phần combo</Divider>
-                        <Form.List name="items">
-                            {(fields, { add, remove }) => (
-                                <div>
-                                    {fields.map(({ key, name, ...restField }) => (
-                                        <Card key={key} size="small" className="mb-3">
-                                            <Space.Compact style={{ width: '100%' }}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'productId']}
-                                                    rules={[{ required: true, message: 'Chọn sản phẩm!' }]}
-                                                    style={{ flex: 1 }}
-                                                >
-                                                    <Select
-                                                        placeholder="Chọn sản phẩm"
-                                                        showSearch
-                                                        optionFilterProp="children"
-                                                        filterOption={(input, option) =>
-                                                            String(option?.children || '').toLowerCase().includes(input.toLowerCase())
+                        <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => {
+                            const prevItems = prevValues?.items || [];
+                            const currentItems = currentValues?.items || [];
+                            // Trigger update khi items thay đổi về số lượng
+                            if (prevItems.length !== currentItems.length) {
+                                return true;
+                            }
+                            // Trigger update khi productId của bất kỳ item nào thay đổi
+                            const hasProductIdChange = currentItems.some((item: any, index: number) => {
+                                const prevItem = prevItems[index];
+                                if (!prevItem && item) return true; // Item mới được thêm
+                                const prevProductId = typeof prevItem?.productId === 'object' 
+                                    ? prevItem?.productId?._id 
+                                    : prevItem?.productId;
+                                const currentProductId = typeof item?.productId === 'object' 
+                                    ? item?.productId?._id 
+                                    : item?.productId;
+                                return prevProductId !== currentProductId;
+                            });
+                            return hasProductIdChange;
+                        }}>
+                            {() => {
+                                const items = form.getFieldValue('items') || [];
+                                return (
+                                    <Form.List name="items">
+                                        {(fields, { add, remove }) => (
+                                            <div>
+                                                {fields.map(({ key, name, ...restField }) => {
+                                                    // Lấy productId hiện tại của field này
+                                                    const currentProductId = form.getFieldValue(['items', name, 'productId']);
+                                                    
+                                                    // Lọc danh sách sản phẩm: loại bỏ các sản phẩm đã được chọn ở các field khác
+                                                    // Nhưng giữ lại sản phẩm hiện tại của field này
+                                                    const filteredProducts = availableProducts.filter(product => {
+                                                        // Đảm bảo items là array
+                                                        if (!Array.isArray(items) || items.length === 0) {
+                                                            return true; // Nếu không có items, hiển thị tất cả
                                                         }
-                                                        onChange={(value) => {}}
-                                                    >
-                                                        {availableProducts.map(product => (
-                                                            <Option key={product._id} value={product._id}>
-                                                                {product.name}
-                                                            </Option>
-                                                        ))}
-                                                    </Select>
-                                                </Form.Item>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'quantity']}
-                                                    rules={[{ required: true, message: 'Nhập số lượng!' }]}
-                                                    style={{ width: 120 }}
-                                                >
-                                                    <InputNumber
-                                                        placeholder="Số lượng"
-                                                        min={1}
-                                                        max={100}
-                                                        style={{ width: '100%' }}
-                                                    />
-                                                </Form.Item>
+                                                        
+                                                        // Kiểm tra xem sản phẩm có được chọn ở field khác không
+                                                        const isSelectedInOtherField = items.some((item: any, index: number) => {
+                                                            // Bỏ qua field hiện tại
+                                                            if (index === name) return false;
+                                                            
+                                                            const itemProductId = typeof item?.productId === 'object' 
+                                                                ? item.productId?._id 
+                                                                : item?.productId;
+                                                            return itemProductId && itemProductId === product._id;
+                                                        });
+                                                        
+                                                        // Chỉ hiển thị sản phẩm chưa được chọn ở field khác HOẶC là sản phẩm hiện tại của field này
+                                                        return !isSelectedInOtherField || product._id === currentProductId;
+                                                    });
+                                                    
+                                                    return (
+                                                        <Card key={key} size="small" className="mb-3">
+                                                            <Space.Compact style={{ width: '100%' }}>
+                                                                <Form.Item
+                                                                    {...restField}
+                                                                    name={[name, 'productId']}
+                                                                    rules={[{ required: true, message: 'Chọn sản phẩm!' }]}
+                                                                    style={{ flex: 1 }}
+                                                                >
+                                                                    <Select
+                                                                        placeholder="Chọn sản phẩm"
+                                                                        showSearch
+                                                                        optionFilterProp="children"
+                                                                        filterOption={(input, option) =>
+                                                                            String(option?.children || '').toLowerCase().includes(input.toLowerCase())
+                                                                        }
+                                                                    >
+                                                                        {filteredProducts.map(product => (
+                                                                            <Option key={product._id} value={product._id}>
+                                                                                {product.name}
+                                                                            </Option>
+                                                                        ))}
+                                                                    </Select>
+                                                                </Form.Item>
+                                                                <Form.Item
+                                                                    {...restField}
+                                                                    name={[name, 'quantity']}
+                                                                    rules={[{ required: true, message: 'Nhập số lượng!' }]}
+                                                                    style={{ width: 120 }}
+                                                                >
+                                                                    <InputNumber
+                                                                        placeholder="Số lượng"
+                                                                        min={1}
+                                                                        max={100}
+                                                                        style={{ width: '100%' }}
+                                                                    />
+                                                                </Form.Item>
+                                                                <Button
+                                                                    type="text"
+                                                                    danger
+                                                                    icon={<DeleteOutlined />}
+                                                                    onClick={() => remove(name)}
+                                                                />
+                                                            </Space.Compact>
+                                                        </Card>
+                                                    );
+                                                })}
                                                 <Button
-                                                    type="text"
-                                                    danger
-                                                    icon={<DeleteOutlined />}
-                                                    onClick={() => remove(name)}
-                                                />
-                                            </Space.Compact>
-                                        </Card>
-                                    ))}
-                                    <Button
-                                        type="dashed"
-                                        onClick={() => add()}
-                                        block
-                                        icon={<PlusOutlined />}
-                                        className="mb-4"
-                                    >
-                                        Thêm sản phẩm vào combo
-                                    </Button>
-                                </div>
-                            )}
-                        </Form.List>
+                                                    type="dashed"
+                                                    onClick={() => add()}
+                                                    block
+                                                    icon={<PlusOutlined />}
+                                                    className="mb-4"
+                                                >
+                                                    Thêm sản phẩm vào combo
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </Form.List>
+                                );
+                            }}
+                        </Form.Item>
 
 
                         <Form.Item

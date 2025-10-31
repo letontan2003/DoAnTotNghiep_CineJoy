@@ -10,6 +10,40 @@ import { getAllOrders } from '@/apiservice/apiOrder';
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
+// Hàm chuyển đổi _id thành số 10 chữ số
+const convertUserIdToTenDigits = (userId: string): string => {
+  if (!userId || userId === 'UNKNOWN_USER') return 'N/A';
+  
+  // Chuyển đổi chuỗi hex thành số lớn
+  // Sử dụng một phần của _id (24 ký tự đầu) và chuyển từ hex sang số
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    const char = userId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  // Tạo số lớn hơn bằng cách kết hợp hash với một phần của _id
+  // Lấy 8 ký tự đầu của _id, chuyển từ hex sang số và kết hợp với hash
+  const prefix = userId.substring(0, Math.min(8, userId.length));
+  let prefixNum = 0;
+  for (let i = 0; i < prefix.length; i++) {
+    const charCode = prefix.charCodeAt(i);
+    prefixNum = prefixNum * 36 + (charCode % 36);
+  }
+  
+  // Kết hợp và tạo số 10 chữ số
+  const combined = Math.abs(hash) * 10000 + Math.abs(prefixNum);
+  const numStr = combined.toString();
+  
+  // Đảm bảo luôn có 10 chữ số
+  if (numStr.length >= 10) {
+    return numStr.substring(numStr.length - 10);
+  } else {
+    return numStr.padStart(10, '0');
+  }
+};
+
 type Nullable<T> = T | null | undefined;
 
 interface UserLite {
@@ -336,8 +370,9 @@ const SalesReportByCustomer: React.FC = () => {
                     currentGroupStart = null; currentGroupStt = null;
                   }
                 } else {
+                  const userCodeDisplay = r.userCode ? convertUserIdToTenDigits(r.userCode) : '';
                   row.values = [
-                    '', r.userCode, r.fullName, r.email, r.phoneNumber, r.gender, r.stt,
+                    '', userCodeDisplay, r.fullName, r.email, r.phoneNumber, r.gender, r.stt,
                     r.date, r.ticketText || '', r.concessionText || '', fmt(r.totalAmount), fmt(r.discount), fmt(r.finalAmount)
                   ];
                   // Bắt đầu nhóm mới nếu là dòng đầu nhóm
@@ -429,7 +464,16 @@ const SalesReportByCustomer: React.FC = () => {
                 return record.isFirstInGroup ? record.stt : '';
               }
             },
-            { title: 'Mã KH', dataIndex: 'userCode', key: 'userCode', width: 160, render: (_: string, r: RowData) => (r.isSubtotal || r.isGrandTotal) ? '' : (_ || 'N/A') },
+            { 
+              title: 'Mã KH', 
+              dataIndex: 'userCode', 
+              key: 'userCode', 
+              width: 160, 
+              render: (_: string, r: RowData) => {
+                if (r.isSubtotal || r.isGrandTotal) return '';
+                return _ ? convertUserIdToTenDigits(_) : 'N/A';
+              }
+            },
             { title: 'Tên KH', dataIndex: 'fullName', key: 'fullName', width: 180, render: (t: string, r: RowData) => {
               if (r.isGrandTotal) return '';
               if (r.isSubtotal) return <span style={{ fontWeight: 700 }}>Tổng cộng</span>;

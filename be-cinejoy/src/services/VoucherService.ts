@@ -579,7 +579,8 @@ export default class VoucherService {
       status: finalStatus as 'hoạt động' | 'không hoạt động',
       originalStatus: lineData.status, // Cập nhật originalStatus khi admin thay đổi
       detail: detail,
-      rule: lineData.rule
+      rule: lineData.rule,
+      code: lineData.code || voucher.lines[lineIndex].code // Giữ lại code cũ hoặc lấy code mới
     };
 
     await voucher.save();
