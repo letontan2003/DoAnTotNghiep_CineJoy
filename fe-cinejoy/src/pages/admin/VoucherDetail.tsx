@@ -1150,7 +1150,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                 <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
-                  { label: "Khuyến mãi", value: "vouchers", icon: "🎟️" },
+                  { label: "Khuyến mãi", value: "vouchers", icon: "🎫" },
                   { label: "Thống Kê", value: "statistics", icon: "📊" },
                   { label: "Đơn vé", value: "orders", icon: "🧾" },
                 ].map((subItem) => (
