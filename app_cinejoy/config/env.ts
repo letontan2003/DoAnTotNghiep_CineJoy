@@ -1,7 +1,7 @@
 // Environment configuration for React Native
 const ENV = {
   development: {
-    API_URL: 'http://192.168.17.242:5000',
+    API_URL: 'http://192.168.111.103:5000',
   },
   staging: {
     API_URL: 'https://staging-api.cinejoy.com',

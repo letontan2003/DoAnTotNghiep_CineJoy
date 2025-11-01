@@ -111,7 +111,7 @@ const LoadingScreen = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate("HomeScreen" as never);
+      navigation.navigate("PosterScreen" as never);
     }, 2000);
 
     return () => clearTimeout(timer);

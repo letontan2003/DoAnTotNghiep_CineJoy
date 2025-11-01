@@ -3,6 +3,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import LoadingScreen from "./screens/LoadingScreen";
+import PosterScreen from "./screens/PosterScreen";
 import HomeScreen from "./screens/HomeScreen";
 
 const Stack = createStackNavigator();
@@ -19,6 +20,7 @@ export default function App() {
             }}
           >
             <Stack.Screen name="LoadingScreen" component={LoadingScreen} />
+            <Stack.Screen name="PosterScreen" component={PosterScreen} />
             <Stack.Screen name="HomeScreen" component={HomeScreen} />
           </Stack.Navigator>
         </NavigationContainer>
