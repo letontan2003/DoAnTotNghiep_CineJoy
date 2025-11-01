@@ -336,6 +336,7 @@ const PromotionReport: React.FC = () => {
       dataIndex: 'code',
       key: 'code',
       width: 120,
+      fixed: 'left' as const,
       render: (text: string) => text || 'N/A'
     },
     {
@@ -560,7 +561,6 @@ const PromotionReport: React.FC = () => {
           size="middle"
           bordered
           className="promotion-report-table"
-          sticky={{ offsetHeader: 0 }}
         />
       </div>
 
@@ -575,9 +575,25 @@ const PromotionReport: React.FC = () => {
           font-weight: bold !important;
           text-align: center !important;
           border: 1px solid #d9d9d9 !important;
+        }
+        .promotion-report-table .ant-table-thead > tr > th.ant-table-cell-fix-left {
           position: sticky !important;
-          top: 0 !important;
+          z-index: 11 !important;
+          background-color: #e6f3ff !important;
+        }
+        .promotion-report-table .ant-table-thead > tr > th.ant-table-cell-fix-left-first {
+          left: 0 !important;
+        }
+        .promotion-report-table .ant-table-tbody > tr > td.ant-table-cell-fix-left {
+          position: sticky !important;
           z-index: 10 !important;
+          background-color: white !important;
+        }
+        .promotion-report-table .ant-table-tbody > tr > td.ant-table-cell-fix-left-first {
+          left: 0 !important;
+        }
+        .promotion-report-table .ant-table-tbody > tr:hover > td.ant-table-cell-fix-left {
+          background-color: #f5f5f5 !important;
         }
         
         .promotion-report-table .ant-table-tbody > tr > td {

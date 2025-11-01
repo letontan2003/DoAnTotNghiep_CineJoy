@@ -328,10 +328,21 @@ const SalesReportByDay: React.FC = () => {
     titleCell.font = { bold: true, size: 16 };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     
-    // Add info rows
-    worksheet.getCell('A2').value = `Thời gian xuất báo cáo : ${currentDate}`;
-    worksheet.getCell('A3').value = `User xuất báo cáo : ${adminUser}`;
-    worksheet.getCell('A4').value = `Từ ngày: ${fromDate}         Đến ngày: ${toDate}`;
+    // Add info rows with merged cells to prevent text cutoff
+    worksheet.mergeCells('A2:H2');
+    const infoCell2 = worksheet.getCell('A2');
+    infoCell2.value = `Thời gian xuất báo cáo : ${currentDate}`;
+    infoCell2.alignment = { horizontal: 'left', vertical: 'middle' };
+    
+    worksheet.mergeCells('A3:H3');
+    const infoCell3 = worksheet.getCell('A3');
+    infoCell3.value = `User xuất báo cáo : ${adminUser}`;
+    infoCell3.alignment = { horizontal: 'left', vertical: 'middle' };
+    
+    worksheet.mergeCells('A4:H4');
+    const infoCell4 = worksheet.getCell('A4');
+    infoCell4.value = `Từ ngày: ${fromDate}         Đến ngày: ${toDate}`;
+    infoCell4.alignment = { horizontal: 'left', vertical: 'middle' };
     
     // Empty row 5
     

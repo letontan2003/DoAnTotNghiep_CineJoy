@@ -323,9 +323,20 @@ const SalesReportByCustomer: React.FC = () => {
               titleCell.font = { bold: true, size: 16 };
               titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-              worksheet.getCell('A2').value = `Thời gian xuất báo cáo : ${currentDate}`;
-              worksheet.getCell('A3').value = `User xuất báo cáo : ${adminUser}`;
-              worksheet.getCell('A4').value = `Từ ngày: ${fromDate}         Đến ngày: ${toDate}`;
+              worksheet.mergeCells('A2:M2');
+              const infoCell2 = worksheet.getCell('A2');
+              infoCell2.value = `Thời gian xuất báo cáo : ${currentDate}`;
+              infoCell2.alignment = { horizontal: 'left', vertical: 'middle' };
+              
+              worksheet.mergeCells('A3:M3');
+              const infoCell3 = worksheet.getCell('A3');
+              infoCell3.value = `User xuất báo cáo : ${adminUser}`;
+              infoCell3.alignment = { horizontal: 'left', vertical: 'middle' };
+              
+              worksheet.mergeCells('A4:M4');
+              const infoCell4 = worksheet.getCell('A4');
+              infoCell4.value = `Từ ngày: ${fromDate}         Đến ngày: ${toDate}`;
+              infoCell4.alignment = { horizontal: 'left', vertical: 'middle' };
 
               const headers = [
                 'STT','Mã KH','Tên KH','Gmail','SĐT','Giới tính','Nhóm KH','Thời gian giao dịch','Vé','Concession(s)','Doanh số trước CK','Chiết khấu','Doanh số sau CK'

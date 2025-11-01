@@ -29,6 +29,7 @@ import BookingHistory from 'pages/client/BookingHistory';
 import TransactionDetails from 'pages/client/TransactionDetails';
 import OrderInvoicePage from 'pages/admin/OrderInvoice';
 import ReturnedInvoicePage from 'pages/admin/ReturnedInvoice';
+import RefundReport from 'pages/admin/RefundReport';
 
 const router = createBrowserRouter([
   {
@@ -120,6 +121,10 @@ const router = createBrowserRouter([
   {
     path: "/admin/sales-chart-report",
     element: <AdminLayout><SalesChartReport /></AdminLayout>
+  },
+  {
+    path: "/admin/refund-report",
+    element: <AdminLayout><RefundReport /></AdminLayout>
   },
   {
     path: "*",
