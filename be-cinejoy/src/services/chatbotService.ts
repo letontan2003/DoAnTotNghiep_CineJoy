@@ -1,5 +1,6 @@
 import axios from "axios";
 import chatbotConfig from "../chatbot/chatbotConfig";
+import { User } from "../models/User";
 
 const { model, cache, conversationCache, PROMPT_CONFIG } = chatbotConfig;
 
@@ -146,7 +147,54 @@ ${timesDetails}
     }
   },
 
-  getResponse: async (userMessage: string, sessionId = "default") => {
+  // Lấy thông tin người dùng từ database
+  getUserInfo: async (userId?: string) => {
+    console.log('🔍 getUserInfo called with userId:', userId);
+    if (!userId) {
+      console.log('⚠️ No userId provided');
+      return null;
+    }
+    try {
+      const user = await User.findById(userId).select('-password -otp -otpExpires');
+      if (!user || !user.isActive) {
+        console.log('⚠️ User not found or inactive:', userId);
+        return null;
+      }
+      console.log('✅ User found:', user.fullName);
+      
+      // Tách tên để lấy phần tên chính (tên cuối cùng - tên riêng)
+      // VD: "Lê Tôn Tần" -> "Tần", "Nguyễn Văn A" -> "A", "Trần Thị Bích" -> "Bích"
+      const fullName = user.fullName || '';
+      const nameParts = fullName.trim().split(/\s+/).filter(part => part.length > 0);
+      let firstName = fullName; // Mặc định dùng tên đầy đủ
+      
+      if (nameParts.length > 1) {
+        // Lấy từ cuối cùng (tên riêng) làm tên chính để gọi thân mật
+        firstName = nameParts[nameParts.length - 1]; 
+        // VD: "Lê Tôn Tần" -> "Tần"
+        // VD: "Nguyễn Văn A" -> "A"
+        // VD: "Trần Thị Bích" -> "Bích"
+      } else if (nameParts.length === 1) {
+        firstName = nameParts[0];
+      }
+      
+      return {
+        fullName: fullName || 'Chưa cập nhật',
+        firstName: firstName || fullName || 'Chưa cập nhật', // Tên để gọi thân mật
+        email: user.email || 'Chưa cập nhật',
+        phoneNumber: user.phoneNumber || 'Chưa cập nhật',
+        gender: user.gender || 'Chưa cập nhật',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật',
+        point: user.point || 0,
+        role: user.role || 'USER'
+      };
+    } catch (error) {
+      console.error("Error fetching user info:", error);
+      return null;
+    }
+  },
+
+  getResponse: async (userMessage: string, sessionId = "default", userId?: string) => {
     const cacheKey = `response:${userMessage}`;
     const cachedResponse = cache.get(cacheKey);
 
@@ -176,11 +224,47 @@ ${timesDetails}
       const theaterInfo = await ChatbotService.getTheaterInfo();
       // Lấy thông tin suất chiếu
       const showtimeInfo = await ChatbotService.getShowtimeInfo();
+      // Lấy thông tin người dùng (nếu có)
+      const userInfo = await ChatbotService.getUserInfo(userId);
       // Lấy lịch sử trò chuyện
       const pastMessages: any[] = ChatbotService.getConversation(sessionId);
+      
+      // Kiểm tra xem đây có phải là tin nhắn đầu tiên không (chỉ có tin nhắn từ bot mặc định hoặc chưa có tin nhắn nào từ bot)
+      const botMessagesCount = pastMessages.filter(msg => msg.sender === 'bot').length;
+      const isFirstResponse = botMessagesCount <= 1; // 0 hoặc 1 (tin nhắn chào mặc định)
+
+      const userInfoText = userInfo 
+        ? `
+            Thông tin người dùng hiện tại:
+            - Tên đầy đủ: ${userInfo.fullName}
+            - Tên để gọi (thân mật): ${userInfo.firstName}
+            - Email: ${userInfo.email}
+            - Số điện thoại: ${userInfo.phoneNumber}
+            - Giới tính: ${userInfo.gender}
+            - Ngày sinh: ${userInfo.dateOfBirth}
+            - Điểm tích lũy: ${userInfo.point} điểm
+            - Vai trò: ${userInfo.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng'}
+            
+            QUAN TRỌNG - Hướng dẫn gọi tên người dùng:
+            - Sử dụng tên thân mật "${userInfo.firstName}" thay vì "bạn" hoặc "anh/chị" trong câu trả lời
+            - CHỈ CHÀO "Chào ${userInfo.firstName}" ở tin nhắn ĐẦU TIÊN của cuộc hội thoại
+            - Ở các tin nhắn tiếp theo, KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...")
+            - Nếu có thể, hãy cá nhân hóa câu trả lời dựa trên thông tin của họ (giới tính, điểm tích lũy, v.v.)
+            `
+        : 'Người dùng chưa đăng nhập hoặc thông tin không có sẵn.';
+
+      // Phân tích lịch sử hội thoại để tìm ngữ cảnh
+      const contextAnalysis = pastMessages.length > 0
+        ? pastMessages
+            .slice(-4) // Lấy 4 tin nhắn gần nhất để phân tích ngữ cảnh
+            .map((msg) => msg.text)
+            .join(" ")
+        : "";
 
       const prompt = `
             Bạn là một chatbot thông minh của rạp chiếu phim CineJoy, được thiết kế để trả lời các câu hỏi của người dùng về phim ảnh và rạp chiếu phim một cách ngắn gọn, chính xác và chuyên nghiệp.
+            
+            ${userInfoText}
             
             Thông tin về rạp chiếu phim:
             - Có nhiều rạp chiếu phim hiện đại với công nghệ IMAX, 4DX
@@ -198,13 +282,31 @@ ${timesDetails}
             Danh sách suất chiếu hiện có:
             ${showtimeInfo}
             
-            Lịch sử hội thoại:
+            QUAN TRỌNG - Hướng dẫn gọi tên và ngữ cảnh:
+            1. CÁCH GỌI TÊN NGƯỜI DÙNG (nếu có thông tin user):
+               - CHỈ CHÀO TÊN ở tin nhắn ĐẦU TIÊN khi bắt đầu cuộc hội thoại (ví dụ: "Chào ${userInfo?.firstName}")
+               - Ở các tin nhắn tiếp theo, KHÔNG cần chào lại, chỉ cần sử dụng tên một cách tự nhiên trong câu trả lời (ví dụ: "Tần có thể...", "Dạ ${userInfo?.firstName}...")
+               - KHÔNG lặp lại "Chào ${userInfo?.firstName}" ở mỗi tin nhắn
+               - Nếu đã có lịch sử hội thoại (đã trả lời trước đó), KHÔNG chào lại nữa, chỉ trả lời trực tiếp
+            
+            2. PHẢI LUÔN LUÔN đọc và hiểu LỊCH SỬ HỘI THOẠI trước khi trả lời
+            
+            3. Khi người dùng hỏi về "phim đầu tiên", "phim đó", "phim này", "nội dung phim đầu tiên", v.v.:
+               - Nếu trong lịch sử hội thoại TRƯỚC ĐÓ bạn đã đề cập đến một DANH SÁCH PHIM cụ thể (ví dụ: "các phim tình cảm", "phim hành động", v.v.), thì "phim đầu tiên" phải là phim ĐẦU TIÊN TRONG DANH SÁCH ĐÓ, KHÔNG PHẢI phim đầu tiên trong toàn bộ danh sách phim
+               - Ví dụ: Nếu bạn vừa nói "Các phim tình cảm: Mắt Biếc, Cua lại vợ bầu" và user hỏi "nội dung phim đầu tiên" → phải hiểu là "Mắt Biếc" (phim đầu tiên trong danh sách vừa đề cập)
+               - Chỉ khi KHÔNG có danh sách phim nào được đề cập trước đó trong lịch sử hội thoại, thì mới hiểu là "phim đầu tiên trong toàn bộ danh sách phim"
+            
+            4. Khi người dùng hỏi về "phim đó", "phim này", "phim kia" → phải tham chiếu đến phim VỪA ĐƯỢC ĐỀ CẬP trong lịch sử hội thoại gần nhất
+            
+            5. LUÔN LUÔN kiểm tra lịch sử hội thoại để hiểu ngữ cảnh trước khi trả lời
+            
+            Lịch sử hội thoại (ĐỌC KỸ ĐỂ HIỂU NGỮ CẢNH):
             ${
               pastMessages.length > 0
                 ? pastMessages
                     .map(
-                      (msg) =>
-                        `${msg.sender === "user" ? "Người dùng" : "Chatbot"}: ${
+                      (msg, index) =>
+                        `${index + 1}. ${msg.sender === "user" ? "Người dùng" : "Chatbot"}: ${
                           msg.text
                         }`
                     )
@@ -212,9 +314,19 @@ ${timesDetails}
                 : "Không có lịch sử hội thoại."
             }
         
-            Câu hỏi: ${userMessage}
+            Câu hỏi hiện tại: ${userMessage}
             
-            Trả lời dưới ${PROMPT_CONFIG.MAX_RESPONSE_WORDS} từ.
+            HƯỚNG DẪN TRẢ LỜI:
+            - Đọc kỹ lịch sử hội thoại, đặc biệt là câu trả lời GẦN NHẤT của bạn để xem bạn đã đề cập đến DANH SÁCH PHIM nào
+            - Khi người dùng hỏi về "phim đầu tiên", "phim đó", "nội dung phim đầu tiên", v.v., PHẢI tham chiếu đến danh sách phim VỪA ĐƯỢC ĐỀ CẬP trong lịch sử hội thoại
+            - Chỉ khi KHÔNG có ngữ cảnh liên quan thì mới dùng phim đầu tiên trong toàn bộ danh sách
+            - Trả lời dưới ${PROMPT_CONFIG.MAX_RESPONSE_WORDS} từ
+            ${userInfo ? `
+            - QUAN TRỌNG VỀ GỌI TÊN:
+              * ${isFirstResponse 
+                  ? `Đây là lần ĐẦU TIÊN bạn trả lời (chỉ có ${botMessagesCount} tin nhắn từ bot trước đó), nên hãy chào "Chào ${userInfo.firstName}"`
+                  : `Đây KHÔNG phải là tin nhắn đầu tiên (đã có ${botMessagesCount} tin nhắn từ bot trước đó), nên KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên trong câu trả lời (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...", v.v.)`}
+              * Thay vì nói "bạn" hoặc "anh/chị", hãy sử dụng tên "${userInfo.firstName}" một cách tự nhiên và thân thiện, nhưng KHÔNG lặp lại lời chào ở các tin nhắn tiếp theo` : ''}
             `;
       const result = await model.generateContent(prompt);
       const response = await result.response;

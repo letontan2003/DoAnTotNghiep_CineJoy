@@ -116,7 +116,9 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
   const [promotionType, setPromotionType] = useState<string | undefined>(undefined);
   const [foodCombos, setFoodCombos] = useState<IFoodCombo[]>([]);
   const [seatTypes, setSeatTypes] = useState<string[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<'hoạt động' | 'không hoạt động'>('không hoạt động');
+  const [currentStatus, setCurrentStatus] = useState<'hoạt động' | 'không hoạt động'>(
+    editingLine?.status || 'không hoạt động'
+  );
   
   // Kiểm tra xem có đang ở chế độ "chỉ cho phép sửa trạng thái" không
   const isStatusOnlyEditable = Boolean(editingLine && currentStatus === 'hoạt động');
@@ -846,6 +848,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           ]}
                         >
                           <Select
+                            disabled={isStatusOnlyEditable}
                             placeholder="Chọn combo"
                             showSearch
                             optionFilterProp="children"
@@ -1150,6 +1153,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập phần trăm giảm!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập phần trăm giảm"
                             min={1}
@@ -1166,6 +1170,7 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
                           rules={[{ required: true, message: 'Vui lòng nhập ngân sách tổng!' }]}
                         >
                           <InputNumber
+                            disabled={isStatusOnlyEditable}
                             style={{ width: '100%' }}
                             placeholder="Nhập ngân sách tổng"
                             min={0}

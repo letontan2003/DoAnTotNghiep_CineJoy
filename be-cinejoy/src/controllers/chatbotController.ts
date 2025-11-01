@@ -10,7 +10,18 @@ const ChatbotController = {
             return res.status(400).json({ error: "Tin nhắn không được để trống." });
         }
 
-        const response = await chatbotService.getResponse(message, sessionId);
+        // Lấy userId từ req.user nếu có (khi đã authenticate)
+        // Hoặc từ req.body nếu frontend gửi trực tiếp
+        const userId = (req as any).user?._id?.toString() || req.body.userId;
+        
+        // Debug logging
+        console.log('🔍 Chatbot Request Debug:');
+        console.log('- Has req.user:', !!req.user);
+        console.log('- User ID:', userId);
+        console.log('- User name:', req.user?.fullName || 'N/A');
+        console.log('- Auth header:', req.headers.authorization ? 'Present' : 'Missing');
+
+        const response = await chatbotService.getResponse(message, sessionId, userId);
         res.json({ reply: response });
     },
 

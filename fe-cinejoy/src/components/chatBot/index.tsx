@@ -70,9 +70,27 @@ const Chatbot: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const response = await axios.post<ChatResponse>('http://localhost:5000/chatbot/chat', {
-                message: userMessage
-            });
+            // Lấy token từ localStorage nếu có
+            const token = localStorage.getItem('accessToken');
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            
+            // Thêm Authorization header nếu có token
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔑 Sending token with chatbot request');
+            } else {
+                console.log('⚠️ No token found in localStorage');
+            }
+
+            const response = await axios.post<ChatResponse>(
+                'http://localhost:5000/chatbot/chat',
+                {
+                    message: userMessage
+                },
+                { headers }
+            );
 
             setMessages(prev => [...prev, { sender: 'bot', text: response.data.reply }]);
         } catch (error) {
@@ -125,9 +143,9 @@ const Chatbot: React.FC = () => {
 
                 {/* Khung chat web */}
                 {isOpen && (
-                    <div className="bg-white rounded-lg shadow-xl w-80 h-[400px] flex flex-col">
+                    <div className="bg-white rounded-xl shadow-2xl w-96 h-[500px] flex flex-col border border-gray-200">
                         {/* Header */}
-                        <div className="bg-blue-600 text-white px-2.5 py-1.5 rounded-t-lg flex justify-between items-center">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-xl flex justify-between items-center shadow-md">
                             <div className='flex items-center gap-1'>
                                 <img className='w-15 object-cover' src={Logo} alt="avatar" />
                                 <h3 className="font-semibold select-none">CineJoy Assistant</h3>
@@ -143,16 +161,16 @@ const Chatbot: React.FC = () => {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-gray-50">
                             {messages.map((message, index) => (
                                 <div
                                     key={index}
                                     className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
                                     <div
-                                        className={`max-w-[90%] rounded-lg p-3 ${message.sender === 'user'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-800'
+                                        className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${message.sender === 'user'
+                                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
+                                            : 'bg-white text-gray-800 border border-gray-200'
                                             }`}
                                     >
                                         {message.text}
@@ -161,7 +179,7 @@ const Chatbot: React.FC = () => {
                             ))}
                             {isLoading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-gray-100 text-gray-800 rounded-lg p-3">
+                                    <div className="bg-white text-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-200">
                                         <div className="flex space-x-2">
                                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
@@ -174,8 +192,8 @@ const Chatbot: React.FC = () => {
                         </div>
 
                         {/* Input */}
-                        <div className="border-t p-2">
-                            <div className="flex space-x-2">
+                        <div className="border-t border-gray-200 bg-gray-50 p-4 rounded-b-xl">
+                            <div className="flex items-center space-x-3">
                                 <input
                                     ref={inputRef}
                                     type="text"
@@ -183,14 +201,15 @@ const Chatbot: React.FC = () => {
                                     onChange={(e) => setInputMessage(e.target.value)}
                                     onKeyPress={handleKeyPress}
                                     placeholder="Nhập tin nhắn..."
-                                    className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                                    className="flex-1 bg-white border border-gray-300 rounded-xl px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                                 />
                                 <button
                                     onClick={handleSendMessage}
                                     disabled={isLoading}
-                                    className="bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 cursor-pointer"
+                                    className="bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-all disabled:bg-blue-400 cursor-pointer shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center min-w-[48px]"
+                                    title="Gửi tin nhắn"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                     </svg>
                                 </button>

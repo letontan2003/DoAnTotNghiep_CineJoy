@@ -1,10 +1,12 @@
 import express from 'express';
 import ChatbotController from '../controllers/chatbotController';
+import { optionalVerifyToken } from '../middlewares/AuthMiddleware';
 
 const router = express.Router();
 
 // Route để nhận tin nhắn và trả về phản hồi từ chatbot
-router.post('/chat', ChatbotController.getChatResponse);
+// optionalVerifyToken: nếu có token thì lấy user info, không có thì vẫn hoạt động bình thường
+router.post('/chat', optionalVerifyToken as express.RequestHandler, ChatbotController.getChatResponse);
 
 // Facebook Messenger Webhook routes
 router.get('/webhook', ChatbotController.verifyWebhook);

@@ -520,44 +520,54 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                 key: 'action',
                 width: 240,
                 fixed: 'right',
-                render: (_, record: IPromotionLine, index: number) => (
-                  <div className="flex gap-2">
-                    <Button 
-                      size="small"
-                      onClick={() => {
-                        setSelectedLine(record);
-                        setSelectedLineIndex(index);
-                        setShowDetailModal(true);
-                      }}
-                    >
-                      Xem chi tiết
-                    </Button>
-                    <Button 
-                      type="primary" 
-                      size="small"
-                      onClick={() => handleEditLine(record, index)}
-                    >
-                      Sửa
-                    </Button>
-                    {record.status !== 'hoạt động' && (
-                      <Popconfirm
-                        title="Xóa chi tiết khuyến mãi"
-                        description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
-                        onConfirm={() => handleDeleteLine(index)}
-                        okText="Có"
-                        cancelText="Không"
+                render: (_, record: IPromotionLine, index: number) => {
+                  // Kiểm tra xem ngày kết thúc có quá ngày hiện tại không
+                  const endDate = record.validityPeriod?.endDate;
+                  const isEndDatePassed = endDate ? dayjs(endDate).isBefore(dayjs(), 'day') : false;
+                  
+                  return (
+                    <div className="flex gap-2">
+                      <Button 
+                        size="small"
+                        onClick={() => {
+                          setSelectedLine(record);
+                          setSelectedLineIndex(index);
+                          setShowDetailModal(true);
+                        }}
                       >
-                        <Button 
-                          type="primary" 
-                          danger
-                          size="small"
-                        >
-                          Xóa
-                        </Button>
-                      </Popconfirm>
-                    )}
-                  </div>
-                )
+                        Xem chi tiết
+                      </Button>
+                      {!isEndDatePassed && (
+                        <>
+                          <Button 
+                            type="primary" 
+                            size="small"
+                            onClick={() => handleEditLine(record, index)}
+                          >
+                            Sửa
+                          </Button>
+                          {record.status !== 'hoạt động' && (
+                            <Popconfirm
+                              title="Xóa chi tiết khuyến mãi"
+                              description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
+                              onConfirm={() => handleDeleteLine(index)}
+                              okText="Có"
+                              cancelText="Không"
+                            >
+                              <Button 
+                                type="primary" 
+                                danger
+                                size="small"
+                              >
+                                Xóa
+                              </Button>
+                            </Popconfirm>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                }
               }
             ]}
           />

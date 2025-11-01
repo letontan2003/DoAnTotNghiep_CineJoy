@@ -152,10 +152,13 @@ const RefundReport: React.FC = () => {
       let firstInGroup = true;
       
       for (const order of ordersOfCustomer) {
-        const product = order.movieId?.title || '—';
-        const showtime = `${order.theaterId?.name || '—'} | ${order.room} | ${dayjs(order.showDate).format('DD/MM/YYYY')} | ${order.showTime}`;
-        const tickets = order.seats?.map(s => s.seatId).join(', ') || '—';
-        const concessions = order.foodCombos?.map(c => `${c.comboId?.name || 'Combo'} (${c.quantity})`).join(', ') || '—';
+        const product = order.movieId?.title || '';
+        const theaterName = order.theaterId?.name || '';
+        const showtime = theaterName && order.room && order.showDate && order.showTime 
+          ? `${theaterName} | ${order.room} | ${dayjs(order.showDate).format('DD/MM/YYYY')} ${order.showTime}`
+          : '';
+        const tickets = order.seats?.map(s => s.seatId).join(', ') || '';
+        const concessions = order.foodCombos?.map(c => `${c.comboId?.name || 'Combo'} (${c.quantity})`).join(', ') || '';
         const discount = order.totalAmount - order.finalAmount;
 
         subtotal.total += order.totalAmount || 0;
@@ -169,12 +172,12 @@ const RefundReport: React.FC = () => {
           key: order._id,
           stt, // số thứ tự nhóm
           orderCode: order.orderCode,
-          customerName: order.customerInfo?.fullName || '—',
+          customerName: order.customerInfo?.fullName || '',
           orderDate: dayjs(order.createdAt).format('DD/MM/YYYY'),
-          paymentTime: order.paymentInfo?.paymentDate ? dayjs(order.paymentInfo.paymentDate).format('HH:mm DD/MM/YYYY') : '—',
-          paymentMethod: order.paymentMethod || '—',
-          returnTime: order.returnInfo?.returnDate ? dayjs(order.returnInfo.returnDate).format('HH:mm DD/MM/YYYY') : '—',
-          returnReason: order.returnInfo?.reason || '—',
+          paymentTime: order.paymentInfo?.paymentDate ? dayjs(order.paymentInfo.paymentDate).format('HH:mm DD/MM/YYYY') : '',
+          paymentMethod: order.paymentMethod || '',
+          returnTime: order.returnInfo?.returnDate ? dayjs(order.returnInfo.returnDate).format('HH:mm DD/MM/YYYY') : '',
+          returnReason: order.returnInfo?.reason || '',
           product,
           showtime,
           tickets,

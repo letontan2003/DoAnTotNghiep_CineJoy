@@ -2795,34 +2795,49 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                           </span>
                         </div>
                         <div className="flex gap-2 justify-start" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
-                            <motion.button
-                            onClick={(e) => { e.stopPropagation(); handleEditVoucher(voucher); }}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                            >
-                              Sửa
-                            </motion.button>
-                            {voucher.status !== 'hoạt động' && (
-                            <Popconfirm
-                              title="Xóa khuyến mãi"
-                              description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
-                              onConfirm={() => handleDeleteVoucher(voucher._id!)}
-                              okText="Có"
-                              cancelText="Không"
-                               onOpenChange={(open) => setBlockVoucherRowNavigate(open)}
-                               onCancel={() => setBlockVoucherRowNavigate(false)}
-                            >
-                              <motion.button
-                              onClick={(e) => e.stopPropagation()}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                Xóa
-                              </motion.button>
-                            </Popconfirm>
-                            )}
+                            {(() => {
+                              // Kiểm tra xem ngày kết thúc có quá ngày hiện tại không
+                              const endDate = voucher.endDate || voucher.validityPeriod?.endDate;
+                              const isEndDatePassed = endDate ? dayjs(endDate as string).isBefore(dayjs(), 'day') : false;
+                              
+                              // Chỉ hiển thị nút nếu ngày kết thúc chưa qua
+                              if (isEndDatePassed) {
+                                return null;
+                              }
+                              
+                              return (
+                                <>
+                                  <motion.button
+                                    onClick={(e) => { e.stopPropagation(); handleEditVoucher(voucher); }}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    Sửa
+                                  </motion.button>
+                                  {voucher.status !== 'hoạt động' && (
+                                    <Popconfirm
+                                      title="Xóa khuyến mãi"
+                                      description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
+                                      onConfirm={() => handleDeleteVoucher(voucher._id!)}
+                                      okText="Có"
+                                      cancelText="Không"
+                                      onOpenChange={(open) => setBlockVoucherRowNavigate(open)}
+                                      onCancel={() => setBlockVoucherRowNavigate(false)}
+                                    >
+                                      <motion.button
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                      >
+                                        Xóa
+                                      </motion.button>
+                                    </Popconfirm>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                       </div>
                       {/* Inline detail panel when expanded via route-like UX */}
