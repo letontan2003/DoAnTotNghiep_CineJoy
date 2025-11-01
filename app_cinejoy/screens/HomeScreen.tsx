@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   ScrollView,
   Animated,
+  Modal,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
@@ -26,6 +28,7 @@ import backgroundImage from "assets/background.jpg";
 import backgroundTab from "assets/backgroundTab.png";
 import logo from "assets/logoCNJ.png";
 import icon from "assets/iconHome.png";
+import startHome from "assets/startHome.png";
 
 const { width, height } = Dimensions.get("window");
 
@@ -38,6 +41,8 @@ const HomeScreen = () => {
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
   const [currentPromotionalPage, setCurrentPromotionalPage] = useState(0);
   const [isStickyHeader, setIsStickyHeader] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const hasShownModal = useRef(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -171,6 +176,17 @@ const HomeScreen = () => {
       fetchMovies(status);
     }
   }, [selectedTab]);
+
+  // Hiển thị modal khi vào HomeScreen lần đầu tiên
+  useFocusEffect(() => {
+    if (!hasShownModal.current) {
+      hasShownModal.current = true;
+      // Delay một chút để đảm bảo HomeScreen đã render xong
+      setTimeout(() => {
+        setShowPromoModal(true);
+      }, 500);
+    }
+  });
 
   // Auto-play effect
   useEffect(() => {
@@ -541,6 +557,37 @@ const HomeScreen = () => {
         </View>
         </View>
       </ScrollView>
+
+      {/* Promo Modal - Hiển thị khi vào HomeScreen lần đầu */}
+      <Modal
+        visible={showPromoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPromoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          {/* Blur Background - Overlay với opacity để tạo hiệu ứng mờ */}
+          <View style={styles.blurBackground} />
+          
+          {/* Central Image */}
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowPromoModal(false)}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+            
+            {/* Placeholder image - Bạn sẽ thay thế sau */}
+            <Image
+              source={startHome}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+            
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1227,6 +1274,60 @@ const styles = StyleSheet.create({
     color: "#333",
     lineHeight: 16,
     fontWeight: "600",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  blurBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  modalContent: {
+    width: width * 0.85,
+    maxHeight: height * 0.85,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 20,
+    right: -15,
+    width: 40,
+    height: 40,
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 20,
+    borderWidth: 4,
+    borderColor: "#fff",
+    backgroundColor: "transparent",
+    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: "#fff",
+    fontWeight: "bold",
+    marginTop: -3,
+  },
+  modalImage: {
+    width: width * 0.85,
+    height: height * 0.6,
+    borderRadius: 10,
   },
 });
 
