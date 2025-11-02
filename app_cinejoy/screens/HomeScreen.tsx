@@ -46,9 +46,12 @@ const HomeScreen = () => {
   const hasShownModal = useRef(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
+  const partnerOffersFlatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const headerOpacity = useRef(new Animated.Value(1)).current; // Opacity cho header
   const sideMenuTranslateX = useRef(new Animated.Value(width)).current; // Side menu position
+  const [currentPartnerOfferIndex, setCurrentPartnerOfferIndex] = useState(0);
+  const [isPartnerOfferAutoScroll, setIsPartnerOfferAutoScroll] = useState(true);
 
   // Promotional items data
   const promotionalItems = [
@@ -89,7 +92,7 @@ const HomeScreen = () => {
   ];
 
   // Partner Offers data - chỉ chứa ảnh, tất cả text đã có trong ảnh
-  const partnerOffers = [
+  const partnerOffersOriginal = [
     {
       id: 1,
       image: banner1,
@@ -103,6 +106,9 @@ const HomeScreen = () => {
       image: banner3,
     },
   ];
+
+  // Duplicate data để scroll vô cực
+  const partnerOffers = [...partnerOffersOriginal, ...partnerOffersOriginal, ...partnerOffersOriginal];
 
   // Side menu items data - Grid menu với icons
   const menuGridItems = [
@@ -269,6 +275,65 @@ const HomeScreen = () => {
     setIsAutoPlaying(false);
     // Resume auto-play after 3 seconds of no interaction
     setTimeout(() => setIsAutoPlaying(true), 3000);
+  };
+
+  // Auto-scroll cho Partner Offers
+  useEffect(() => {
+    if (!isPartnerOfferAutoScroll) return;
+
+    const originalLength = partnerOffersOriginal.length;
+    const cardWidth = width * 0.85 + 12; // width của card + marginRight
+
+    const interval = setInterval(() => {
+      setCurrentPartnerOfferIndex((prevIndex) => {
+        const nextIndex = prevIndex + 1;
+        
+        // Nếu đã scroll đến cuối phần duplicate thứ 2, reset về đầu không animation
+        if (nextIndex >= originalLength * 2) {
+          setTimeout(() => {
+            partnerOffersFlatListRef.current?.scrollToOffset({
+              offset: 0,
+              animated: false,
+            });
+          }, 50);
+          return 0;
+        }
+
+        partnerOffersFlatListRef.current?.scrollToOffset({
+          offset: nextIndex * cardWidth,
+          animated: true,
+        });
+        
+        return nextIndex;
+      });
+    }, 3000); // Scroll mỗi 3 giây
+
+    return () => clearInterval(interval);
+  }, [isPartnerOfferAutoScroll]);
+
+  // Handle manual scroll cho Partner Offers
+  const handlePartnerOfferScroll = (event: any) => {
+    const cardWidth = width * 0.85 + 12;
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / cardWidth);
+    const originalLength = partnerOffersOriginal.length;
+    
+    // Nếu scroll đến gần cuối phần duplicate thứ 2, reset về đầu
+    if (index >= originalLength * 2 - 1) {
+      setTimeout(() => {
+        partnerOffersFlatListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      }, 50);
+      setCurrentPartnerOfferIndex(0);
+    } else {
+      setCurrentPartnerOfferIndex(index);
+    }
+
+    // Pause auto-scroll khi user scroll thủ công
+    setIsPartnerOfferAutoScroll(false);
+    setTimeout(() => setIsPartnerOfferAutoScroll(true), 5000);
   };
 
   return (
@@ -622,11 +687,19 @@ const HomeScreen = () => {
           <Text style={styles.partnerOffersTitle}>Ưu đãi từ đối tác</Text>
           
           <FlatList
+            ref={partnerOffersFlatListRef}
             data={partnerOffers}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.partnerOffersContent}
-            renderItem={({ item }) => (
+            onScroll={handlePartnerOfferScroll}
+            onMomentumScrollEnd={handlePartnerOfferScroll}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={width * 0.85 + 12}
+            snapToAlignment="start"
+            pagingEnabled={false}
+            renderItem={({ item, index }) => (
               <TouchableOpacity style={styles.partnerOfferCard}>
                 <Image 
                   source={item.image} 
@@ -635,7 +708,12 @@ const HomeScreen = () => {
                 />
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item, index) => `partner-offer-${item.id}-${index}`}
+            getItemLayout={(data, index) => ({
+              length: width * 0.85 + 12,
+              offset: (width * 0.85 + 12) * index,
+              index,
+            })}
           />
         </View>
         </View>
