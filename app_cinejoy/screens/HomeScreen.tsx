@@ -233,7 +233,7 @@ const HomeScreen = () => {
         <Animated.View style={[
           styles.header,
           isStickyHeader && styles.headerSticky,
-          { opacity: headerOpacity }
+          { opacity: headerOpacity, backgroundColor: "rgba(0, 0, 0, 0.7)", shadowColor: "rgba(0, 0, 0, 0.7)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 }
         ]}>
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
