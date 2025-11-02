@@ -116,12 +116,12 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
   const [promotionType, setPromotionType] = useState<string | undefined>(undefined);
   const [foodCombos, setFoodCombos] = useState<IFoodCombo[]>([]);
   const [seatTypes, setSeatTypes] = useState<string[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<'hoạt động' | 'không hoạt động'>(
-    editingLine?.status || 'không hoạt động'
-  );
+  // Lưu trạng thái ban đầu từ editingLine (không thay đổi khi user chọn trong form)
+  const initialStatus = editingLine?.status || 'không hoạt động';
   
   // Kiểm tra xem có đang ở chế độ "chỉ cho phép sửa trạng thái" không
-  const isStatusOnlyEditable = Boolean(editingLine && currentStatus === 'hoạt động');
+  // Chỉ khóa khi editingLine tồn tại VÀ trạng thái ban đầu là 'hoạt động'
+  const isStatusOnlyEditable = Boolean(editingLine && initialStatus === 'hoạt động');
   
   // Danh sách nhóm loại trừ có sẵn - tách riêng theo loại khuyến mãi
   const getExclusionGroups = (promotionType: string) => {
@@ -203,8 +203,6 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
     if (editingLine) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detail = editingLine.detail as any;
-      // Cập nhật currentStatus khi có editingLine
-      setCurrentStatus(editingLine.status);
       
       form.setFieldsValue({
         promotionType: editingLine.promotionType,
@@ -558,7 +556,6 @@ const VoucherDetailForm: React.FC<VoucherDetailFormProps> = ({
           <Select 
             placeholder="Chọn trạng thái"
             disabled={voucherStatus === 'không hoạt động'}
-            onChange={(value) => setCurrentStatus(value)}
           >
             <Option value="hoạt động" disabled={voucherStatus === 'không hoạt động'}>Hoạt động</Option>
             <Option value="không hoạt động">Không hoạt động</Option>

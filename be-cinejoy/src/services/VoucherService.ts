@@ -759,10 +759,11 @@ export default class VoucherService {
     }
   }
 
-  // Áp dụng khuyến mãi chiết khấu (percent) dựa trên combo được chọn
+  // Áp dụng khuyến mãi chiết khấu (percent) dựa trên combo và vé được chọn
   async applyPercentPromotions(
     selectedCombos: Array<{ comboId: string; quantity: number; name: string; price: number }>,
-    appliedPromotions: any[] = []
+    appliedPromotions: any[] = [],
+    selectedSeats?: Array<{ seatId: string; type: string; price: number }>
   ): Promise<{
     status: boolean;
     error: number;
@@ -785,7 +786,7 @@ export default class VoucherService {
         voucher.lines.forEach(line => {
           if (line.promotionType === "percent" && line.status === "hoạt động") {
             const percentDetail = line.detail as any;
-            console.log(`    ✅ Active percent line: ${percentDetail?.description} (comboId: ${percentDetail?.comboId})`);
+            console.log(`    ✅ Active percent line: ${percentDetail?.description} (applyType: ${percentDetail?.applyType})`);
             percentPromotions.push({
               voucherId: voucher._id,
               voucherName: voucher.name,
@@ -809,14 +810,25 @@ export default class VoucherService {
 
       console.log(`🔍 Processing ${percentPromotions.length} active percent promotions`);
       console.log(`🔍 Selected combos:`, selectedCombos);
+      console.log(`🔍 Selected seats:`, selectedSeats);
+      
+      // Tính tổng giá vé theo loại ghế (normalize to lowercase)
+      const seatTypeTotals: Record<string, number> = {};
+      if (selectedSeats && Array.isArray(selectedSeats)) {
+        selectedSeats.forEach(seat => {
+          const seatType = (seat.type || 'normal').toLowerCase(); // Normalize to lowercase
+          seatTypeTotals[seatType] = (seatTypeTotals[seatType] || 0) + seat.price;
+        });
+      }
+      console.log(`🔍 Seat type totals:`, seatTypeTotals);
 
       // Duyệt qua từng khuyến mãi chiết khấu
       for (const promotion of percentPromotions) {
         const detail = promotion.detail;
         
-        console.log(`🔍 Checking percent promotion: ${detail?.description} (comboId: ${detail?.comboId})`);
+        console.log(`🔍 Checking percent promotion: ${detail?.description} (applyType: ${detail?.applyType})`);
         
-        // Kiểm tra điều kiện áp dụng
+        // Kiểm tra điều kiện áp dụng cho COMBO
         if (detail.applyType === "combo") {
           const selectedCombo = selectedCombos.find(combo => combo.comboId === detail.comboId);
           console.log(`🔍 Found selected combo:`, selectedCombo);
@@ -852,6 +864,63 @@ export default class VoucherService {
                 applicablePromotions.push(promotionResult);
               }
             }
+          }
+        }
+        // Kiểm tra điều kiện áp dụng cho VÉ (TICKET)
+        else if (detail.applyType === "ticket") {
+          const seatType = (detail.seatType || '').toLowerCase(); // Normalize to lowercase để match với database
+          const ticketDiscountPercent = detail.ticketDiscountPercent || 0;
+          
+          console.log(`🔍 Checking ticket percent promotion: seatType=${seatType}, discountPercent=${ticketDiscountPercent}%`);
+          console.log(`🔍 Total price for seats of type "${seatType}": ${seatTypeTotals[seatType] || 0}₫`);
+          console.log(`🔍 Available seat types:`, Object.keys(seatTypeTotals));
+          
+          // Kiểm tra xem có vé loại này không
+          if (seatTypeTotals[seatType] > 0 && ticketDiscountPercent > 0) {
+            // Tính số tiền giảm
+            const discountAmount = Math.round((seatTypeTotals[seatType] * ticketDiscountPercent) / 100);
+            
+            if (discountAmount > 0) {
+              // Tạo description cho ticket promotion
+              const description = promotion.detail?.description || `Giảm ${ticketDiscountPercent}% vé ${seatType}`;
+              
+              // Tạo promotionResult cho ticket promotion - chỉ lấy các field cần thiết
+              const promotionResult = {
+                voucherId: promotion.voucherId,
+                voucherName: promotion.voucherName,
+                promotionalCode: promotion.promotionalCode,
+                lineIndex: promotion.lineIndex,
+                promotionType: promotion.promotionType,
+                validityPeriod: promotion.validityPeriod,
+                status: promotion.status,
+                detail: promotion.detail,
+                rule: promotion.rule,
+                seatType: seatType, // Chỉ có với ticket promotion
+                discountPercent: ticketDiscountPercent,
+                discountAmount: discountAmount,
+                totalTicketPrice: seatTypeTotals[seatType],
+                description: description // Thêm description để frontend hiển thị
+                // KHÔNG thêm comboName/comboId vì đây là promotion cho vé, không phải combo
+              };
+
+              // Xử lý quy tắc loại trừ theo nhóm
+              if (promotion.rule?.stackingPolicy === "EXCLUSIVE_WITH_GROUP") {
+                const exclusionGroup = promotion.rule.exclusionGroup;
+                
+                console.log(`🎯 Adding ticket percent promotion to exclusion group "${exclusionGroup}": ${promotionResult.detail?.description}`);
+                
+                if (!exclusionGroups.has(exclusionGroup)) {
+                  exclusionGroups.set(exclusionGroup, []);
+                }
+                exclusionGroups.get(exclusionGroup)!.push(promotionResult);
+              } else {
+                // Có thể cộng dồn
+                console.log(`➕ Adding standalone ticket percent promotion: ${promotionResult.detail?.description}`);
+                applicablePromotions.push(promotionResult);
+              }
+            }
+          } else {
+            console.log(`❌ No tickets or invalid discount: seatType=${seatType}, total=${seatTypeTotals[seatType] || 0}, percent=${ticketDiscountPercent}`);
           }
         }
       }
@@ -940,11 +1009,11 @@ export default class VoucherService {
       console.log(`🔍 Selected combos:`, selectedCombos);
       console.log(`🔍 Selected seats:`, selectedSeats);
       
-      // Tính số lượng vé theo loại ghế
+      // Tính số lượng vé theo loại ghế (normalize to lowercase)
       const seatTypeCounts: Record<string, number> = {};
       if (selectedSeats && Array.isArray(selectedSeats)) {
         selectedSeats.forEach(seat => {
-          const seatType = seat.type;
+          const seatType = (seat.type || 'normal').toLowerCase(); // Normalize to lowercase
           seatTypeCounts[seatType] = (seatTypeCounts[seatType] || 0) + 1;
         });
       }
@@ -997,11 +1066,12 @@ export default class VoucherService {
         }
         // Kiểm tra điều kiện áp dụng cho VÉ (TICKET)
         else if (detail.applyType === "ticket") {
-          const buyItem = detail.buyItem; // Loại ghế (VD: "VIP", "Standard")
+          const buyItem = (detail.buyItem || '').toLowerCase(); // Normalize to lowercase để match với database
           const buyQuantity = detail.buyQuantity; // Số lượng vé cần mua
           
           console.log(`🔍 Checking ticket promotion: buyItem=${buyItem}, buyQuantity=${buyQuantity}`);
           console.log(`🔍 Available seats of type "${buyItem}": ${seatTypeCounts[buyItem] || 0}`);
+          console.log(`🔍 Available seat types:`, Object.keys(seatTypeCounts));
           
           // Kiểm tra xem có đủ số lượng vé loại này không
           if (seatTypeCounts[buyItem] >= buyQuantity) {

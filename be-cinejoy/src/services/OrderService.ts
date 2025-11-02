@@ -333,7 +333,7 @@ class OrderService {
         // Tiếp tục với itemPromotions = [] nếu có lỗi
       }
 
-      // Tính toán percent promotions (khuyến mãi chiết khấu)
+      // Tính toán percent promotions (khuyến mãi chiết khấu) cho cả combo và vé
       let percentPromotions = [];
       let percentDiscountAmount = 0;
       
@@ -351,20 +351,63 @@ class OrderService {
           price: combo.price
         }));
         
-        if (selectedCombosWithPrice.length > 0) {
+        // Lấy thông tin vé đã chọn
+        const selectedSeats = orderData.seats.map(seat => ({
+          seatId: seat.seatId,
+          type: seat.type,
+          price: seat.price
+        }));
+        
+        // Gọi applyPercentPromotions với cả combo và seats
+        if (selectedCombosWithPrice.length > 0 || selectedSeats.length > 0) {
           console.log(`🔍 Percent Promotions Debug:`);
           console.log(`  Selected combos with price:`, selectedCombosWithPrice);
+          console.log(`  Selected seats:`, selectedSeats);
           
-          const percentResult = await voucherService.applyPercentPromotions(selectedCombosWithPrice, []);
+          const percentResult = await voucherService.applyPercentPromotions(
+            selectedCombosWithPrice, 
+            [],
+            selectedSeats
+          );
           
           if (percentResult.status && percentResult.data && percentResult.data.applicablePromotions.length > 0) {
-            percentPromotions = percentResult.data.applicablePromotions.map((promotion: any) => ({
-              description: promotion.detail?.description || `Giảm ${promotion.discountPercent}% ${promotion.comboName}`,
-              comboName: promotion.comboName,
-              comboId: promotion.comboId,
-              discountPercent: promotion.discountPercent,
-              discountAmount: promotion.discountAmount
-            }));
+            percentPromotions = percentResult.data.applicablePromotions.map((promotion: any) => {
+              // Tạo description phù hợp
+              let description = promotion.detail?.description;
+              if (!description) {
+                if (promotion.seatType) {
+                  // Promotion cho vé
+                  description = `Giảm ${promotion.discountPercent}% vé ${promotion.seatType}`;
+                } else if (promotion.comboName) {
+                  // Promotion cho combo
+                  description = `Giảm ${promotion.discountPercent}% ${promotion.comboName}`;
+                } else {
+                  description = `Giảm ${promotion.discountPercent}%`;
+                }
+              }
+              
+              // Tạo object với chỉ các trường cần thiết
+              const percentPromo: any = {
+                description: description,
+                discountPercent: promotion.discountPercent,
+                discountAmount: promotion.discountAmount
+              };
+              
+              // Chỉ thêm comboName/comboId nếu là promotion cho combo
+              if (promotion.comboName) {
+                percentPromo.comboName = promotion.comboName;
+              }
+              if (promotion.comboId) {
+                percentPromo.comboId = promotion.comboId;
+              }
+              
+              // Chỉ thêm seatType nếu là promotion cho vé
+              if (promotion.seatType) {
+                percentPromo.seatType = promotion.seatType;
+              }
+              
+              return percentPromo;
+            });
             
             percentDiscountAmount = percentResult.data.totalDiscountAmount || 0;
             

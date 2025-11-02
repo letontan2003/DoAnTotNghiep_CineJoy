@@ -37,8 +37,9 @@ export interface IOrder extends Document {
   }>;
   percentPromotions?: Array<{
     description: string;
-    comboName: string;
-    comboId: string;
+    comboName?: string; // Optional - chỉ có khi áp dụng cho combo
+    comboId?: string; // Optional - chỉ có khi áp dụng cho combo
+    seatType?: string; // Optional - chỉ có khi áp dụng cho vé
     discountPercent: number;
     discountAmount: number;
   }>;
@@ -207,11 +208,15 @@ const OrderSchema: Schema = new Schema(
         },
         comboName: {
           type: String,
-          required: true,
+          required: false, // Optional - chỉ có khi áp dụng cho combo
         },
         comboId: {
           type: String,
-          required: true,
+          required: false, // Optional - chỉ có khi áp dụng cho combo
+        },
+        seatType: {
+          type: String,
+          required: false, // Optional - chỉ có khi áp dụng cho vé
         },
         discountPercent: {
           type: Number,

@@ -77,6 +77,10 @@ const PaymentPage = () => {
   // State cho khuyến mãi chiết khấu
   const [appliedPercentPromotions, setAppliedPercentPromotions] = useState<any[]>([]);
 
+  // Tính tiền vé từ seatTypeCounts và bảng giá hiện tại
+  const [ticketTotal, setTicketTotal] = useState<number>(0);
+  const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>({});
+
   // Tính toán selectedCombos từ comboCounts - sử dụng useMemo để tránh tạo array mới mỗi lần render
   const selectedCombos = useMemo(() => 
     combos.filter(combo => comboCounts[combo._id] > 0).map(combo => ({
@@ -347,7 +351,7 @@ const PaymentPage = () => {
 
       // Chuẩn bị dữ liệu vé để gửi lên API
       const seatData = seats.map((seatId: string) => {
-        const seatType = seatTypeMap[seatId] || 'Standard';
+        const seatType = (seatTypeMap[seatId] || 'normal').toLowerCase(); // Normalize to lowercase
         return {
           seatId: seatId,
           type: seatType,
@@ -374,9 +378,10 @@ const PaymentPage = () => {
     }
   }, [selectedCombos, seats, seatTypeMap]);
 
-  // Tự động áp dụng khuyến mãi chiết khấu (không hiển thị message)
+  // Tự động áp dụng khuyến mãi chiết khấu cho cả combo và vé (không hiển thị message)
   const applyPercentPromotionsAuto = useCallback(async () => {
-    if (selectedCombos.length === 0) {
+    // Chỉ áp dụng nếu có combo hoặc có vé
+    if (selectedCombos.length === 0 && (!seats || seats.length === 0)) {
       setAppliedPercentPromotions([]);
       return;
     }
@@ -392,7 +397,27 @@ const PaymentPage = () => {
         };
       });
 
-      const response = await applyPercentPromotionsApi(comboData, []);
+      // Chuẩn bị dữ liệu vé với giá để tính phần trăm giảm
+      // Lấy giá vé từ ticketPriceMap (đã được load từ price list)
+      const seatDataWithPrice = seats.map((seatId: string) => {
+        const seatType = (seatTypeMap[seatId] || 'normal').toLowerCase(); // Normalize to lowercase
+        // Lấy giá từ ticketPriceMap theo loại ghế (normalize seatType để match với price list)
+        const seatPrice = ticketPriceMap[seatType] || 0;
+        
+        console.log(`🎯 Seat ${seatId}: type=${seatType}, price=${seatPrice} from ticketPriceMap[${seatType}]`);
+        
+        return {
+          seatId: seatId,
+          type: seatType,
+          price: seatPrice // Giá vé từ price list, để backend tính phần trăm giảm
+        };
+      });
+
+      console.log('🎯 Percent promotions - seatDataWithPrice:', seatDataWithPrice);
+      console.log('🎯 Percent promotions - ticketPriceMap:', ticketPriceMap);
+      console.log('🎯 Percent promotions - seatTypeMap:', seatTypeMap);
+
+      const response = await applyPercentPromotionsApi(comboData, [], seatDataWithPrice);
       
       if (response.status && response.data) {
         setAppliedPercentPromotions(response.data.applicablePromotions);
@@ -403,7 +428,7 @@ const PaymentPage = () => {
       console.error("Error applying percent promotions:", error);
       setAppliedPercentPromotions([]);
     }
-  }, [selectedCombos]);
+  }, [selectedCombos, seats, seatTypeMap, combos, ticketPriceMap]);
 
   const handleOpenModal = () => {
     if (!editableUserInfo.fullName.trim()) {
@@ -542,11 +567,6 @@ const PaymentPage = () => {
     (sum, c) => sum + (comboCounts[c._id] || 0) * (c.price || 0),
     0
   );
-
-  // Tính tiền vé từ seatTypeCounts và bảng giá hiện tại (đã load ở SelectSeat và truyền tổng)
-  // Fallback: nếu không có seatTypeCounts, tạm tính 0 để tránh sai số
-  const [ticketTotal, setTicketTotal] = useState<number>(0);
-  const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>({});
   useEffect(() => {
     const calc = async () => {
       try {
@@ -554,10 +574,18 @@ const PaymentPage = () => {
         const priceList: IPriceList | null = await getCurrentPriceList();
         const map: Record<string, number> = {};
         (priceList?.lines || []).forEach((l) => {
-          if (l.type === 'ticket' && l.seatType) map[l.seatType] = l.price || 0;
+          if (l.type === 'ticket' && l.seatType) {
+            // Normalize seatType to lowercase để match với database
+            const normalizedSeatType = (l.seatType || '').toLowerCase();
+            map[normalizedSeatType] = l.price || 0;
+          }
         });
+        console.log('🎯 Payment - ticketPriceMap from price list:', map);
         setTicketPriceMap(map);
-        const total = Object.entries(seatTypeCounts || {}).reduce((sum, [type, count]) => sum + (map[type] || 0) * (count as number), 0);
+        const total = Object.entries(seatTypeCounts || {}).reduce((sum, [type, count]) => {
+          const normalizedType = (type || '').toLowerCase();
+          return sum + (map[normalizedType] || 0) * (count as number);
+        }, 0);
         setTicketTotal(total);
       } catch {
         setTicketTotal(0);
@@ -663,8 +691,8 @@ const PaymentPage = () => {
       setAppliedItemPromotions([]);
     }
     
-    // Áp dụng khuyến mãi chiết khấu chỉ khi có combo
-    if (selectedCombos.length > 0) {
+    // Áp dụng khuyến mãi chiết khấu nếu có combo hoặc có vé
+    if (selectedCombos.length > 0 || (seats && seats.length > 0)) {
       applyPercentPromotionsAuto();
     } else {
       setAppliedPercentPromotions([]);
@@ -1234,7 +1262,11 @@ const PaymentPage = () => {
                         <div className="value text-right">
                           {appliedPercentPromotions.map((promotion, index) => (
                             <div key={index} className="text-xs italic mb-1" style={{ color: isDarkMode ? '#fbbf24' : '#ea580c' }}>
-                              {promotion.description || `Giảm ${promotion.discountPercent}% ${promotion.comboName}`}
+                              {promotion.description || (
+                                promotion.seatType 
+                                  ? `Giảm ${promotion.discountPercent}% vé ${promotion.seatType}`
+                                  : `Giảm ${promotion.discountPercent}% ${promotion.comboName || ''}`
+                              )}
                               <div className="font-semibold" style={{ color: isDarkMode ? '#dc2626' : '#dc2626' }}>
                                 -{promotion.discountAmount.toLocaleString()}₫
                               </div>
@@ -1475,7 +1507,11 @@ const PaymentPage = () => {
                           })()
                         ) : (
                           // Fallback nếu không có description
-                          <>Giảm <strong>{promotion.discountPercent}%</strong> {promotion.comboName}</>
+                          promotion.seatType ? (
+                            <>Giảm <strong>{promotion.discountPercent}%</strong> vé {promotion.seatType}</>
+                          ) : (
+                            <>Giảm <strong>{promotion.discountPercent}%</strong> {promotion.comboName || ''}</>
+                          )
                         )}
                       </span>
                       <span style={{ marginLeft: "8px", fontWeight: "bold" }}>

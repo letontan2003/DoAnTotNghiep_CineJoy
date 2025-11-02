@@ -292,14 +292,16 @@ export const getActivePercentPromotionsApi = async () => {
 
 export const applyPercentPromotionsApi = async (
   selectedCombos: Array<{ comboId: string; quantity: number; name: string; price: number }>,
-  appliedPromotions: any[] = []
+  appliedPromotions: any[] = [],
+  selectedSeats?: Array<{ seatId: string; type: string; price: number }>
 ) => {
   const response = await axios.post<IBackendResponse<{
     applicablePromotions: any[];
     totalDiscountAmount: number;
   }>>("/v1/api/vouchers/apply-percent-promotions", {
     selectedCombos,
-    appliedPromotions
+    appliedPromotions,
+    selectedSeats
   });
   return response.data;
 };
