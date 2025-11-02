@@ -86,6 +86,22 @@ const HomeScreen = () => {
     },
   ];
 
+  // Partner Offers data - chỉ chứa ảnh, tất cả text đã có trong ảnh
+  const partnerOffers = [
+    {
+      id: 1,
+      image: banner1,
+    },
+    {
+      id: 2,
+      image: banner2,
+    },
+    {
+      id: 3,
+      image: banner3,
+    },
+  ];
+
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
 
   // Hàm xử lý scroll để detect sticky header
@@ -550,6 +566,28 @@ const HomeScreen = () => {
                     {item.title}
                   </Text>
                 </View>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id.toString()}
+          />
+        </View>
+
+        {/* Partner Offers Section */}
+        <View style={styles.partnerOffersSection}>
+          <Text style={styles.partnerOffersTitle}>Ưu đãi từ đối tác</Text>
+          
+          <FlatList
+            data={partnerOffers}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.partnerOffersContent}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.partnerOfferCard}>
+                <Image 
+                  source={item.image} 
+                  style={styles.partnerOfferImage}
+                  resizeMode="cover"
+                />
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.id.toString()}
@@ -1204,7 +1242,8 @@ const styles = StyleSheet.create({
   // Hot News Section styles
   hotNewsSection: {
     backgroundColor: "#fff",
-    paddingVertical: 16,
+    paddingTop: 10,
+    paddingBottom: 5,
     paddingLeft: 16,
     paddingRight: 0,
   },
@@ -1218,7 +1257,7 @@ const styles = StyleSheet.create({
   hotNewsTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: "#000",
   },
   viewAllButton: {
     backgroundColor: "#fff",
@@ -1244,36 +1283,63 @@ const styles = StyleSheet.create({
   },
   hotNewsCard: {
     width: width * 0.44,
-    marginRight: 8,
+    marginRight: 10,
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   hotNewsImage: {
     width: "100%",
-    height: 80,
+    height: 100,
     resizeMode: "cover",
+    borderRadius: 12,
   },
   hotNewsCardContent: {
-    padding: 10,
+    paddingTop: 5,
     minHeight: 50,
-  },
-  hotNewsBrand: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#E50914",
-    marginBottom: 4,
   },
   hotNewsCardTitle: {
     fontSize: 12,
     color: "#333",
     lineHeight: 16,
     fontWeight: "600",
+  },
+  // Partner Offers Section styles
+  partnerOffersSection: {
+    borderTopWidth: 9,
+    borderColor: "#dddacf",
+    backgroundColor: "#fff",
+    paddingTop: 10,
+    paddingBottom: 15,
+    paddingLeft: 16,
+    paddingRight: 0,
+  },
+  partnerOffersTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 8,
+    paddingRight: 16,
+  },
+  partnerOffersContent: {
+    paddingLeft: 0,
+  },
+  partnerOfferCard: {
+    width: width * 0.85,
+    height: 140,
+    marginRight: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  partnerOfferImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
   },
   // Modal Styles
   modalOverlay: {
