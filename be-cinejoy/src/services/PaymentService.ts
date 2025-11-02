@@ -322,8 +322,8 @@ class PaymentService {
               });
               
               if (matchingShowTime && matchingShowTime.room) {
-                const Room = require('../models/Room').Room;
-                const roomDoc = await Room.findById(matchingShowTime.room);
+                const RoomModel = (await import('../models/Room')).default;
+                const roomDoc = await RoomModel.findById(matchingShowTime.room);
                 console.log('🔍 Room document:', {
                   found: !!roomDoc,
                   roomType: roomDoc?.roomType,
@@ -577,8 +577,8 @@ class PaymentService {
               });
               
               if (matchingShowTime && matchingShowTime.room) {
-                const Room = require('../models/Room').Room;
-                const roomDoc = await Room.findById(matchingShowTime.room);
+                const RoomModel = (await import('../models/Room')).default;
+                const roomDoc = await RoomModel.findById(matchingShowTime.room);
                 console.log('🔍 Room document (MoMo):', {
                   found: !!roomDoc,
                   roomType: roomDoc?.roomType,

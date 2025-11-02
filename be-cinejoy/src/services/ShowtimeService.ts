@@ -254,32 +254,54 @@ class ShowtimeService {
     showtimeData: Partial<IShowtime>
   ): Promise<IShowtime | null> {
     try {
-      // Kiểm tra xem có ghế đã đặt không trước khi update
       const existingShowtime = await Showtime.findById(id);
-      if (existingShowtime && Array.isArray((showtimeData as any).showTimes)) {
-        for (let i = 0; i < existingShowtime.showTimes.length; i++) {
-          const hasOccupied = await this.hasOccupiedSeats(id, i);
-          if (hasOccupied) {
-            throw new Error("Không thể cập nhật vì suất chiếu này đã có ghế được đặt");
-          }
-        }
+      if (!existingShowtime) {
+        throw new Error("Không tìm thấy suất chiếu");
       }
 
-      // If showTimes updated, ensure seats are present for each new item
+      // If showTimes updated, merge với dữ liệu cũ để giữ nguyên seats của các suất có ghế đã đặt
       if (Array.isArray((showtimeData as any).showTimes)) {
         const updatedList = await Promise.all(
-          (showtimeData as any).showTimes.map(async (st: any) => {
-            if (!st.seats || st.seats.length === 0) {
-              const roomSeats = await SeatModel.find({ room: st.room }).select("_id status");
-              st.seats = roomSeats.map((s) => ({ seat: s._id, status: "available" }));
+          (showtimeData as any).showTimes.map(async (incomingSt: any, index: number) => {
+            // Tìm suất chiếu cũ tương ứng (so khớp theo date, start, room)
+            const existingSt = existingShowtime.showTimes.find((oldSt: any) => {
+              const sameDate = new Date(oldSt.date).toISOString() === new Date(incomingSt.date).toISOString();
+              const sameStart = new Date(oldSt.start).toISOString() === new Date(incomingSt.start).toISOString();
+              const sameRoom = oldSt.room.toString() === incomingSt.room.toString();
+              return sameDate && sameStart && sameRoom;
+            });
+
+            // Nếu tìm thấy suất cũ và có ghế, giữ nguyên seats
+            if (existingSt && existingSt.seats && existingSt.seats.length > 0) {
+              // Kiểm tra xem có ghế đã đặt không
+              const hasOccupied = existingSt.seats.some((seat: any) => seat.status === 'occupied');
+              
+              if (hasOccupied) {
+                // Giữ nguyên toàn bộ seats của suất này
+                incomingSt.seats = existingSt.seats;
+              } else {
+                // Nếu không có ghế đã đặt, cho phép reinitialize nếu cần
+                if (!incomingSt.seats || incomingSt.seats.length === 0) {
+                  const roomSeats = await SeatModel.find({ room: incomingSt.room }).select("_id status");
+                  incomingSt.seats = roomSeats.map((s) => ({ seat: s._id, status: "available" }));
+                } else {
+                  incomingSt.seats = existingSt.seats;
+                }
+              }
+            } else {
+              // Suất mới hoặc chưa có seats, initialize
+              if (!incomingSt.seats || incomingSt.seats.length === 0) {
+                const roomSeats = await SeatModel.find({ room: incomingSt.room }).select("_id status");
+                incomingSt.seats = roomSeats.map((s) => ({ seat: s._id, status: "available" }));
+              }
             }
             
             // Đặt trạng thái mặc định cho showtime nếu chưa có
-            if (!st.status) {
-              st.status = 'active';
+            if (!incomingSt.status) {
+              incomingSt.status = 'active';
             }
             
-            return st;
+            return incomingSt;
           })
         );
         (showtimeData as any).showTimes = updatedList;
@@ -1509,6 +1531,40 @@ class ShowtimeService {
     } catch (error) {
       console.error("Error checking showtime occupied seats:", error);
       return { hasOccupiedSeats: false, occupiedCount: 0, totalSeats: 0 };
+    }
+  }
+
+  // Kiểm tra từng suất chiếu có ghế đã đặt không
+  async checkEachShowtimeOccupiedSeats(showtimeId: string): Promise<{
+    showtimes: Array<{
+      index: number;
+      hasOccupiedSeats: boolean;
+      occupiedCount: number;
+      totalSeats: number;
+    }>;
+  }> {
+    try {
+      const showtime = await Showtime.findById(showtimeId);
+      if (!showtime) {
+        return { showtimes: [] };
+      }
+
+      const showtimes = showtime.showTimes.map((showTime, index) => {
+        const totalSeats = showTime.seats.length;
+        const occupiedCount = showTime.seats.filter((seat: any) => seat.status === 'occupied').length;
+        
+        return {
+          index,
+          hasOccupiedSeats: occupiedCount > 0,
+          occupiedCount,
+          totalSeats
+        };
+      });
+
+      return { showtimes };
+    } catch (error) {
+      console.error("Error checking each showtime occupied seats:", error);
+      return { showtimes: [] };
     }
   }
 

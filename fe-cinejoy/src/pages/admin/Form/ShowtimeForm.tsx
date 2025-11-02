@@ -8,7 +8,7 @@ import axiosClient from '@/apiservice/axiosClient';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getMovies } from '@/apiservice/apiMovies';
 import { getTheaters } from '@/apiservice/apiTheater';
-import { createShowtime, updateShowtime, getShowtimesByRoomAndDateApi, checkOccupiedSeatsApi } from '@/apiservice/apiShowTime';
+import { createShowtime, updateShowtime, getShowtimesByRoomAndDateApi, checkEachShowtimeOccupiedSeatsApi } from '@/apiservice/apiShowTime';
 import { getRegions } from '@/apiservice/apiRegion';
 import { getActiveRoomsByTheaterApi } from '@/apiservice/apiRoom';
 import { toast } from 'react-toastify';
@@ -52,6 +52,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
     const [modalLoading, setModalLoading] = useState<boolean>(true);
     const [showSessions, setShowSessions] = useState<IShowSession[]>([]);
     const [hasOccupiedSeats, setHasOccupiedSeats] = useState(false);
+    const [occupiedSeatsStatus, setOccupiedSeatsStatus] = useState<Record<number, boolean>>({});
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [duplicateShowtimes, setDuplicateShowtimes] = useState<Array<{
         date: dayjs.Dayjs;
@@ -117,13 +118,21 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
     useEffect(() => {
         const loadEditData = async () => {
             if (editData) {
-                // Kiểm tra xem có ghế đã đặt không
+                // Kiểm tra từng suất chiếu có ghế đã đặt không
                 try {
-                    const occupiedData = await checkOccupiedSeatsApi(editData._id);
-                    setHasOccupiedSeats(occupiedData.hasOccupiedSeats);
+                    const eachOccupiedData = await checkEachShowtimeOccupiedSeatsApi(editData._id);
+                    const statusMap: Record<number, boolean> = {};
+                    let hasAnyOccupied = false;
+                    eachOccupiedData.showtimes.forEach(st => {
+                        statusMap[st.index] = st.hasOccupiedSeats;
+                        if (st.hasOccupiedSeats) hasAnyOccupied = true;
+                    });
+                    setOccupiedSeatsStatus(statusMap);
+                    setHasOccupiedSeats(hasAnyOccupied);
                 } catch (error) {
                     console.error('Error checking occupied seats:', error);
                     setHasOccupiedSeats(false);
+                    setOccupiedSeatsStatus({});
                 }
 
                 // Tìm khu vực của rạp được chọn khi edit
@@ -464,6 +473,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
     const checkDuplicateShowtime = async (newShowtime: {
         dateRange: [dayjs.Dayjs, dayjs.Dayjs];
         startTime: dayjs.Dayjs;
+        endTime: dayjs.Dayjs;
         room: string;
         sessionId?: string;
     }, checkDate: dayjs.Dayjs) => {
@@ -475,32 +485,37 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 date: dateStr,
                 room: newShowtime.room,
                 startTime: newShowtime.startTime.format('HH:mm'),
+                endTime: newShowtime.endTime.format('HH:mm'),
                 existingCount: existing.length
             });
             
-            // Kiểm tra trùng lặp với suất chiếu hiện có
-            const duplicates = existing.filter((existingSt: { startTime: string; showtimeId?: string; movieId?: string }) => {
+            // Kiểm tra chồng chéo thời gian với suất chiếu hiện có
+            const duplicates = existing.filter((existingSt: { startTime: string; endTime: string; showtimeId?: string; movieId?: string }) => {
                 const existingStart = dayjs(existingSt.startTime);
+                const existingEnd = dayjs(existingSt.endTime);
                 const newStart = newShowtime.startTime;
-                const timeDiff = Math.abs(existingStart.diff(newStart, 'minute'));
+                const newEnd = newShowtime.endTime;
+                
+                // Kiểm tra overlap: suất mới bắt đầu trước khi suất cũ kết thúc VÀ suất mới kết thúc sau khi suất cũ bắt đầu
+                const isOverlap = newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart);
                 
                 console.log('Comparing:', {
-                    existing: existingSt.startTime,
-                    new: newStart.format('YYYY-MM-DD HH:mm'),
-                    timeDiff,
+                    existing: `${existingStart.format('HH:mm')} - ${existingEnd.format('HH:mm')}`,
+                    new: `${newStart.format('HH:mm')} - ${newEnd.format('HH:mm')}`,
+                    isOverlap,
                     showtimeId: existingSt.showtimeId
                 });
                 
-                return timeDiff < 1; // Trùng nếu chênh lệch < 1 phút
+                return isOverlap;
             });
             
             if (duplicates.length > 0) {
                 // Trường hợp sửa: cho phép nếu có ÍT NHẤT một bản ghi trùng thuộc đúng document đang sửa
                 if (editData && duplicates.some(d => d.showtimeId === (editData as unknown as { _id: string })._id)) {
-                    console.log('Duplicate found but it is the same showtime being edited, allowing...');
+                    console.log('Overlap found but it is the same showtime being edited, allowing...');
                     return false; // Cho phép vì đây chính là suất đang sửa
                 } else {
-                    console.log('Duplicate found! Will skip this showtime.');
+                    console.log('Time overlap found! Will show duplicate warning.');
                     return true; // Trùng lặp thực sự
                 }
             }
@@ -591,6 +606,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                     {
                         dateRange: [showtime.date, showtime.date],
                         startTime: showtime.startTime,
+                        endTime: showtime.endTime,
                         room: showtime.room,
                         sessionId: showtime.sessionId
                     },
@@ -720,19 +736,23 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
         }
         
         const [startDate, endDate] = value;
-        const movieStartDate = dayjs(selectedMovie.startDate);
         const movieEndDate = dayjs(selectedMovie.endDate);
         
-        if (startDate.isBefore(movieStartDate, 'day')) {
-            return Promise.reject(new Error(`Ngày bắt đầu phải từ ${movieStartDate.format('DD/MM/YYYY')} (ngày khởi chiếu phim)`));
+        // Khi cập nhật, bỏ tất cả ràng buộc về ngày bắt đầu
+        if (!editData) {
+            // Chỉ kiểm tra ràng buộc khi tạo mới
+            const movieStartDate = dayjs(selectedMovie.startDate);
+            if (startDate.isBefore(movieStartDate, 'day')) {
+                return Promise.reject(new Error(`Ngày bắt đầu phải từ ${movieStartDate.format('DD/MM/YYYY')} (ngày khởi chiếu phim)`));
+            }
+            
+            if (startDate.isBefore(dayjs(), 'day')) {
+                return Promise.reject(new Error('Ngày bắt đầu không được là ngày đã qua'));
+            }
         }
         
         if (endDate.isAfter(movieEndDate, 'day')) {
             return Promise.reject(new Error(`Ngày kết thúc phải trước ${movieEndDate.format('DD/MM/YYYY')} (ngày kết thúc chiếu phim)`));
-        }
-        
-        if (startDate.isBefore(dayjs(), 'day')) {
-            return Promise.reject(new Error('Ngày bắt đầu không được là ngày đã qua'));
         }
         
         if (endDate.isBefore(startDate, 'day')) {
@@ -774,19 +794,19 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 autoComplete="off"
             >
                 {hasOccupiedSeats && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                 </svg>
                             </div>
                             <div className="ml-3">
-                                <h3 className="text-sm font-medium text-red-800">
-                                    Không thể chỉnh sửa suất chiếu
+                                <h3 className="text-sm font-medium text-yellow-800">
+                                    Lưu ý khi chỉnh sửa
                                 </h3>
-                                <div className="mt-2 text-sm text-red-700">
-                                    <p>Suất chiếu này đã có ghế được đặt nên không thể chỉnh sửa.</p>
+                                <div className="mt-2 text-sm text-yellow-700">
+                                    <p>Một số suất chiếu đã có ghế được đặt. Các suất chiếu này sẽ bị khóa và không thể chỉnh sửa hoặc xóa.</p>
                                 </div>
                             </div>
                         </div>
@@ -890,9 +910,16 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                     <div key={key} className="mb-3">
                                         <Card
                                             size="small"
-                                            title={`Suất chiếu ${index + 1}`}
+                                            title={
+                                                <div className="flex items-center gap-2">
+                                                    <span>Suất chiếu {index + 1}</span>
+                                                    {occupiedSeatsStatus[name] && (
+                                                        <Tag color="red">Đã có ghế đặt</Tag>
+                                                    )}
+                                                </div>
+                                            }
                                             extra={
-                                                fields.length > 1 ? (
+                                                fields.length > 1 && !occupiedSeatsStatus[name] ? (
                                                     <Popconfirm
                                                         title="Xác nhận xóa suất chiếu"
                                                         description={`Bạn có chắc muốn xóa Suất chiếu ${index + 1}?`}
@@ -932,11 +959,16 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             size="large"
                                                             style={{ width: '100%' }}
                                                             format="DD/MM/YYYY"
-                                                            disabled={!selectedMovie || hasOccupiedSeats}
+                                                            disabled={!selectedMovie || occupiedSeatsStatus[name]}
                                                             disabledDate={(current) => {
                                                                 if (!selectedMovie) return true;
-                                                                const movieStart = dayjs(selectedMovie.startDate);
                                                                 const movieEnd = dayjs(selectedMovie.endDate);
+                                                                // Khi cập nhật, chỉ block ngày sau ngày kết thúc của phim
+                                                                if (editData) {
+                                                                    return current && current.isAfter(movieEnd, 'day');
+                                                                }
+                                                                // Khi tạo mới, vẫn kiểm tra tất cả ràng buộc
+                                                                const movieStart = dayjs(selectedMovie.startDate);
                                                                 return current && (current.isBefore(movieStart, 'day') || current.isAfter(movieEnd, 'day') || current.isBefore(dayjs(), 'day'));
                                                             }}
                                                             onChange={() => {
@@ -961,7 +993,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                         <Select
                                                             placeholder="Chọn trạng thái"
                                                             size="large"
-                                                            disabled={hasOccupiedSeats}
+                                                            disabled={occupiedSeatsStatus[name]}
                                                             options={[
                                                                 { value: 'active', label: 'Hoạt động' },
                                                                 { value: 'inactive', label: 'Không hoạt động' }
@@ -989,7 +1021,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             filterOption={(input, option) =>
                                                                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                                             }
-                                                            disabled={!form.getFieldValue('theaterId') || hasOccupiedSeats}
+                                                            disabled={!form.getFieldValue('theaterId') || occupiedSeatsStatus[name]}
                                                             value={
                                                                 (() => {
                                                                     const hasTheater = !!form.getFieldValue('theaterId');
@@ -1050,7 +1082,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                     options={showSessions.map(s => ({ value: s._id, label: `${s.name} (${s.startTime} - ${s.endTime})` }))}
                                                                     onChange={(val)=> onChangeSessionForRow(name, val)}
                                                                     disabled={
-                                                                        hasOccupiedSeats ||
+                                                                        occupiedSeatsStatus[name] ||
                                                                         !(
                                                                             form.getFieldValue(['showTimes', name, 'dateRange']) &&
                                                                             form.getFieldValue(['showTimes', name, 'room'])
@@ -1078,7 +1110,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             style={{ width: '100%' }}
                                                             format="HH:mm"
                                                             minuteStep={15}
-                                                            disabled={!selectedMovie || hasOccupiedSeats}
+                                                            disabled={!selectedMovie || occupiedSeatsStatus[name]}
                                                             inputReadOnly={false}
                                                             // Khóa khung giờ theo ca đã chọn
                                                             disabledHours={() => {
@@ -1255,7 +1287,6 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                 <Form.Item className="mt-4">
                                     <Button
                                         type="dashed"
-                                        disabled={hasOccupiedSeats}
                                         onClick={async () => {
                                             // Kiểm tra các trường bắt buộc trước khi thêm
                                             const currentValues = form.getFieldsValue();
@@ -1292,9 +1323,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                         </motion.button>
                         <motion.button
                             type="submit"
-                            disabled={isLoading || hasOccupiedSeats}
+                            disabled={isLoading}
                             className={`px-4 py-2 text-white rounded cursor-pointer flex items-center gap-2 ${
-                                (isLoading || hasOccupiedSeats)
+                                isLoading
                                     ? 'bg-gray-400 cursor-not-allowed' 
                                     : 'bg-black hover:bg-gray-800'
                             }`}

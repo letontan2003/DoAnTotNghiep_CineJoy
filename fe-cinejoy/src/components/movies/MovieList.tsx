@@ -26,28 +26,31 @@ const MovieList: React.FC = () => {
     const filteredMovies = (() => {
         let filtered = [];
         
+        // Lọc bỏ phim đã ẩn (isHidden = true)
+        const visibleMovies = movies.filter((movie) => !movie.isHidden);
+        
         switch (activeTab) {
             case "all":
-                filtered = movies;
+                filtered = visibleMovies;
                 break;
             case "Phim đang chiếu":
                 // Chỉ hiển thị phim đang chiếu, không bao gồm suất chiếu đặc biệt
-                filtered = movies.filter((movie) => movie.status === "Phim đang chiếu");
+                filtered = visibleMovies.filter((movie) => movie.status === "Phim đang chiếu");
                 break;
             case "Phim sắp chiếu":
                 // Chỉ hiển thị phim sắp chiếu
-                filtered = movies.filter((movie) => movie.status === "Phim sắp chiếu");
+                filtered = visibleMovies.filter((movie) => movie.status === "Phim sắp chiếu");
                 break;
             case "Suất chiếu đặc biệt":
                 // Chỉ hiển thị suất chiếu đặc biệt
-                filtered = movies.filter((movie) => movie.status === "Suất chiếu đặc biệt");
+                filtered = visibleMovies.filter((movie) => movie.status === "Suất chiếu đặc biệt");
                 break;
             case "Đã kết thúc":
                 // Chỉ hiển thị phim đã kết thúc
-                filtered = movies.filter((movie) => movie.status === "Đã kết thúc");
+                filtered = visibleMovies.filter((movie) => movie.status === "Đã kết thúc");
                 break;
             default:
-                filtered = movies;
+                filtered = visibleMovies;
         }
         
         // Sắp xếp phim đang chiếu theo ngày khởi chiếu (gần ngày hiện tại nhất trước)

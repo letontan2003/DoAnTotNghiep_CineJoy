@@ -26,6 +26,7 @@ export interface IMovie extends Document {
   reviews: IReview[];
   averageRating: number;
   titleNoAccent: string;
+  isHidden?: boolean;
 }
 
 const MovieSchema = new Schema<IMovie>({
@@ -63,6 +64,10 @@ const MovieSchema = new Schema<IMovie>({
     max: 5,
   },
   titleNoAccent: { type: String },
+  isHidden: { 
+    type: Boolean, 
+    default: false 
+  },
 });
 
 export const Movie = model<IMovie>("Movie", MovieSchema);

@@ -45,22 +45,24 @@ const NewsPage: React.FC = () => {
         const arr: IMovie[] = Array.isArray(res)
           ? res
           : (res?.data?.data ?? res?.data ?? []);
+        // Lọc bỏ phim đã ẩn (isHidden = true)
+        const visibleMovies = arr.filter(m => !m.isHidden);
         const normalize = (s: string | undefined) => (s || '')
           .toString()
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '');
-        let now = arr.filter(m => {
+        let now = visibleMovies.filter(m => {
           const st = normalize(m.status as any);
           return st.includes('dang chieu') || st.includes('phim dang chieu');
         });
-        let soon = arr.filter(m => {
+        let soon = visibleMovies.filter(m => {
           const st = normalize(m.status as any);
           return st.includes('sap chieu') || st.includes('phim sap chieu');
         });
         // Fallback: nếu không phân loại được theo status, lấy mặc định 7 phim đầu làm đang chiếu
-        if (now.length === 0 && arr.length > 0) {
-          now = arr.slice(0, Math.min(12, arr.length));
+        if (now.length === 0 && visibleMovies.length > 0) {
+          now = visibleMovies.slice(0, Math.min(12, visibleMovies.length));
         }
         setMoviesNow(now);
         setMoviesSoon(soon);

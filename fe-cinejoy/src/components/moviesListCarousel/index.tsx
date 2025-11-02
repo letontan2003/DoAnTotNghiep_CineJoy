@@ -120,6 +120,8 @@ const MoviesListCarousel = (props: IProps) => {
         >
           {movies
             .filter((movie) => {
+              // Lọc bỏ phim đã ẩn (isHidden = true)
+              if (movie.isHidden) return false;
               // Chỉ hiển thị phim có status chính xác, không gộp chung
               return movie.status === props.status;
             })

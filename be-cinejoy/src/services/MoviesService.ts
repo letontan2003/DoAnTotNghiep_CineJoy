@@ -112,4 +112,14 @@ export default class MoviesService {
         await this.updateMovieStatuses();
         return this.getMovies();
     }
+
+    // Toggle ẩn/hiện phim
+    async toggleHideMovie(id: string): Promise<IMovie | null> {
+        const movie = await Movie.findById(id);
+        if (!movie) {
+            return null;
+        }
+        movie.isHidden = !movie.isHidden;
+        return movie.save();
+    }
 }

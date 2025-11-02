@@ -280,7 +280,7 @@ class OrderService {
         // Tiếp tục với amountDiscount = 0 nếu có lỗi
       }
 
-      // Tính toán item promotions (khuyến mãi hàng)
+      // Tính toán item promotions (khuyến mãi hàng) cho cả combo và vé
       let itemPromotions = [];
       
       try {
@@ -296,11 +296,24 @@ class OrderService {
           name: 'Combo' // Tên sẽ được lấy từ database trong VoucherService
         }));
         
-        if (selectedCombos.length > 0) {
+        // Lấy thông tin vé đã chọn
+        const selectedSeats = orderData.seats.map(seat => ({
+          seatId: seat.seatId,
+          type: seat.type,
+          price: seat.price
+        }));
+        
+        // Gọi applyItemPromotions với cả combo và seats
+        if (selectedCombos.length > 0 || selectedSeats.length > 0) {
           console.log(`🔍 Item Promotions Debug:`);
           console.log(`  Selected combos:`, selectedCombos);
+          console.log(`  Selected seats:`, selectedSeats);
           
-          const promotionResult = await voucherService.applyItemPromotions(selectedCombos, []);
+          const promotionResult = await voucherService.applyItemPromotions(
+            selectedCombos, 
+            [], 
+            selectedSeats
+          );
           
           if (promotionResult.status && promotionResult.data && promotionResult.data.applicablePromotions.length > 0) {
             itemPromotions = promotionResult.data.applicablePromotions.map((promotion: any) => ({

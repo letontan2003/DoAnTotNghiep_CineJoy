@@ -89,6 +89,28 @@ export default class ShowtimeController {
     }
   }
 
+  // API kiểm tra từng suất chiếu có ghế đã đặt không
+  async checkEachShowtimeOccupiedSeats(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const result = await showtimeService.checkEachShowtimeOccupiedSeats(id);
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: "Kiểm tra từng suất chiếu thành công",
+        data: result
+      });
+    } catch (error) {
+      console.error("Error checking each showtime occupied seats:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi kiểm tra từng suất chiếu",
+        data: null
+      });
+    }
+  }
+
   // API lấy thông tin ghế với trạng thái reservation
   async getSeatsWithReservationStatus(req: Request, res: Response): Promise<void> {
     try {

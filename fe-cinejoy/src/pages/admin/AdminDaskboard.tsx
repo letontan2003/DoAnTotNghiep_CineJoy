@@ -26,6 +26,7 @@ import {
   getMovies,
   createMovie,
   updateMovie,
+  toggleHideMovie,
 } from "@/apiservice/apiMovies";
 import {
   getRegions,
@@ -1376,6 +1377,22 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
     setShowMovieForm(true);
   };
 
+  const handleToggleHideMovie = async (movieId: string) => {
+    try {
+      const updatedMovie = await toggleHideMovie(movieId);
+      setMovies((prevMovies) =>
+        prevMovies.map((movie) =>
+          movie._id === movieId ? { ...movie, isHidden: updatedMovie.isHidden } : movie
+        )
+      );
+      const movie = movies.find(m => m._id === movieId);
+      toast.success(updatedMovie.isHidden ? `Đã ẩn phim "${movie?.title}" khỏi user` : `Đã hiện phim "${movie?.title}" cho user`);
+    } catch (error) {
+      console.error("Error toggling hide movie:", error);
+      toast.error("Thao tác thất bại!");
+    }
+  };
+
   ///////////////Suất chiếu////////////////
   const handleShowtimeDetail = (showtime: IShowtime) => {
     setSelectedShowtime(showtime);
@@ -1798,21 +1815,33 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                             >
                               Sửa
                             </motion.button>
-                            <Popconfirm
-                              title="Xóa phim"
-                              description={`Bạn có chắc chắn muốn xóa phim "${movie.title}"?`}
-                              okText="Xóa"
-                              cancelText="Hủy"
-                              onConfirm={() => handleDeleteMovies(movie._id)}
-                            >
+                            {(movie.status === 'Phim đang chiếu' || movie.status === 'Suất chiếu đặc biệt') && (
                               <motion.button
-                                className="bg-red-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-red-600"
+                                className="bg-gray-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-gray-600"
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
+                                onClick={() => handleToggleHideMovie(movie._id)}
                               >
-                                Xóa
+                                {movie.isHidden ? 'Hiện' : 'Ẩn'}
                               </motion.button>
-                            </Popconfirm>
+                            )}
+                            {movie.status === 'Phim sắp chiếu' && (
+                              <Popconfirm
+                                title="Xóa phim"
+                                description={`Bạn có chắc chắn muốn xóa phim "${movie.title}"?`}
+                                okText="Xóa"
+                                cancelText="Hủy"
+                                onConfirm={() => handleDeleteMovies(movie._id)}
+                              >
+                                <motion.button
+                                  className="bg-red-500 text-white px-3 py-1 rounded cursor-pointer hover:bg-red-600"
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                >
+                                  Xóa
+                                </motion.button>
+                              </Popconfirm>
+                            )}
                           </div>
                         </td>
                       </tr>

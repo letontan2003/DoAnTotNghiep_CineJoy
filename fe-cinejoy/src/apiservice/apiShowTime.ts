@@ -353,3 +353,21 @@ export const checkOccupiedSeatsApi = async (showtimeId: string): Promise<{
     throw error;
   }
 };
+
+// API kiểm tra từng suất chiếu có ghế đã đặt không
+export const checkEachShowtimeOccupiedSeatsApi = async (showtimeId: string): Promise<{
+  showtimes: Array<{
+    index: number;
+    hasOccupiedSeats: boolean;
+    occupiedCount: number;
+    totalSeats: number;
+  }>;
+}> => {
+  try {
+    const response = await axiosClient.get(`/showtimes/check-each-occupied/${showtimeId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error checking each showtime occupied seats:", error);
+    throw error;
+  }
+};

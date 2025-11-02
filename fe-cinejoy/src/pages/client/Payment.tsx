@@ -330,9 +330,10 @@ const PaymentPage = () => {
 
 
 
-  // Tự động áp dụng khuyến mãi hàng (không hiển thị message)
+  // Tự động áp dụng khuyến mãi hàng cho cả combo và vé (không hiển thị message)
   const applyItemPromotionsAuto = useCallback(async () => {
-    if (selectedCombos.length === 0) {
+    // Chỉ áp dụng nếu có combo hoặc có vé
+    if (selectedCombos.length === 0 && (!seats || seats.length === 0)) {
       setAppliedItemPromotions([]);
       return;
     }
@@ -344,10 +345,21 @@ const PaymentPage = () => {
         name: combo.name
       }));
 
-      const response = await applyItemPromotionsApi(comboData, []);
+      // Chuẩn bị dữ liệu vé để gửi lên API
+      const seatData = seats.map((seatId: string) => {
+        const seatType = seatTypeMap[seatId] || 'Standard';
+        return {
+          seatId: seatId,
+          type: seatType,
+          price: 0 // Price không cần thiết cho logic khuyến mãi hàng
+        };
+      });
+
+      const response = await applyItemPromotionsApi(comboData, [], seatData);
       
       console.log('🎯 Frontend API Response:', response);
       console.log('🎯 Selected combos:', comboData);
+      console.log('🎯 Selected seats:', seatData);
       
       if (response.status && response.data) {
         console.log('🎯 Setting applied promotions:', response.data.applicablePromotions);
@@ -360,7 +372,7 @@ const PaymentPage = () => {
       console.error("Error applying item promotions:", error);
       setAppliedItemPromotions([]);
     }
-  }, [selectedCombos]);
+  }, [selectedCombos, seats, seatTypeMap]);
 
   // Tự động áp dụng khuyến mãi chiết khấu (không hiển thị message)
   const applyPercentPromotionsAuto = useCallback(async () => {
@@ -642,16 +654,22 @@ const PaymentPage = () => {
     loadActiveItemPromotions();
   }, []);
 
-  // Tự động áp dụng khuyến mãi hàng và chiết khấu khi selectedCombos thay đổi
+  // Tự động áp dụng khuyến mãi hàng và chiết khấu khi selectedCombos hoặc seats thay đổi
   useEffect(() => {
-    if (selectedCombos.length > 0) {
+    // Áp dụng khuyến mãi hàng nếu có combo hoặc có vé
+    if (selectedCombos.length > 0 || (seats && seats.length > 0)) {
       applyItemPromotionsAuto();
-      applyPercentPromotionsAuto();
     } else {
       setAppliedItemPromotions([]);
+    }
+    
+    // Áp dụng khuyến mãi chiết khấu chỉ khi có combo
+    if (selectedCombos.length > 0) {
+      applyPercentPromotionsAuto();
+    } else {
       setAppliedPercentPromotions([]);
     }
-  }, [selectedCombos, applyItemPromotionsAuto, applyPercentPromotionsAuto]);
+  }, [selectedCombos, seats, applyItemPromotionsAuto, applyPercentPromotionsAuto]);
 
   return (
     <>
@@ -1228,11 +1246,11 @@ const PaymentPage = () => {
 
                     {/* Hiển thị khuyến mãi hàng */}
                     {appliedItemPromotions.length > 0 && (
-                      <div className="row flex justify-between text-sm">
+                      <div className="row flex justify-between text-sm items-center">
                         <p className="label font-bold">Khuyến mãi hàng:</p>
                         <div className="value text-right">
                           {appliedItemPromotions.map((promotion, index) => (
-                            <div key={index} className="text-xs italic mb-1" style={{ color: isDarkMode ? '#9ae6b4' : '#16a34a' }}>
+                            <div key={index} className="text-xs italic mb-1" style={{ color: isDarkMode ? '#9ae6b4' : '#16a34a', paddingTop: '4px' }}>
                               {promotion.detail?.description || `Mua ${promotion.detail?.buyQuantity} ${promotion.detail?.buyItem} tặng ${promotion.rewardQuantity} ${promotion.rewardItem}`}
                             </div>
                           ))}

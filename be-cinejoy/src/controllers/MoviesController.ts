@@ -253,4 +253,19 @@ export default class MoviesController {
             });
         }
     }
+
+    // Toggle ẩn/hiện phim
+    async toggleHideMovie(req: Request, res: Response): Promise<void> {
+        const { id } = req.params;
+        try {
+            const movie = await moviesService.toggleHideMovie(id);
+            if (!movie) {
+                res.status(404).json({ message: "Movie not found" });
+                return;
+            }
+            res.status(200).json(movie);
+        } catch (error) {
+            res.status(500).json({ message: "Error toggling hide movie", error });
+        }
+    }
 }

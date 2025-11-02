@@ -359,19 +359,25 @@ export default class VoucherController {
     // Áp dụng khuyến mãi hàng
     async applyItemPromotions(req: Request, res: Response): Promise<void> {
         try {
-            const { selectedCombos, appliedPromotions } = req.body;
+            const { selectedCombos, appliedPromotions, selectedSeats } = req.body;
 
-            if (!selectedCombos || !Array.isArray(selectedCombos)) {
+            // selectedCombos hoặc selectedSeats phải có ít nhất 1 trong 2
+            if ((!selectedCombos || !Array.isArray(selectedCombos) || selectedCombos.length === 0) && 
+                (!selectedSeats || !Array.isArray(selectedSeats) || selectedSeats.length === 0)) {
                 res.status(400).json({
                     status: false,
                     error: 400,
-                    message: "Danh sách combo được chọn là bắt buộc",
+                    message: "Phải có ít nhất combo hoặc vé được chọn",
                     data: null
                 });
                 return;
             }
 
-            const result = await voucherService.applyItemPromotions(selectedCombos, appliedPromotions || []);
+            const result = await voucherService.applyItemPromotions(
+                selectedCombos || [], 
+                appliedPromotions || [],
+                selectedSeats
+            );
             res.status(200).json(result);
         } catch (error) {
             console.error("Error applying item promotions:", error);

@@ -910,10 +910,11 @@ export default class VoucherService {
     }
   }
 
-  // Áp dụng khuyến mãi hàng dựa trên combo được chọn
+  // Áp dụng khuyến mãi hàng dựa trên combo và vé được chọn
   async applyItemPromotions(
     selectedCombos: Array<{ comboId: string; quantity: number; name: string }>,
-    appliedPromotions: any[] = []
+    appliedPromotions: any[] = [],
+    selectedSeats?: Array<{ seatId: string; type: string; price: number }>
   ): Promise<{
     status: boolean;
     error: number;
@@ -937,14 +938,25 @@ export default class VoucherService {
 
       console.log(`🔍 Processing ${activePromotions.data.length} active promotions`);
       console.log(`🔍 Selected combos:`, selectedCombos);
+      console.log(`🔍 Selected seats:`, selectedSeats);
+      
+      // Tính số lượng vé theo loại ghế
+      const seatTypeCounts: Record<string, number> = {};
+      if (selectedSeats && Array.isArray(selectedSeats)) {
+        selectedSeats.forEach(seat => {
+          const seatType = seat.type;
+          seatTypeCounts[seatType] = (seatTypeCounts[seatType] || 0) + 1;
+        });
+      }
+      console.log(`🔍 Seat type counts:`, seatTypeCounts);
       
       // Duyệt qua từng khuyến mãi hàng
       for (const promotion of activePromotions.data) {
         const detail = promotion.detail;
         
-        console.log(`🔍 Checking promotion: ${detail?.description} (comboId: ${detail?.comboId})`);
+        console.log(`🔍 Checking promotion: ${detail?.description} (applyType: ${detail?.applyType})`);
         
-        // Kiểm tra điều kiện áp dụng
+        // Kiểm tra điều kiện áp dụng cho COMBO
         if (detail.applyType === "combo") {
           const selectedCombo = selectedCombos.find(combo => combo.comboId === detail.comboId);
           console.log(`🔍 Found selected combo:`, selectedCombo);
@@ -981,6 +993,47 @@ export default class VoucherService {
               console.log(`➕ Adding standalone promotion: ${promotionResult.detail?.description}`);
               applicablePromotions.push(promotionResult);
             }
+          }
+        }
+        // Kiểm tra điều kiện áp dụng cho VÉ (TICKET)
+        else if (detail.applyType === "ticket") {
+          const buyItem = detail.buyItem; // Loại ghế (VD: "VIP", "Standard")
+          const buyQuantity = detail.buyQuantity; // Số lượng vé cần mua
+          
+          console.log(`🔍 Checking ticket promotion: buyItem=${buyItem}, buyQuantity=${buyQuantity}`);
+          console.log(`🔍 Available seats of type "${buyItem}": ${seatTypeCounts[buyItem] || 0}`);
+          
+          // Kiểm tra xem có đủ số lượng vé loại này không
+          if (seatTypeCounts[buyItem] >= buyQuantity) {
+            const rewardQuantity = detail.rewardQuantity;
+            
+            const promotionResult = {
+              ...promotion,
+              applicableQuantity: rewardQuantity,
+              triggerQuantity: buyQuantity,
+              rewardItem: detail.rewardItem,
+              rewardQuantity: rewardQuantity,
+              rewardType: detail.rewardType,
+              rewardDiscountPercent: detail.rewardDiscountPercent || 0
+            };
+
+            // Xử lý quy tắc loại trừ theo nhóm
+            if (promotion.rule?.stackingPolicy === "EXCLUSIVE_WITH_GROUP") {
+              const exclusionGroup = promotion.rule.exclusionGroup;
+              
+              console.log(`🎯 Adding ticket promotion to exclusion group "${exclusionGroup}": ${promotionResult.detail?.description}`);
+              
+              if (!exclusionGroups.has(exclusionGroup)) {
+                exclusionGroups.set(exclusionGroup, []);
+              }
+              exclusionGroups.get(exclusionGroup)!.push(promotionResult);
+            } else {
+              // Có thể cộng dồn
+              console.log(`➕ Adding standalone ticket promotion: ${promotionResult.detail?.description}`);
+              applicablePromotions.push(promotionResult);
+            }
+          } else {
+            console.log(`❌ Not enough tickets: need ${buyQuantity} ${buyItem}, got ${seatTypeCounts[buyItem] || 0}`);
           }
         }
       }

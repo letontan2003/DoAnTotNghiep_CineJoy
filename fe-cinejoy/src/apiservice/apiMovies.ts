@@ -185,3 +185,13 @@ export const deleteMovie = async (id: string) => {
         throw error;
     }
 };
+
+export const toggleHideMovie = async (id: string) => {
+    try {
+        const response = await axiosClient.put<IMovie>(`/movies/toggle-hide/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error("Error toggling hide movie:", error);
+        throw error;
+    }
+};
