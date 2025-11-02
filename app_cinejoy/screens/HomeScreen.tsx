@@ -112,9 +112,9 @@ const HomeScreen = () => {
     { id: 4, title: "Rạp đặc biệt", icon: "⭐" },
     { id: 5, title: "Tin mới & Ưu đãi", icon: "🎁" },
     { id: 6, title: "Vé của tôi", icon: "🎟️" },
-    { id: 7, title: "CGV Store", icon: "🛒" },
-    { id: 8, title: "CGV eGift", icon: "📅" },
-    { id: 9, title: "Đổi ưu đãi", icon: "🎫" },
+    { id: 7, title: "CGV Store", icon: "🍿" },
+    { id: 8, title: "CGV eGift", icon: "🎁" },
+    { id: 9, title: "Đổi ưu đãi", icon: "🎗️" },
   ];
 
   // Hàm mở/đóng side menu
@@ -666,21 +666,31 @@ const HomeScreen = () => {
               <View style={styles.menuProfileSection}>
                 <View style={styles.menuProfileHeader}>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Text style={styles.menuHeaderIconText}>🔔</Text>
+                    <Fontisto name="bell" size={22} color="#fff" />
+                    <View style={styles.menuBellBadge} />
                   </TouchableOpacity>
-                  <Image source={icon} style={styles.menuProfileAvatar} />
+                  <View style={styles.menuAvatarContainer}>
+                    <Image source={icon} style={styles.menuProfileAvatar} />
+                  </View>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Text style={styles.menuHeaderIconText}>⚙️</Text>
+                    <Fontisto name="player-settings" size={22} color="#fff" />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.menuProfileName}>Ngô Nhựt Tân</Text>
+                <View style={styles.menuNameRow}>
+                  <Text style={styles.menuProfileName}>Ngô Nhựt Tân</Text>
+                  <View style={styles.menuMemberBadge}>
+                    <Text style={styles.menuMemberBadgeText}>MEMBER</Text>
+                  </View>
+                </View>
                 <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
               </View>
 
               {/* Member Card with Barcode */}
               <View style={styles.menuMemberCard}>
                 <View style={styles.menuCardHeader}>
-                  <Image source={banner1} style={styles.menuCardLogo} />
+                  <View style={styles.menuCardU22Badge}>
+                    <Text style={styles.menuCardU22Text}>U22</Text>
+                  </View>
                   <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
                   <TouchableOpacity>
                     <Text style={styles.menuCardArrow}>→</Text>
@@ -688,7 +698,7 @@ const HomeScreen = () => {
                 </View>
                 <View style={styles.menuBarcodeContainer}>
                   <Image source={banner2} style={styles.menuBarcode} />
-                  <Text style={styles.menuBarcodeNumber}>999212360389460B</Text>
+                  <Text style={styles.menuBarcodeNumber}>9992123603894608</Text>
                 </View>
               </View>
 
@@ -696,7 +706,7 @@ const HomeScreen = () => {
               <View style={styles.menuPointsSection}>
                 <View style={styles.menuPointItem}>
                   <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
-                  <Text style={styles.menuPointValue}>341636 đ</Text>
+                  <Text style={styles.menuPointValue}>341.636 ₫</Text>
                 </View>
                 <View style={styles.menuPointItem}>
                   <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
@@ -1580,22 +1590,57 @@ const styles = StyleSheet.create({
   },
   menuHeaderIcon: {
     padding: 10,
+    position: "relative",
+  },
+  menuBellBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E50914",
   },
   menuHeaderIconText: {
     fontSize: 24,
   },
-  menuProfileAvatar: {
+  menuAvatarContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#fff",
     marginHorizontal: 20,
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuProfileAvatar: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: "#fff",
+  },
+  menuNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   menuProfileName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 4,
+    marginRight: 8,
+  },
+  menuMemberBadge: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  menuMemberBadgeText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#000",
   },
   menuProfileMember: {
     fontSize: 13,
@@ -1613,6 +1658,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+  },
+  menuCardU22Badge: {
+    backgroundColor: "#9C27B0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  menuCardU22Text: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#fff",
   },
   menuCardLogo: {
     width: 40,
