@@ -42,11 +42,13 @@ const HomeScreen = () => {
   const [currentPromotionalPage, setCurrentPromotionalPage] = useState(0);
   const [isStickyHeader, setIsStickyHeader] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
+  const [showSideMenu, setShowSideMenu] = useState(false);
   const hasShownModal = useRef(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const headerOpacity = useRef(new Animated.Value(1)).current; // Opacity cho header
+  const sideMenuTranslateX = useRef(new Animated.Value(width)).current; // Side menu position
 
   // Promotional items data
   const promotionalItems = [
@@ -101,6 +103,40 @@ const HomeScreen = () => {
       image: banner3,
     },
   ];
+
+  // Side menu items data
+  const sideMenuItems = [
+    { id: 1, title: "THA", image: banner1 },
+    { id: 2, title: "SƯ T", image: banner2 },
+    { id: 3, title: "TRAI", image: banner3 },
+    { id: 4, title: "Z", image: banner1 },
+    { id: 5, title: "K", image: banner2 },
+    { id: 6, title: "P", image: banner3 },
+  ];
+
+  // Hàm mở/đóng side menu
+  const toggleSideMenu = () => {
+    const willOpen = !showSideMenu;
+    setShowSideMenu(willOpen);
+    
+    Animated.timing(sideMenuTranslateX, {
+      toValue: willOpen ? 0 : width,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Khởi tạo animation value khi component mount
+  useEffect(() => {
+    sideMenuTranslateX.setValue(width); // Menu ban đầu nằm ngoài màn hình bên phải
+  }, []);
+
+  // Đóng side menu khi click overlay
+  const closeSideMenu = () => {
+    if (showSideMenu) {
+      toggleSideMenu();
+    }
+  };
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
 
@@ -274,7 +310,10 @@ const HomeScreen = () => {
                   color={isStickyHeader ? "#E50914" : "#fff"} 
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIcon}>
+              <TouchableOpacity 
+                style={styles.headerIcon}
+                onPress={toggleSideMenu}
+              >
                 <Text style={[
                   styles.headerIconText,
                   isStickyHeader && styles.headerIconTextSticky
@@ -312,7 +351,10 @@ const HomeScreen = () => {
                   color="#E50914"
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIcon}>
+              <TouchableOpacity 
+                style={styles.headerIcon}
+                onPress={toggleSideMenu}
+              >
                 <Text style={[
                   styles.headerIconText,
                   styles.headerIconTextSticky
@@ -595,6 +637,52 @@ const HomeScreen = () => {
         </View>
         </View>
       </ScrollView>
+
+      {/* Side Menu - Slide from right */}
+      {showSideMenu && (
+        <View style={styles.sideMenuOverlay}>
+          <TouchableOpacity
+            style={styles.sideMenuOverlayTouchable}
+            activeOpacity={1}
+            onPress={closeSideMenu}
+          />
+          <Animated.View
+            style={[
+              styles.sideMenuContainer,
+              {
+                transform: [{ translateX: sideMenuTranslateX }],
+              },
+            ]}
+          >
+            <View style={styles.sideMenuContent}>
+              {/* Menu Header */}
+              <View style={styles.sideMenuHeader}>
+                <Text style={styles.sideMenuTitle}>hiếu</Text>
+              </View>
+
+              {/* TẤT CẢ Button */}
+              <TouchableOpacity style={styles.sideMenuAllButton}>
+                <Text style={styles.sideMenuAllButtonText}>TẤT CẢ</Text>
+              </TouchableOpacity>
+
+              {/* Menu Items List */}
+              <ScrollView style={styles.sideMenuItemsList} showsVerticalScrollIndicator={false}>
+                {sideMenuItems.map((item) => (
+                  <TouchableOpacity key={item.id} style={styles.sideMenuItem}>
+                    <Image source={item.image} style={styles.sideMenuItemImage} />
+                    <Text style={styles.sideMenuItemText}>{item.title}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Another TẤT CẢ Button */}
+              <TouchableOpacity style={styles.sideMenuAllButton}>
+                <Text style={styles.sideMenuAllButtonText}>TẤT CẢ</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      )}
 
       {/* Promo Modal - Hiển thị khi vào HomeScreen lần đầu */}
       <Modal
@@ -1394,6 +1482,80 @@ const styles = StyleSheet.create({
     width: width * 0.85,
     height: height * 0.6,
     borderRadius: 10,
+  },
+  // Side Menu Styles
+  sideMenuOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2000,
+    flexDirection: "row",
+  },
+  sideMenuOverlayTouchable: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  sideMenuContainer: {
+    width: width * 0.85,
+    height: "100%",
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  sideMenuContent: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 16,
+  },
+  sideMenuHeader: {
+    marginBottom: 20,
+  },
+  sideMenuTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
+  },
+  sideMenuAllButton: {
+    backgroundColor: "#E50914",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  sideMenuAllButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  sideMenuItemsList: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  sideMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  sideMenuItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 12,
+    resizeMode: "cover",
+  },
+  sideMenuItemText: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
   },
 });
 
