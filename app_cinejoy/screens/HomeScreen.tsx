@@ -104,14 +104,17 @@ const HomeScreen = () => {
     },
   ];
 
-  // Side menu items data
-  const sideMenuItems = [
-    { id: 1, title: "THA", image: banner1 },
-    { id: 2, title: "SƯ T", image: banner2 },
-    { id: 3, title: "TRAI", image: banner3 },
-    { id: 4, title: "Z", image: banner1 },
-    { id: 5, title: "K", image: banner2 },
-    { id: 6, title: "P", image: banner3 },
+  // Side menu items data - Grid menu với icons
+  const menuGridItems = [
+    { id: 1, title: "Trang chủ", icon: "🏠" },
+    { id: 2, title: "Thành viên CGV", icon: "👤" },
+    { id: 3, title: "Rạp", icon: "ℹ️" },
+    { id: 4, title: "Rạp đặc biệt", icon: "⭐" },
+    { id: 5, title: "Tin mới & Ưu đãi", icon: "🎁" },
+    { id: 6, title: "Vé của tôi", icon: "🎟️" },
+    { id: 7, title: "CGV Store", icon: "🛒" },
+    { id: 8, title: "CGV eGift", icon: "📅" },
+    { id: 9, title: "Đổi ưu đãi", icon: "🎫" },
   ];
 
   // Hàm mở/đóng side menu
@@ -654,32 +657,79 @@ const HomeScreen = () => {
               },
             ]}
           >
-            <View style={styles.sideMenuContent}>
-              {/* Menu Header */}
-              <View style={styles.sideMenuHeader}>
-                <Text style={styles.sideMenuTitle}>hiếu</Text>
+            <ScrollView 
+              style={styles.sideMenuContent} 
+              contentContainerStyle={styles.sideMenuContentContainer}
+              showsVerticalScrollIndicator={true}
+            >
+              {/* User Profile Section */}
+              <View style={styles.menuProfileSection}>
+                <View style={styles.menuProfileHeader}>
+                  <TouchableOpacity style={styles.menuHeaderIcon}>
+                    <Text style={styles.menuHeaderIconText}>🔔</Text>
+                  </TouchableOpacity>
+                  <Image source={icon} style={styles.menuProfileAvatar} />
+                  <TouchableOpacity style={styles.menuHeaderIcon}>
+                    <Text style={styles.menuHeaderIconText}>⚙️</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.menuProfileName}>Ngô Nhựt Tân</Text>
+                <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
               </View>
 
-              {/* TẤT CẢ Button */}
-              <TouchableOpacity style={styles.sideMenuAllButton}>
-                <Text style={styles.sideMenuAllButtonText}>TẤT CẢ</Text>
+              {/* Member Card with Barcode */}
+              <View style={styles.menuMemberCard}>
+                <View style={styles.menuCardHeader}>
+                  <Image source={banner1} style={styles.menuCardLogo} />
+                  <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
+                  <TouchableOpacity>
+                    <Text style={styles.menuCardArrow}>→</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.menuBarcodeContainer}>
+                  <Image source={banner2} style={styles.menuBarcode} />
+                  <Text style={styles.menuBarcodeNumber}>999212360389460B</Text>
+                </View>
+              </View>
+
+              {/* Points Section */}
+              <View style={styles.menuPointsSection}>
+                <View style={styles.menuPointItem}>
+                  <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
+                  <Text style={styles.menuPointValue}>341636 đ</Text>
+                </View>
+                <View style={styles.menuPointItem}>
+                  <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
+                  <Text style={styles.menuPointValue}>15</Text>
+                </View>
+              </View>
+
+              {/* Booking Buttons */}
+              <TouchableOpacity style={styles.menuBookingButton}>
+                <Text style={styles.menuBookingButtonText}>Đặt vé theo Phim</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuBookingButton}>
+                <Text style={styles.menuBookingButtonText}>Đặt vé theo Rạp</Text>
               </TouchableOpacity>
 
-              {/* Menu Items List */}
-              <ScrollView style={styles.sideMenuItemsList} showsVerticalScrollIndicator={false}>
-                {sideMenuItems.map((item) => (
-                  <TouchableOpacity key={item.id} style={styles.sideMenuItem}>
-                    <Image source={item.image} style={styles.sideMenuItemImage} />
-                    <Text style={styles.sideMenuItemText}>{item.title}</Text>
+              {/* Menu Grid */}
+              <View style={styles.menuGrid}>
+                {menuGridItems.map((item) => (
+                  <TouchableOpacity key={item.id} style={styles.menuGridItem}>
+                    <View style={styles.menuGridIconContainer}>
+                      <Text style={styles.menuGridIcon}>{item.icon}</Text>
+                      {item.id === 8 && <View style={styles.menuGridBadge} />}
+                    </View>
+                    <Text style={styles.menuGridItemText}>{item.title}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
 
-              {/* Another TẤT CẢ Button */}
-              <TouchableOpacity style={styles.sideMenuAllButton}>
-                <Text style={styles.sideMenuAllButtonText}>TẤT CẢ</Text>
+              {/* Logout Button */}
+              <TouchableOpacity style={styles.menuLogoutButton}>
+                <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </Animated.View>
         </View>
       )}
@@ -1500,7 +1550,7 @@ const styles = StyleSheet.create({
   sideMenuContainer: {
     width: width * 0.85,
     height: "100%",
-    backgroundColor: "#fff",
+    backgroundColor: "#1a1a1a",
     shadowColor: "#000",
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
@@ -1509,52 +1559,178 @@ const styles = StyleSheet.create({
   },
   sideMenuContent: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 16,
   },
-  sideMenuHeader: {
-    marginBottom: 20,
+  sideMenuContentContainer: {
+    paddingTop: 50,
+    paddingBottom: 40,
+    paddingHorizontal: 0,
   },
-  sideMenuTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  sideMenuAllButton: {
-    backgroundColor: "#E50914",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 20,
+  // Profile Section
+  menuProfileSection: {
     alignItems: "center",
+    paddingVertical: 20,
   },
-  sideMenuAllButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  sideMenuItemsList: {
-    flex: 1,
-    marginBottom: 20,
-  },
-  sideMenuItem: {
+  menuProfileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    justifyContent: "center",
+    width: "100%",
+    marginBottom: 10,
+    paddingHorizontal: 40,
   },
-  sideMenuItemImage: {
+  menuHeaderIcon: {
+    padding: 10,
+  },
+  menuHeaderIconText: {
+    fontSize: 24,
+  },
+  menuProfileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#fff",
+    marginHorizontal: 20,
+  },
+  menuProfileName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  menuProfileMember: {
+    fontSize: 13,
+    color: "#E50914",
+  },
+  // Member Card
+  menuMemberCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 12,
+    padding: 16,
+  },
+  menuCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  menuCardLogo: {
     width: 40,
-    height: 40,
-    borderRadius: 8,
-    marginRight: 12,
-    resizeMode: "cover",
+    height: 20,
+    resizeMode: "contain",
+    marginRight: 8,
   },
-  sideMenuItemText: {
+  menuCardTitle: {
     fontSize: 14,
-    color: "#333",
+    fontWeight: "bold",
+    color: "#000",
+    flex: 1,
+  },
+  menuCardArrow: {
+    fontSize: 20,
+    color: "#000",
+  },
+  menuBarcodeContainer: {
+    alignItems: "center",
+  },
+  menuBarcode: {
+    width: "100%",
+    height: 60,
+    resizeMode: "contain",
+    marginBottom: 8,
+  },
+  menuBarcodeNumber: {
+    fontSize: 12,
+    color: "#666",
+  },
+  // Points Section
+  menuPointsSection: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuPointItem: {
+    flex: 1,
+  },
+  menuPointLabel: {
+    fontSize: 11,
+    color: "#999",
+    marginBottom: 4,
+  },
+  menuPointValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Booking Buttons
+  menuBookingButton: {
+    backgroundColor: "#2a2a2a",
+    marginHorizontal: 16,
+    marginVertical: 6,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  menuBookingButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // Menu Grid
+  menuGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  menuGridItem: {
+    width: "33.33%",
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  menuGridIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#2a2a2a",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    position: "relative",
+  },
+  menuGridIcon: {
+    fontSize: 24,
+  },
+  menuGridBadge: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E50914",
+  },
+  menuGridItemText: {
+    fontSize: 11,
+    color: "#fff",
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
+  // Logout Button
+  menuLogoutButton: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 20,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#444",
+  },
+  menuLogoutButtonText: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "500",
   },
 });
