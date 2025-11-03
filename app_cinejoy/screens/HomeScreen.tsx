@@ -29,6 +29,7 @@ import backgroundTab from "assets/backgroundTab.png";
 import logo from "assets/logoCNJ.png";
 import icon from "assets/iconHome.png";
 import startHome from "assets/startHome.png";
+import maVach from "assets/maVach.png";
 
 const { width, height } = Dimensions.get("window");
 
@@ -744,14 +745,14 @@ const HomeScreen = () => {
               <View style={styles.menuProfileSection}>
                 <View style={styles.menuProfileHeader}>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Fontisto name="bell" size={22} color="#fff" />
+                    <Fontisto name="bell" size={26} color="#fff" />
                     <View style={styles.menuBellBadge} />
                   </TouchableOpacity>
                   <View style={styles.menuAvatarContainer}>
                     <Image source={icon} style={styles.menuProfileAvatar} />
                   </View>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Fontisto name="player-settings" size={22} color="#fff" />
+                    <Fontisto name="player-settings" size={26} color="#fff" />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.menuNameRow}>
@@ -775,7 +776,7 @@ const HomeScreen = () => {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.menuBarcodeContainer}>
-                  <Image source={banner2} style={styles.menuBarcode} />
+                  <Image source={maVach} style={styles.menuBarcode} />
                   <Text style={styles.menuBarcodeNumber}>9992123603894608</Text>
                 </View>
               </View>
@@ -817,6 +818,11 @@ const HomeScreen = () => {
               <TouchableOpacity style={styles.menuLogoutButton}>
                 <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
               </TouchableOpacity>
+
+              <View style={styles.menuFooter}>
+                <Image source={logo} style={styles.menuFooterLogo} />
+                <Text style={styles.menuFooterText}>CULTUREPLEX</Text>
+              </View>
             </ScrollView>
           </Animated.View>
         </View>
@@ -1656,7 +1662,8 @@ const styles = StyleSheet.create({
   // Profile Section
   menuProfileSection: {
     alignItems: "center",
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   menuProfileHeader: {
     flexDirection: "row",
@@ -1729,13 +1736,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 16,
     marginVertical: 10,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 4,
+    padding: 2,
+    paddingHorizontal: 8,
   },
   menuCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "space-between",
   },
   menuCardU22Badge: {
     backgroundColor: "#9C27B0",
@@ -1762,16 +1770,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuCardArrow: {
-    fontSize: 20,
+    fontSize: 35,
     color: "#000",
   },
   menuBarcodeContainer: {
+    borderTopWidth: 1,
+    borderColor: "#000",
+    borderStyle: "solid",
+    paddingVertical: 6,
     alignItems: "center",
   },
   menuBarcode: {
-    width: "100%",
-    height: 60,
-    resizeMode: "contain",
+    width: width * 0.75,
+    height: 50,
+    resizeMode: "cover",
     marginBottom: 8,
   },
   menuBarcodeNumber: {
@@ -1780,12 +1792,15 @@ const styles = StyleSheet.create({
   },
   // Points Section
   menuPointsSection: {
+    display: "flex",
     flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   menuPointItem: {
-    flex: 1,
+    alignItems: "flex-start",
+    marginRight: 15,
   },
   menuPointLabel: {
     fontSize: 11,
@@ -1799,9 +1814,12 @@ const styles = StyleSheet.create({
   },
   // Booking Buttons
   menuBookingButton: {
-    backgroundColor: "#2a2a2a",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#333",
+    borderStyle: "solid",
+    backgroundColor: "transparent",
     marginHorizontal: 16,
-    marginVertical: 6,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
@@ -1827,8 +1845,6 @@ const styles = StyleSheet.create({
   menuGridIconContainer: {
     width: 50,
     height: 50,
-    borderRadius: 25,
-    backgroundColor: "#2a2a2a",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -1854,18 +1870,37 @@ const styles = StyleSheet.create({
   },
   // Logout Button
   menuLogoutButton: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#333",
+    borderStyle: "solid",
+    backgroundColor: "transparent",
     marginHorizontal: 16,
     marginTop: 10,
-    marginBottom: 20,
     paddingVertical: 14,
-    borderRadius: 8,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#444",
   },
   menuLogoutButtonText: {
     color: "#fff",
     fontSize: 14,
+    fontWeight: "500",
+  },
+  menuFooter: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuFooterLogo: {
+    width: 100,
+    height: 100,
+    resizeMode: "contain",
+    marginBottom: -20,
+    tintColor: "#444"
+  },
+  menuFooterText: {
+    color: "#333",
+    fontSize: 12,
     fontWeight: "500",
   },
 });
