@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import createInstanceAxios from "services/axios.customize";
 import config from "../config/env";
-import { IBackendResponse, IRegister, ILogin, IMovie } from "types/api";
+import { IBackendResponse, IRegister, ILogin, IMovie, IFetchAccount } from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
 
@@ -47,6 +47,37 @@ export const forgotPasswordApi = async (data: { email: string }) => {
   const response = await axios.post<IBackendResponse<null>>(
     "/v1/api/auth/forgotPassword",
     data
+  );
+  return response.data;
+};
+
+export const verifyOtpApi = async (data: { email: string; otp: string }) => {
+  const response = await axios.post<IBackendResponse<null>>(
+    "/v1/api/auth/verifyOtp",
+    data
+  );
+  return response.data;
+};
+
+export const resetPasswordApi = async (data: {
+  email: string;
+  newPassword: string;
+}) => {
+  const response = await axios.post<IBackendResponse<null>>(
+    "/v1/api/auth/resetPassword",
+    data
+  );
+  return response.data;
+};
+
+export const fetchAccountApi = async () => {
+  const response = await axios.get<IBackendResponse<IFetchAccount>>(
+    "/v1/api/auth/account",
+    {
+      headers: {
+        delay: 1000,
+      },
+    }
   );
   return response.data;
 };

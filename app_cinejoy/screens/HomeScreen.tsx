@@ -1711,7 +1711,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   menuProfileName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
     marginRight: 8,

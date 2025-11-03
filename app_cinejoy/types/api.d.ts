@@ -1,21 +1,31 @@
 // Backend response types
 export interface IBackendResponse<T = any> {
   status: boolean;
+  error?: number;
   message: string;
-  data: T;
-  error?: string;
+  data?: T | null;
 }
 
 export interface IRefreshToken {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export interface IUser {
-  id: string;
+  _id: string;
+  fullName: string;
   email: string;
-  name: string;
-  // Add other user fields as needed
+  phoneNumber: string;
+  gender: string;
+  avatar: string;
+  dateOfBirth: string;
+  role: string;
+  isActive: boolean;
+  settings: {
+    darkMode: boolean;
+  };
+  point?: number;
+  createdAt: Date;
 }
 
 // Auth types
@@ -31,8 +41,11 @@ export interface IRegister {
 }
 
 export interface ILogin {
+  user: IUser;
   accessToken: string;
-  refreshToken: string;
+}
+
+export interface IFetchAccount {
   user: IUser;
 }
 
