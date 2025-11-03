@@ -207,15 +207,17 @@ class PaymentService {
             $set: {
               paymentStatus: "PAID",
               orderStatus: "CONFIRMED",
-              expiresAt: undefined, // CONFIRMED orders never expire
               "paymentInfo.transactionId": callbackData.vnp_TransactionNo,
               "paymentInfo.paymentDate": new Date(),
               "paymentInfo.paymentGatewayResponse": callbackData,
             },
+            $unset: {
+              expiresAt: "", // Xóa field expiresAt để ngăn TTL index xóa order CONFIRMED
+            },
           }),
         ]);
 
-        console.log(`✅ VNPay: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
+        console.log(`✅ VNPay: Order ${order._id} payment confirmed and expiresAt removed to prevent TTL deletion`);
 
         // Cộng điểm ngay lập tức khi thanh toán thành công (VNPay)
         try {
@@ -454,8 +456,8 @@ class PaymentService {
         return { status: "error", message: "Payment not found" };
       }
 
-      // Cập nhật payment và order status
-      if (resultCode === 0) {
+        // Cập nhật payment và order status
+        if (resultCode === 0) {
         // Thanh toán thành công
         await Promise.all([
           Payment.findByIdAndUpdate(payment._id, {
@@ -469,15 +471,17 @@ class PaymentService {
             $set: {
               paymentStatus: "PAID",
               orderStatus: "CONFIRMED",
-              expiresAt: undefined, // CONFIRMED orders never expire
               "paymentInfo.transactionId": transId,
               "paymentInfo.paymentDate": new Date(),
               "paymentInfo.paymentGatewayResponse": callbackData,
             },
+            $unset: {
+              expiresAt: "", // Xóa field expiresAt để ngăn TTL index xóa order CONFIRMED
+            },
           }),
         ]);
 
-        console.log(`✅ MoMo: Order ${order._id} payment confirmed and expiresAt extended to 1 year from now`);
+        console.log(`✅ MoMo: Order ${order._id} payment confirmed and expiresAt removed to prevent TTL deletion`);
 
         // Cộng điểm ngay lập tức khi thanh toán thành công (MoMo)
         try {

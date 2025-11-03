@@ -271,7 +271,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
           {/* Top Header - Booking Code */}
           <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-gray-800'} text-white py-4 px-6`}>
             <h1 className="text-xl font-bold uppercase text-center">
-              MÃ ĐẶT VÉ #{order._id} - {order.orderStatus === 'CONFIRMED' ? 'HOÀN TẤT' : order.orderStatus}
+              MÃ ĐẶT VÉ #{order._id} - {order.orderStatus === 'CONFIRMED' ? 'HOÀN TẤT' : order.orderStatus === 'RETURNED' ? 'TRẢ VÉ' : order.orderStatus}
             </h1>
           </div>
 
@@ -303,6 +303,31 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
               </div>
             </div>
           </div>
+
+          {/* Return Information - Chỉ hiển thị khi order là RETURNED */}
+          {order.orderStatus === 'RETURNED' && (order as any).returnInfo && (
+            <div className={`py-6 px-6 border-b ${isDarkMode ? 'border-gray-600 bg-red-900/20' : 'border-gray-200 bg-red-50'}`}>
+              <h3 className={`font-bold text-lg mb-3 text-red-600`}>Thông Tin Trả Vé</h3>
+              <div className={`space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <p>
+                  <span className="font-semibold">Lý do trả vé:</span>{' '}
+                  <span className="text-red-600 font-medium">{(order as any).returnInfo.reason || 'Không có thông tin'}</span>
+                </p>
+                <p>
+                  <span className="font-semibold">Thời gian trả vé:</span>{' '}
+                  <span className="text-red-600 font-medium">
+                    {(order as any).returnInfo.returnDate 
+                      ? formatDate((order as any).returnInfo.returnDate) + ' ' + 
+                        new Date((order as any).returnInfo.returnDate).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'Không có thông tin'}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Transaction Details Header */}
           <div className={`flex justify-between items-center py-4 px-6 border-b ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`}>

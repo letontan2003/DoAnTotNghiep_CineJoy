@@ -56,6 +56,8 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
     switch (status) {
       case 'CONFIRMED':
         return { text: 'Hoàn Tất', color: 'text-green-600', bgColor: 'bg-green-100' };
+      case 'RETURNED':
+        return { text: 'Trả Vé', color: 'text-red-600', bgColor: 'bg-red-100' };
       case 'PENDING':
         return { text: 'Đang xử lý', color: 'text-yellow-600', bgColor: 'bg-yellow-100' };
       case 'CANCELLED':
@@ -185,7 +187,7 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
                         <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                           Mã Đặt Vé : {order._id} 
                           <span className="ml-2">
-                            (Trạng thái: <span className="font-bold">{statusInfo.text}</span>)
+                            (Trạng thái: <span className={`font-bold ${order.orderStatus === 'RETURNED' ? 'text-red-600' : ''}`}>{statusInfo.text}</span>)
                           </span>
                         </p>
                       </div>

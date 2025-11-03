@@ -53,7 +53,7 @@ class OrderService {
     try {
       const orders = await Order.find({
         userId: new mongoose.Types.ObjectId(userId),
-        orderStatus: "CONFIRMED"
+        orderStatus: { $in: ["CONFIRMED", "RETURNED"] } // Bao gồm cả CONFIRMED và RETURNED
       })
       .populate({
         path: "movieId",
@@ -660,19 +660,24 @@ class OrderService {
         throw new Error("Order không tồn tại");
       }
 
-      // Nếu order được thanh toán thành công hoặc được confirm, set expiresAt = null để không bao giờ xóa
+      // Chuẩn bị $unset nếu cần xóa expiresAt
+      let shouldUnsetExpiresAt = false;
+      
+      // Nếu order được thanh toán thành công hoặc được confirm, xóa expiresAt để không bao giờ xóa
       if (updateData.paymentStatus === "PAID" || updateData.orderStatus === "CONFIRMED") {
-        updateData.expiresAt = undefined; // CONFIRMED orders never expire
+        delete updateData.expiresAt; // Xóa khỏi updateData
+        shouldUnsetExpiresAt = true; // Đánh dấu cần $unset
         if (updateData.paymentStatus === "PAID") {
         updateData.orderStatus = "CONFIRMED";
         }
-        console.log(`✅ Order ${orderId} confirmed and set to never expire`);
+        console.log(`✅ Order ${orderId} confirmed and expiresAt will be unset`);
       }
       
-      // Nếu order được trả vé (RETURNED), set expiresAt = null để không bao giờ xóa
+      // Nếu order được trả vé (RETURNED), xóa expiresAt để không bao giờ xóa
       if (updateData.orderStatus === "RETURNED") {
-        updateData.expiresAt = undefined; // RETURNED orders never expire
-        console.log(`✅ Order ${orderId} returned and set to never expire`);
+        delete updateData.expiresAt; // Xóa khỏi updateData
+        shouldUnsetExpiresAt = true; // Đánh dấu cần $unset
+        console.log(`✅ Order ${orderId} returned and expiresAt will be unset`);
 
         // Mark voucher as used khi thanh toán thành công (fallback cho trường hợp updateOrder được gọi)
         if (currentOrder.voucherId && currentOrder.voucherDiscount > 0) {
@@ -737,9 +742,15 @@ class OrderService {
         }
       }
 
+      // Chuẩn bị update object với $set và $unset nếu cần
+      const updateObj: any = { $set: updateData };
+      if (shouldUnsetExpiresAt) {
+        updateObj.$unset = { expiresAt: "" }; // Xóa field expiresAt để ngăn TTL index xóa order
+      }
+
       const updatedOrder = await Order.findByIdAndUpdate(
         orderId,
-        { $set: updateData },
+        updateObj,
         { new: true, runValidators: true, session }
       )
         .populate("userId", "fullName email phoneNumber")
@@ -820,11 +831,13 @@ class OrderService {
             $set: {
               orderStatus: "RETURNED",
               paymentStatus: "REFUNDED",
-              expiresAt: undefined, // RETURNED orders never expire
               returnInfo: {
                 reason: reason || "Khách hàng yêu cầu trả vé",
                 returnDate: new Date(),
               },
+            },
+            $unset: {
+              expiresAt: "", // Xóa field expiresAt để ngăn TTL index xóa order RETURNED
             },
           },
           { new: true }

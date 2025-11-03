@@ -1258,6 +1258,7 @@ export default class VoucherService {
     const comboId = detail?.comboId;
     const comboDiscountPercent = detail?.comboDiscountPercent;
     const ticketDiscountPercent = detail?.ticketDiscountPercent;
+    const seatType = detail?.seatType; // Lấy seatType từ voucher detail
     const description = detail?.description;
     const startDate = line?.validityPeriod?.startDate ? new Date(line.validityPeriod.startDate) : undefined;
     const endDate = line?.validityPeriod?.endDate ? new Date(line.validityPeriod.endDate) : undefined;
@@ -1275,14 +1276,38 @@ export default class VoucherService {
       if (comboId) innerMatch['percentPromotions.comboId'] = comboId;
       if (typeof comboDiscountPercent === 'number') innerMatch['percentPromotions.discountPercent'] = comboDiscountPercent;
     } else if (applyType === 'ticket') {
-      if (typeof ticketDiscountPercent === 'number') innerMatch['percentPromotions.discountPercent'] = ticketDiscountPercent;
-      if (description) innerMatch['percentPromotions.description'] = description;
+      // Match theo description (giống item promotion) vì đây là cách đáng tin cậy nhất
+      // Description được lưu trong order từ promotion.detail?.description hoặc được tạo từ voucher
+      if (description) {
+        innerMatch['percentPromotions.description'] = description;
+      } else {
+        // Fallback: nếu không có description, match theo discountPercent và seatType
+        if (typeof ticketDiscountPercent === 'number') {
+          innerMatch['percentPromotions.discountPercent'] = ticketDiscountPercent;
+        }
+        if (seatType) {
+          // Match theo seatType - dùng regex không phân biệt hoa thường để tránh case-sensitive issues
+          const escapedSeatType = seatType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          innerMatch['percentPromotions.seatType'] = { $regex: new RegExp(`^${escapedSeatType}$`, 'i') };
+        }
+      }
     }
     if (Object.keys(innerMatch).length > 0) pipeline.push({ $match: innerMatch });
     pipeline.push({ $group: { _id: null, total: { $sum: '$percentPromotions.discountAmount' } } });
 
+    // Debug log để kiểm tra
+    console.log(`🔍 getPercentBudgetUsed Debug - voucherId: ${voucherId}, lineIndex: ${lineIndex}`);
+    console.log(`  applyType: ${applyType}`);
+    console.log(`  ticketDiscountPercent: ${ticketDiscountPercent}`);
+    console.log(`  seatType: ${seatType}`);
+    console.log(`  innerMatch:`, JSON.stringify(innerMatch, null, 2));
+    console.log(`  match:`, JSON.stringify(match, null, 2));
+
     const agg = await Order.aggregate(pipeline);
     const usedBudget = Array.isArray(agg) && agg.length > 0 ? (agg[0].total || 0) : 0;
+    
+    console.log(`  Result: usedBudget = ${usedBudget}`);
+    
     return { usedBudget };
   }
 }
