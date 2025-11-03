@@ -871,11 +871,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingTop: 90, // Chiều cao của header
-    paddingBottom: 20, // Thêm padding bottom để scroll hết nội dung
-    flexGrow: 1, // Đảm bảo ScrollView có đủ không gian
+    paddingTop: 90, 
+    paddingBottom: 20, 
+    flexGrow: 1, 
   },
-  // Sticky Header styles
   stickyHeaderContainer: {
     position: "absolute",
     top: 0,
@@ -897,9 +896,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 50, // Chiều cao của tabs
+    height: 50, 
     width: "100%",
-    zIndex: -1, // Đặt ảnh nền phía sau tabs
+    zIndex: -1, 
   },
   headerSticky: {
     backgroundColor: "#fff",
