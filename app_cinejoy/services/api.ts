@@ -16,7 +16,7 @@ export const registerApi = async (data: {
   role?: string;
   phoneNumber: string;
 }) => {
-  const response = await axios.post<IBackendResponse<IRegister>>(
+  const response = await axios.post<IBackendResponse<ILogin>>(
     "/v1/api/auth/register",
     data
   );

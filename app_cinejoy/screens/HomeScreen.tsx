@@ -13,12 +13,16 @@ import {
   Animated,
   Modal,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import StackCarousel from "@/components/StackCarousel";
-import { getMoviesByStatusApi } from "services/api";
+import { getMoviesByStatusApi, logoutApi } from "services/api";
 import { IMovie } from "types/api";
 import Fontisto from '@expo/vector-icons/Fontisto';
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { logout } from "@/store/appSlice";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 import banner1 from "assets/banner1.png";
 import banner2 from "assets/banner2.jpg";
 import banner3 from "assets/banner3.png";
@@ -34,7 +38,17 @@ import maVach from "assets/maVach.png";
 
 const { width, height } = Dimensions.get("window");
 
+type RootStackParamList = {
+  HomeScreen: undefined;
+  RegisterScreen: undefined;
+  LoginScreen: undefined;
+};
+
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, "HomeScreen">;
+
 const HomeScreen = () => {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const dispatch = useAppDispatch();
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
@@ -45,6 +59,7 @@ const HomeScreen = () => {
   const [isStickyHeader, setIsStickyHeader] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasShownModal = useRef(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
@@ -149,6 +164,54 @@ const HomeScreen = () => {
     if (showSideMenu) {
       toggleSideMenu();
     }
+  };
+
+  // Hàm xử lý đăng xuất
+  const handleLogout = async () => {
+    Alert.alert(
+      "Xác nhận đăng xuất",
+      "Bạn có chắc chắn muốn đăng xuất?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Đăng xuất",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsLoggingOut(true);
+              // Gọi API logout
+              await logoutApi();
+              
+              // Xóa token khỏi AsyncStorage
+              await AsyncStorage.removeItem("accessToken");
+              await AsyncStorage.removeItem("current_user_id");
+              
+              // Cập nhật Redux store
+              dispatch(logout());
+              
+              // Đóng side menu
+              closeSideMenu();
+              
+              // Hiển thị thông báo thành công
+              Alert.alert("Thành công", "Đăng xuất thành công!");
+            } catch (error: any) {
+              console.error("Logout error:", error);
+              // Vẫn xóa token và đăng xuất local nếu API fail
+              await AsyncStorage.removeItem("accessToken");
+              await AsyncStorage.removeItem("current_user_id");
+              dispatch(logout());
+              closeSideMenu();
+              Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
+            } finally {
+              setIsLoggingOut(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
@@ -778,7 +841,13 @@ const HomeScreen = () => {
                     <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
                   </>
                 ) : (
-                  <TouchableOpacity style={styles.menuLoginButton}>
+                  <TouchableOpacity 
+                    style={styles.menuLoginButton}
+                    onPress={() => {
+                      closeSideMenu();
+                      navigation.navigate("LoginScreen");
+                    }}
+                  >
                     <Text style={styles.menuLoginButtonText}>Đăng Nhập/Đăng Ký</Text>
                   </TouchableOpacity>
                 )}
@@ -840,8 +909,16 @@ const HomeScreen = () => {
 
               {/* Logout Button - chỉ hiển thị khi đã login */}
               {isAuthenticated && (
-                <TouchableOpacity style={styles.menuLogoutButton}>
-                  <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
+                <TouchableOpacity 
+                  style={[styles.menuLogoutButton, isLoggingOut && styles.menuLogoutButtonDisabled]}
+                  onPress={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
+                  )}
                 </TouchableOpacity>
               )}
 
@@ -1924,6 +2001,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 14,
     alignItems: "center",
+  },
+  menuLogoutButtonDisabled: {
+    opacity: 0.6,
   },
   menuLogoutButtonText: {
     color: "#fff",

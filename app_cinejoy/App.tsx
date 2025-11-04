@@ -7,6 +7,8 @@ import { store } from '@/store';
 import LoadingScreen from "@/screens/LoadingScreen";
 import PosterScreen from "@/screens/PosterScreen";
 import HomeScreen from "@/screens/HomeScreen";
+import LoginScreen from "@/screens/LoginScreen";
+import RegisterScreen from "@/screens/RegisterScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -27,6 +29,8 @@ export default function App() {
                 <Stack.Screen name="LoadingScreen" component={LoadingScreen} />
                 <Stack.Screen name="PosterScreen" component={PosterScreen} />
                 <Stack.Screen name="HomeScreen" component={HomeScreen} />
+                <Stack.Screen name="LoginScreen" component={LoginScreen} />
+                <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </AppProvider>
