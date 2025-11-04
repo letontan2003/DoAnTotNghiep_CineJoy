@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import Fontisto from '@expo/vector-icons/Fontisto';
+import Fontisto from "@expo/vector-icons/Fontisto";
 import { loginApi } from "@/services/api";
 import { useAppDispatch } from "@/store/hooks";
 import { setUser, setIsAuthenticated, setIsDarkMode } from "@/store/appSlice";
@@ -31,12 +31,15 @@ type RootStackParamList = {
   LoginScreen: undefined;
 };
 
-type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, "LoginScreen">;
+type LoginScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "LoginScreen"
+>;
 
 const LoginScreen = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const dispatch = useAppDispatch();
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,22 +59,27 @@ const LoginScreen = () => {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem("accessToken", response.data.accessToken);
         await AsyncStorage.setItem("current_user_id", response.data.user._id);
-        
+
         // Cập nhật Redux store
         dispatch(setUser(response.data.user));
         dispatch(setIsAuthenticated(true));
         dispatch(setIsDarkMode(response.data.user.settings.darkMode));
-        
+
         // Navigate về HomeScreen
         navigation.navigate("HomeScreen");
       } else {
-        Alert.alert("Lỗi đăng nhập", response.message || "Đăng nhập thất bại. Vui lòng thử lại.");
+        Alert.alert(
+          "Lỗi đăng nhập",
+          response.message || "Đăng nhập thất bại. Vui lòng thử lại."
+        );
       }
     } catch (error: any) {
       console.error("Login error:", error);
       Alert.alert(
         "Lỗi",
-        error?.response?.data?.message || error?.message || "Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại."
+        error?.response?.data?.message ||
+          error?.message ||
+          "Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại."
       );
     } finally {
       setLoading(false);
@@ -79,7 +87,10 @@ const LoginScreen = () => {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert("Thông báo", "Tính năng quên mật khẩu sẽ được phát triển trong tương lai");
+    Alert.alert(
+      "Thông báo",
+      "Tính năng quên mật khẩu sẽ được phát triển trong tương lai"
+    );
   };
 
   return (
@@ -88,37 +99,28 @@ const LoginScreen = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-      
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header với back button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Fontisto name="arrow-left" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đăng Nhập</Text>
-        </View>
-
-        {/* Top Section với background image */}
+        {/* Top Section với image */}
         <View style={styles.topSection}>
           <Image
             source={bannerBG}
-            style={styles.topSectionBackground}
+            style={styles.topSectionImage}
             resizeMode="cover"
           />
-          <View style={styles.cardOverlay}>
-            <View style={styles.cardContainer}>
-              <Text style={styles.cardText}>HAVE A NICE DAY</Text>
-              <Text style={styles.cardLogo}>CGV*</Text>
-              <View style={styles.cardDivider} />
-              <Text style={styles.cardSubtext}>CGV CINEMA STREET</Text>
-            </View>
+          {/* Header với back button */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Fontisto name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Đăng Nhập</Text>
           </View>
         </View>
 
@@ -156,18 +158,17 @@ const LoginScreen = () => {
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Fontisto
-                  name="eye"
-                  size={20}
-                  color="#666"
-                />
+                <Fontisto name="eye" size={20} color="#666" />
               </TouchableOpacity>
               <View style={styles.inputUnderline} />
             </View>
 
             {/* Login Button */}
             <TouchableOpacity
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              style={[
+                styles.loginButton,
+                loading && styles.loginButtonDisabled,
+              ]}
               onPress={handleLogin}
               disabled={loading}
             >
@@ -198,7 +199,9 @@ const LoginScreen = () => {
               style={styles.registerButton}
               onPress={() => navigation.navigate("RegisterScreen")}
             >
-              <Text style={styles.registerButtonText}>Đăng ký tài khoản CGV</Text>
+              <Text style={styles.registerButtonText}>
+                Đăng ký tài khoản CGV
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -215,89 +218,41 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  topSection: {
+    height: height * 0.35,
+    width: "100%",
+    position: "relative",
+  },
+  topSectionImage: {
+    width: "100%",
+    height: "100%",
+  },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: "#1a1a1a",
+    paddingVertical: 12,
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 50,
+    backgroundColor: "transparent",
+    minHeight: 50,
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
-    flex: 1,
-  },
-  topSection: {
-    height: height * 0.35,
-    position: "relative",
-    backgroundColor: "#1a1a1a",
-  },
-  topSectionBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: "100%",
-    height: "100%",
-    opacity: 0.8,
-  },
-  cardOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "flex-end",
-    paddingRight: 20,
-    paddingTop: 20,
-  },
-  cardContainer: {
-    backgroundColor: "#E50914",
-    padding: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    minWidth: 150,
-    maxWidth: 160,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 10,
-  },
-  cardText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  cardLogo: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  cardDivider: {
-    width: "100%",
-    height: 1,
-    backgroundColor: "#fff",
-    marginVertical: 8,
-    borderStyle: "dashed",
-  },
-  cardSubtext: {
-    color: "#fff",
-    fontSize: 10,
-    textAlign: "center",
-    letterSpacing: 0.5,
+    lineHeight: 24,
   },
   bottomSection: {
     flex: 1,
@@ -389,4 +344,3 @@ const styles = StyleSheet.create({
 });
 
 export default LoginScreen;
-

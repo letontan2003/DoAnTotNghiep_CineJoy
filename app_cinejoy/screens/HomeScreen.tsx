@@ -18,7 +18,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi, logoutApi } from "services/api";
 import { IMovie } from "types/api";
-import Fontisto from '@expo/vector-icons/Fontisto';
+import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/appSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -42,9 +42,13 @@ type RootStackParamList = {
   HomeScreen: undefined;
   RegisterScreen: undefined;
   LoginScreen: undefined;
+  MovieDetailScreen: { movie: IMovie };
 };
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, "HomeScreen">;
+type HomeScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "HomeScreen"
+>;
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
@@ -68,8 +72,9 @@ const HomeScreen = () => {
   const headerOpacity = useRef(new Animated.Value(1)).current;
   const sideMenuTranslateX = useRef(new Animated.Value(width)).current;
   const [currentPartnerOfferIndex, setCurrentPartnerOfferIndex] = useState(0);
-  const [isPartnerOfferAutoScroll, setIsPartnerOfferAutoScroll] = useState(true);
-  
+  const [isPartnerOfferAutoScroll, setIsPartnerOfferAutoScroll] =
+    useState(true);
+
   // Lấy thông tin authentication từ Redux store
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
   const user = useAppSelector((state) => state.app.user);
@@ -86,29 +91,29 @@ const HomeScreen = () => {
 
   // Hot News banners data
   const hotNewsItems = [
-    { 
-      id: 1, 
-      title: "ORION 2MIX - 2 LÁT KHOAI, CÚ NÓ VỊ GIÁC CỰC ĐÌNH! CHỈ TỪ 20.000Đ", 
+    {
+      id: 1,
+      title: "ORION 2MIX - 2 LÁT KHOAI, CÚ NÓ VỊ GIÁC CỰC ĐÌNH! CHỈ TỪ 20.000Đ",
       image: banner1,
-      brand: "ORION"
+      brand: "ORION",
     },
-    { 
-      id: 2, 
-      title: "MUA VÉ XEM PHIM C18 TẠI CGV NHẬN QUÀ SPECIAL TỪ SWEETBOX", 
+    {
+      id: 2,
+      title: "MUA VÉ XEM PHIM C18 TẠI CGV NHẬN QUÀ SPECIAL TỪ SWEETBOX",
       image: banner2,
-      brand: "SWEETBOX"
+      brand: "SWEETBOX",
     },
-    { 
-      id: 3, 
-      title: "KHUYẾN MÃI THÁNG 12 - ƯU ĐÃI ĐẶC BIỆT CHO THÀNH VIÊN", 
+    {
+      id: 3,
+      title: "KHUYẾN MÃI THÁNG 12 - ƯU ĐÃI ĐẶC BIỆT CHO THÀNH VIÊN",
       image: banner3,
-      brand: "CGV"
+      brand: "CGV",
     },
-    { 
-      id: 4, 
-      title: "COMBO BẮP NƯỚC GIÁ SỐC - TIẾT KIỆM ĐẾN 50%", 
+    {
+      id: 4,
+      title: "COMBO BẮP NƯỚC GIÁ SỐC - TIẾT KIỆM ĐẾN 50%",
       image: banner4,
-      brand: "COMBO"
+      brand: "COMBO",
     },
   ];
 
@@ -129,7 +134,11 @@ const HomeScreen = () => {
   ];
 
   // Duplicate data để scroll vô cực
-  const partnerOffers = [...partnerOffersOriginal, ...partnerOffersOriginal, ...partnerOffersOriginal];
+  const partnerOffers = [
+    ...partnerOffersOriginal,
+    ...partnerOffersOriginal,
+    ...partnerOffersOriginal,
+  ];
 
   // Side menu items data - Grid menu với icons
   const menuGridItems = [
@@ -148,7 +157,7 @@ const HomeScreen = () => {
   const toggleSideMenu = () => {
     const willOpen = !showSideMenu;
     setShowSideMenu(willOpen);
-    
+
     Animated.timing(sideMenuTranslateX, {
       toValue: willOpen ? 0 : width,
       duration: 300,
@@ -168,50 +177,46 @@ const HomeScreen = () => {
 
   // Hàm xử lý đăng xuất
   const handleLogout = async () => {
-    Alert.alert(
-      "Xác nhận đăng xuất",
-      "Bạn có chắc chắn muốn đăng xuất?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel",
+    Alert.alert("Xác nhận đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
+      {
+        text: "Hủy",
+        style: "cancel",
+      },
+      {
+        text: "Đăng xuất",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setIsLoggingOut(true);
+            // Gọi API logout
+            await logoutApi();
+
+            // Xóa token khỏi AsyncStorage
+            await AsyncStorage.removeItem("accessToken");
+            await AsyncStorage.removeItem("current_user_id");
+
+            // Cập nhật Redux store
+            dispatch(logout());
+
+            // Đóng side menu
+            closeSideMenu();
+
+            // Hiển thị thông báo thành công
+            Alert.alert("Thành công", "Đăng xuất thành công!");
+          } catch (error: any) {
+            console.error("Logout error:", error);
+            // Vẫn xóa token và đăng xuất local nếu API fail
+            await AsyncStorage.removeItem("accessToken");
+            await AsyncStorage.removeItem("current_user_id");
+            dispatch(logout());
+            closeSideMenu();
+            Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
+          } finally {
+            setIsLoggingOut(false);
+          }
         },
-        {
-          text: "Đăng xuất",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoggingOut(true);
-              // Gọi API logout
-              await logoutApi();
-              
-              // Xóa token khỏi AsyncStorage
-              await AsyncStorage.removeItem("accessToken");
-              await AsyncStorage.removeItem("current_user_id");
-              
-              // Cập nhật Redux store
-              dispatch(logout());
-              
-              // Đóng side menu
-              closeSideMenu();
-              
-              // Hiển thị thông báo thành công
-              Alert.alert("Thành công", "Đăng xuất thành công!");
-            } catch (error: any) {
-              console.error("Logout error:", error);
-              // Vẫn xóa token và đăng xuất local nếu API fail
-              await AsyncStorage.removeItem("accessToken");
-              await AsyncStorage.removeItem("current_user_id");
-              dispatch(logout());
-              closeSideMenu();
-              Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
@@ -220,19 +225,19 @@ const HomeScreen = () => {
   const handleMainScroll = (event: any) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     const bannerHeight = 179; // Chiều cao của banner section
-    const stickyThreshold = bannerHeight; // Khi tabs đụng header 
-    
+    const stickyThreshold = bannerHeight; // Khi tabs đụng header
+
     // Tính toán opacity dựa trên scroll position
     // Bắt đầu mờ từ scrollY = 0, hoàn thành khi tabs đụng header (179px)
     const opacityValue = Math.max(0, Math.min(1, scrollY / stickyThreshold));
-    
+
     // Animate opacity
     Animated.timing(headerOpacity, {
       toValue: 1 - opacityValue,
       duration: 0,
       useNativeDriver: false,
     }).start();
-    
+
     if (scrollY >= stickyThreshold) {
       setIsStickyHeader(true);
     } else {
@@ -263,7 +268,7 @@ const HomeScreen = () => {
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    
+
     if (hours === 0) {
       return `${remainingMinutes} phút`;
     } else if (remainingMinutes === 0) {
@@ -354,7 +359,7 @@ const HomeScreen = () => {
     const interval = setInterval(() => {
       setCurrentPartnerOfferIndex((prevIndex) => {
         const nextIndex = prevIndex + 1;
-        
+
         // Nếu đã scroll đến cuối phần duplicate thứ 2, reset về đầu không animation
         if (nextIndex >= originalLength * 2) {
           setTimeout(() => {
@@ -370,7 +375,7 @@ const HomeScreen = () => {
           offset: nextIndex * cardWidth,
           animated: true,
         });
-        
+
         return nextIndex;
       });
     }, 3000); // Scroll mỗi 3 giây
@@ -384,7 +389,7 @@ const HomeScreen = () => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / cardWidth);
     const originalLength = partnerOffersOriginal.length;
-    
+
     // Nếu scroll đến gần cuối phần duplicate thứ 2, reset về đầu
     if (index >= originalLength * 2 - 1) {
       setTimeout(() => {
@@ -412,88 +417,100 @@ const HomeScreen = () => {
       />
 
       {/* Sticky Header - chỉ có header */}
-      <View style={[
-        styles.stickyHeaderContainer,
-        isStickyHeader && styles.stickyHeaderActive
-      ]}>
+      <View
+        style={[
+          styles.stickyHeaderContainer,
+          isStickyHeader && styles.stickyHeaderActive,
+        ]}
+      >
         {/* Header */}
-        <Animated.View style={[
-          styles.header,
-          isStickyHeader && styles.headerSticky,
-          { opacity: headerOpacity, backgroundColor: "rgba(0, 0, 0, 0.7)", shadowColor: "rgba(0, 0, 0, 0.7)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 }
-        ]}>
+        <Animated.View
+          style={[
+            styles.header,
+            isStickyHeader && styles.headerSticky,
+            {
+              opacity: headerOpacity,
+              backgroundColor: "rgba(0, 0, 0, 0.7)",
+              shadowColor: "rgba(0, 0, 0, 0.7)",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 5,
+            },
+          ]}
+        >
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
               <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
 
             <View style={styles.logoContainer}>
-              <Image 
-                source={logo} 
+              <Image
+                source={logo}
                 style={[
                   styles.logoImage,
-                  isStickyHeader && styles.logoImageSticky
-                ]} 
+                  isStickyHeader && styles.logoImageSticky,
+                ]}
               />
             </View>
 
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.headerIcon}>
-                <Fontisto 
-                  name="ticket-alt" 
-                  size={22} 
-                  color={isStickyHeader ? "#E50914" : "#fff"} 
+                <Fontisto
+                  name="ticket-alt"
+                  size={22}
+                  color={isStickyHeader ? "#E50914" : "#fff"}
                 />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.headerIcon}
                 onPress={toggleSideMenu}
               >
-                <Text style={[
-                  styles.headerIconText,
-                  isStickyHeader && styles.headerIconTextSticky
-                ]}>☰</Text>
+                <Text
+                  style={[
+                    styles.headerIconText,
+                    isStickyHeader && styles.headerIconTextSticky,
+                  ]}
+                >
+                  ☰
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
 
         {/* White background layer for fade effect */}
-        <Animated.View style={[
-          styles.headerWhiteLayer,
-          { opacity: Animated.subtract(1, headerOpacity) }
-        ]}>
+        <Animated.View
+          style={[
+            styles.headerWhiteLayer,
+            { opacity: Animated.subtract(1, headerOpacity) },
+          ]}
+        >
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.headerIcon}>
               <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
 
             <View style={styles.logoContainer}>
-              <Image 
-                source={logo} 
-                style={[
-                  styles.logoImage,
-                  styles.logoImageSticky
-                ]} 
+              <Image
+                source={logo}
+                style={[styles.logoImage, styles.logoImageSticky]}
               />
             </View>
 
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.headerIcon}>
-                <Fontisto 
-                  name="ticket-alt" 
-                  size={22} 
-                  color="#E50914"
-                />
+                <Fontisto name="ticket-alt" size={22} color="#E50914" />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.headerIcon}
                 onPress={toggleSideMenu}
               >
-                <Text style={[
-                  styles.headerIconText,
-                  styles.headerIconTextSticky
-                ]}>☰</Text>
+                <Text
+                  style={[styles.headerIconText, styles.headerIconTextSticky]}
+                >
+                  ☰
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -501,13 +518,13 @@ const HomeScreen = () => {
 
         {/* Background Image cho sticky tabs */}
         {isStickyHeader && (
-          <Image 
-            source={backgroundTab} 
+          <Image
+            source={backgroundTab}
             style={styles.stickyBackgroundImage}
             resizeMode="cover"
           />
         )}
-        
+
         {/* Sticky Tabs - chỉ hiển thị khi sticky */}
         {isStickyHeader && (
           <View style={styles.tabsContainerSticky}>
@@ -531,7 +548,7 @@ const HomeScreen = () => {
         )}
       </View>
 
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
@@ -543,7 +560,7 @@ const HomeScreen = () => {
         {/* Banner Section - SCROLL */}
         <View style={styles.bannerSection}>
           <Image source={bannerBG} style={styles.bannerBackground} />
-          
+
           {/* Banner Carousel */}
           <View style={styles.carouselContainer}>
             <FlatList
@@ -573,7 +590,10 @@ const HomeScreen = () => {
                   ]}
                   onPress={() => {
                     setCurrentBannerIndex(index);
-                    flatListRef.current?.scrollToIndex({ index, animated: true });
+                    flatListRef.current?.scrollToIndex({
+                      index,
+                      animated: true,
+                    });
                     setIsAutoPlaying(false);
                     setTimeout(() => setIsAutoPlaying(true), 3000);
                   }}
@@ -584,205 +604,223 @@ const HomeScreen = () => {
         </View>
         {/* Background Section - từ tabs đến button */}
         <View style={styles.backgroundSection}>
-        <Image 
-          source={backgroundImage} 
-          style={styles.backgroundImage}
-          resizeMode="cover"
-        />
-        
-        {/* Navigation Tabs - ban đầu nằm trong scroll */}
-        <View style={styles.tabsContainer}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab]}
-              onPress={() => setSelectedTab(tab)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedTab === tab && styles.activeTabText,
-                ]}
-              >
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        {/* Movies Carousel Section */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Đang tải phim...</Text>
-        </View>
-      ) : (
-        <View style={styles.carouselSection}>
-          <StackCarousel
-              data={movies}
-              renderItem={(item: IMovie, index: number) => (
-                <Image
-                  source={{ uri: item.posterImage }}
-                  style={styles.carouselPoster}
-                />
-              )}
-              onIndexChange={(index) => setCurrentMovieIndex(index)}
-              itemWidth={width * 0.65}
-              itemHeight={height * 0.53}
-            />
-          </View>
-        )}
+          <Image
+            source={backgroundImage}
+            style={styles.backgroundImage}
+            resizeMode="cover"
+          />
 
-        {/* Movie Details Bar - nằm trong background */}
-        {movies.length > 0 && movies[currentMovieIndex] && (
-          <View style={styles.movieDetailsContainer}>
-            <View style={styles.movieDetailsBar}>
-              <View style={styles.movieInfo}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.movieTitleSmall} numberOfLines={1}>
-                    {movies[currentMovieIndex].title.toUpperCase()}
-                  </Text>
-                  <View style={styles.ratingBadge}>
-                    <Text style={styles.ratingText}>
-                      {movies[currentMovieIndex].ageRating}
+          {/* Navigation Tabs - ban đầu nằm trong scroll */}
+          <View style={styles.tabsContainer}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab]}
+                onPress={() => setSelectedTab(tab)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    selectedTab === tab && styles.activeTabText,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Movies Carousel Section */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#fff" />
+              <Text style={styles.loadingText}>Đang tải phim...</Text>
+            </View>
+          ) : movies.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Không có phim nào</Text>
+            </View>
+          ) : (
+            <View style={styles.carouselSection}>
+              <StackCarousel
+                data={movies}
+                renderItem={(item: IMovie, index: number) => (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() =>
+                      navigation.navigate("MovieDetailScreen", { movie: item })
+                    }
+                    style={{ width: "100%", height: "100%" }}
+                  >
+                    <Image
+                      source={{ uri: item.posterImage }}
+                      style={styles.carouselPoster}
+                    />
+                  </TouchableOpacity>
+                )}
+                onIndexChange={(index) => setCurrentMovieIndex(index)}
+                itemWidth={width * 0.65}
+                itemHeight={height * 0.53}
+              />
+            </View>
+          )}
+
+          {/* Movie Details Bar - nằm trong background */}
+          {movies.length > 0 && movies[currentMovieIndex] && (
+            <View style={styles.movieDetailsContainer}>
+              <View style={styles.movieDetailsBar}>
+                <View style={styles.movieInfo}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.movieTitleSmall} numberOfLines={1}>
+                      {movies[currentMovieIndex].title.toUpperCase()}
                     </Text>
+                    <View style={styles.ratingBadge}>
+                      <Text style={styles.ratingText}>
+                        {movies[currentMovieIndex].ageRating}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.movieMeta}>
+                  <View style={styles.movieMeta}>
                     <Text style={styles.duration}>
                       {formatDuration(movies[currentMovieIndex].duration)}
                     </Text>
-                  <Text style={styles.releaseDate}>
-                    {new Date(
-                      movies[currentMovieIndex].releaseDate
-                    ).toLocaleDateString("vi-VN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </Text>
+                    <Text style={styles.releaseDate}>
+                      {new Date(
+                        movies[currentMovieIndex].releaseDate
+                      ).toLocaleDateString("vi-VN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
                 </View>
               </View>
+              <TouchableOpacity style={styles.bookButton}>
+                <Text style={styles.bookButtonText}>Đặt Vé</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.bookButton}>
-              <Text style={styles.bookButtonText}>Đặt Vé</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
 
-        {/* Promotional Items Section */}
-        <View style={styles.promotionalSection}>
-          {/* Banner Image trong promotional section */}
-          <View style={styles.bannerImageInPromotional}>
-            <Image source={banner2} style={styles.bannerImageFull} />
-          </View>
-          
-          {/* Promotional Items Carousel */}
-          <FlatList
-            ref={promotionalFlatListRef}
-            data={promotionalItems}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            pagingEnabled={false}
-            snapToInterval={width}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            contentContainerStyle={styles.promotionalCarouselContent}
-            onMomentumScrollEnd={(event) => {
-              const offsetX = event.nativeEvent.contentOffset.x;
-              const pageIndex = Math.round(offsetX / width);
-              setCurrentPromotionalPage(pageIndex);
-            }}
-            renderItem={({ item }) => (
-              <View style={styles.promotionalItem}>
-                <View style={styles.promotionalCircle}>
-                  <Image source={item.image} style={styles.promotionalImage} />
-                </View>
-                <View style={styles.promotionalTextContainer}>
-                  <Text style={styles.promotionalText}>{item.title}</Text>
-                </View>
-              </View>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-          />
-          
-          {/* Pagination Dots */}
-          <View style={styles.promotionalPagination}>
-            {[0, 1].map((pageIndex) => (
-              <TouchableOpacity
-                key={pageIndex}
-                style={[
-                  styles.promotionalDot,
-                  currentPromotionalPage === pageIndex && styles.activePromotionalDot,
-                ]}
-                onPress={() => handlePromotionalPageChange(pageIndex)}
-              />
-            ))}
-          </View>
-        </View>
+          {/* Promotional Items Section */}
+          <View style={styles.promotionalSection}>
+            {/* Banner Image trong promotional section */}
+            <View style={styles.bannerImageInPromotional}>
+              <Image source={banner2} style={styles.bannerImageFull} />
+            </View>
 
-        {/* Hot News Section */}
-        <View style={styles.hotNewsSection}>
-          <View style={styles.hotNewsHeader}>
-            <Text style={styles.hotNewsTitle}>Tin nóng</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>TẤT CẢ</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <FlatList
-            data={hotNewsItems}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.hotNewsContent}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.hotNewsCard}>
-                <Image source={item.image} style={styles.hotNewsImage} />
-                <View style={styles.hotNewsCardContent}>
-                  <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
+            {/* Promotional Items Carousel */}
+            <FlatList
+              ref={promotionalFlatListRef}
+              data={promotionalItems}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              pagingEnabled={false}
+              snapToInterval={width}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              contentContainerStyle={styles.promotionalCarouselContent}
+              onMomentumScrollEnd={(event) => {
+                const offsetX = event.nativeEvent.contentOffset.x;
+                const pageIndex = Math.round(offsetX / width);
+                setCurrentPromotionalPage(pageIndex);
+              }}
+              renderItem={({ item }) => (
+                <View style={styles.promotionalItem}>
+                  <View style={styles.promotionalCircle}>
+                    <Image
+                      source={item.image}
+                      style={styles.promotionalImage}
+                    />
+                  </View>
+                  <View style={styles.promotionalTextContainer}>
+                    <Text style={styles.promotionalText}>{item.title}</Text>
+                  </View>
                 </View>
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-          />
-        </View>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+            />
 
-        {/* Partner Offers Section */}
-        <View style={styles.partnerOffersSection}>
-          <Text style={styles.partnerOffersTitle}>Ưu đãi từ đối tác</Text>
-          
-          <FlatList
-            ref={partnerOffersFlatListRef}
-            data={partnerOffers}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.partnerOffersContent}
-            onScroll={handlePartnerOfferScroll}
-            onMomentumScrollEnd={handlePartnerOfferScroll}
-            scrollEventThrottle={16}
-            decelerationRate="fast"
-            snapToInterval={width * 0.85 + 12}
-            snapToAlignment="start"
-            pagingEnabled={false}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity style={styles.partnerOfferCard}>
-                <Image 
-                  source={item.image} 
-                  style={styles.partnerOfferImage}
-                  resizeMode="cover"
+            {/* Pagination Dots */}
+            <View style={styles.promotionalPagination}>
+              {[0, 1].map((pageIndex) => (
+                <TouchableOpacity
+                  key={pageIndex}
+                  style={[
+                    styles.promotionalDot,
+                    currentPromotionalPage === pageIndex &&
+                      styles.activePromotionalDot,
+                  ]}
+                  onPress={() => handlePromotionalPageChange(pageIndex)}
                 />
+              ))}
+            </View>
+          </View>
+
+          {/* Hot News Section */}
+          <View style={styles.hotNewsSection}>
+            <View style={styles.hotNewsHeader}>
+              <Text style={styles.hotNewsTitle}>Tin nóng</Text>
+              <TouchableOpacity style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>TẤT CẢ</Text>
               </TouchableOpacity>
-            )}
-            keyExtractor={(item, index) => `partner-offer-${item.id}-${index}`}
-            getItemLayout={(data, index) => ({
-              length: width * 0.85 + 12,
-              offset: (width * 0.85 + 12) * index,
-              index,
-            })}
-          />
-        </View>
+            </View>
+
+            <FlatList
+              data={hotNewsItems}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hotNewsContent}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.hotNewsCard}>
+                  <Image source={item.image} style={styles.hotNewsImage} />
+                  <View style={styles.hotNewsCardContent}>
+                    <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+            />
+          </View>
+
+          {/* Partner Offers Section */}
+          <View style={styles.partnerOffersSection}>
+            <Text style={styles.partnerOffersTitle}>Ưu đãi từ đối tác</Text>
+
+            <FlatList
+              ref={partnerOffersFlatListRef}
+              data={partnerOffers}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.partnerOffersContent}
+              onScroll={handlePartnerOfferScroll}
+              onMomentumScrollEnd={handlePartnerOfferScroll}
+              scrollEventThrottle={16}
+              decelerationRate="fast"
+              snapToInterval={width * 0.85 + 12}
+              snapToAlignment="start"
+              pagingEnabled={false}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity style={styles.partnerOfferCard}>
+                  <Image
+                    source={item.image}
+                    style={styles.partnerOfferImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item, index) =>
+                `partner-offer-${item.id}-${index}`
+              }
+              getItemLayout={(data, index) => ({
+                length: width * 0.85 + 12,
+                offset: (width * 0.85 + 12) * index,
+                index,
+              })}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -802,8 +840,8 @@ const HomeScreen = () => {
               },
             ]}
           >
-            <ScrollView 
-              style={styles.sideMenuContent} 
+            <ScrollView
+              style={styles.sideMenuContent}
               contentContainerStyle={styles.sideMenuContentContainer}
               showsVerticalScrollIndicator={true}
             >
@@ -816,9 +854,9 @@ const HomeScreen = () => {
                   </TouchableOpacity>
                   <View style={styles.menuAvatarContainer}>
                     {isAuthenticated && user?.avatar ? (
-                      <Image 
-                        source={{ uri: user.avatar }} 
-                        style={styles.menuProfileAvatar} 
+                      <Image
+                        source={{ uri: user.avatar }}
+                        style={styles.menuProfileAvatar}
                       />
                     ) : (
                       <View style={styles.menuProfileAvatarPlaceholder}>
@@ -833,7 +871,9 @@ const HomeScreen = () => {
                 {isAuthenticated ? (
                   <>
                     <View style={styles.menuNameRow}>
-                      <Text style={styles.menuProfileName}>{user?.fullName || "Người dùng"}</Text>
+                      <Text style={styles.menuProfileName}>
+                        {user?.fullName || "Người dùng"}
+                      </Text>
                       <View style={styles.menuMemberBadge}>
                         <Text style={styles.menuMemberBadgeText}>MEMBER</Text>
                       </View>
@@ -841,14 +881,16 @@ const HomeScreen = () => {
                     <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
                   </>
                 ) : (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.menuLoginButton}
                     onPress={() => {
                       closeSideMenu();
                       navigation.navigate("LoginScreen");
                     }}
                   >
-                    <Text style={styles.menuLoginButtonText}>Đăng Nhập/Đăng Ký</Text>
+                    <Text style={styles.menuLoginButtonText}>
+                      Đăng Nhập/Đăng Ký
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -868,19 +910,25 @@ const HomeScreen = () => {
                     </View>
                     <View style={styles.menuBarcodeContainer}>
                       <Image source={maVach} style={styles.menuBarcode} />
-                      <Text style={styles.menuBarcodeNumber}>9992123603894608</Text>
+                      <Text style={styles.menuBarcodeNumber}>
+                        9992123603894608
+                      </Text>
                     </View>
                   </View>
 
                   {/* Points Section - chỉ hiển thị khi đã login */}
                   <View style={styles.menuPointsSection}>
                     <View style={styles.menuPointItem}>
-                      <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
+                      <Text style={styles.menuPointLabel}>
+                        Tổng chi tiêu 2025
+                      </Text>
                       <Text style={styles.menuPointValue}>341.636 ₫</Text>
                     </View>
                     <View style={styles.menuPointItem}>
                       <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
-                      <Text style={styles.menuPointValue}>{user?.point || 0}</Text>
+                      <Text style={styles.menuPointValue}>
+                        {user?.point || 0}
+                      </Text>
                     </View>
                   </View>
                 </>
@@ -888,10 +936,14 @@ const HomeScreen = () => {
 
               {/* Booking Buttons */}
               <TouchableOpacity style={styles.menuBookingButton}>
-                <Text style={styles.menuBookingButtonText}>Đặt vé theo Phim</Text>
+                <Text style={styles.menuBookingButtonText}>
+                  Đặt vé theo Phim
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuBookingButton}>
-                <Text style={styles.menuBookingButtonText}>Đặt vé theo Rạp</Text>
+                <Text style={styles.menuBookingButtonText}>
+                  Đặt vé theo Rạp
+                </Text>
               </TouchableOpacity>
 
               {/* Menu Grid */}
@@ -909,8 +961,11 @@ const HomeScreen = () => {
 
               {/* Logout Button - chỉ hiển thị khi đã login */}
               {isAuthenticated && (
-                <TouchableOpacity 
-                  style={[styles.menuLogoutButton, isLoggingOut && styles.menuLogoutButtonDisabled]}
+                <TouchableOpacity
+                  style={[
+                    styles.menuLogoutButton,
+                    isLoggingOut && styles.menuLogoutButtonDisabled,
+                  ]}
                   onPress={handleLogout}
                   disabled={isLoggingOut}
                 >
@@ -941,7 +996,7 @@ const HomeScreen = () => {
         <View style={styles.modalOverlay}>
           {/* Blur Background - Overlay với opacity để tạo hiệu ứng mờ */}
           <View style={styles.blurBackground} />
-          
+
           {/* Central Image */}
           <View style={styles.modalContent}>
             <TouchableOpacity
@@ -950,14 +1005,13 @@ const HomeScreen = () => {
             >
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
-            
+
             {/* Placeholder image - Bạn sẽ thay thế sau */}
             <Image
               source={startHome}
               style={styles.modalImage}
               resizeMode="contain"
             />
-            
           </View>
         </View>
       </Modal>
@@ -974,9 +1028,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingTop: 90, 
-    paddingBottom: 20, 
-    flexGrow: 1, 
+    paddingTop: 90,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   stickyHeaderContainer: {
     position: "absolute",
@@ -999,9 +1053,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 50, 
+    height: 50,
     width: "100%",
-    zIndex: -1, 
+    zIndex: -1,
   },
   headerSticky: {
     backgroundColor: "#fff",
@@ -1075,12 +1129,12 @@ const styles = StyleSheet.create({
   headerIcon: {
     padding: 7,
   },
-   headerIconImage: {
-     width: 26,
-     height: 26,
-     borderRadius: 15,
-     resizeMode: 'cover',
-   },
+  headerIconImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 15,
+    resizeMode: "cover",
+  },
   headerIconText: {
     fontSize: 24,
     color: "#fff",
@@ -1390,12 +1444,15 @@ const styles = StyleSheet.create({
   carouselSection: {
     backgroundColor: "transparent",
     justifyContent: "center",
-    overflow: "hidden",
-    height: height * 0.5, // Giảm từ 0.6 xuống 0.45
+    alignItems: "center",
+    overflow: "visible",
+    height: height * 0.53,
+    minHeight: height * 0.53,
+    zIndex: 1,
   },
   carouselPoster: {
     width: "100%",
-    height: height * 0.5, // Giảm từ 0.6 xuống 0.45
+    height: "100%",
     borderRadius: 16,
     resizeMode: "cover",
   },
@@ -2021,7 +2078,7 @@ const styles = StyleSheet.create({
     height: 100,
     resizeMode: "contain",
     marginBottom: -20,
-    tintColor: "#444"
+    tintColor: "#444",
   },
   menuFooterText: {
     color: "#333",

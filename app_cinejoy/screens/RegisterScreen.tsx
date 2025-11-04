@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import Fontisto from '@expo/vector-icons/Fontisto';
+import Fontisto from "@expo/vector-icons/Fontisto";
 import { registerApi } from "@/services/api";
 import { useAppDispatch } from "@/store/hooks";
 import { setUser, setIsAuthenticated, setIsDarkMode } from "@/store/appSlice";
@@ -32,12 +32,15 @@ type RootStackParamList = {
   LoginScreen: undefined;
 };
 
-type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, "RegisterScreen">;
+type RegisterScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "RegisterScreen"
+>;
 
 const RegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
   const dispatch = useAppDispatch();
-  
+
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -48,7 +51,7 @@ const RegisterScreen = () => {
   const [gender, setGender] = useState("");
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   // Checkboxes state
   const [checkbox1, setCheckbox1] = useState(false);
   const [checkbox2, setCheckbox2] = useState(false);
@@ -84,14 +87,19 @@ const RegisterScreen = () => {
       return false;
     }
     if (!/^0[0-9]{9}$/.test(phoneNumber.trim())) {
-      Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số và bắt đầu bằng số 0");
+      Alert.alert(
+        "Lỗi",
+        "Số điện thoại phải có 10 chữ số và bắt đầu bằng số 0"
+      );
       return false;
     }
     if (!email.trim()) {
       Alert.alert("Lỗi", "Vui lòng nhập email");
       return false;
     }
-    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim())) {
+    if (
+      !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim())
+    ) {
       Alert.alert("Lỗi", "Email không hợp lệ");
       return false;
     }
@@ -103,8 +111,15 @@ const RegisterScreen = () => {
       Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 8 ký tự");
       return false;
     }
-    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password)) {
-      Alert.alert("Lỗi", "Mật khẩu phải chứa ít nhất 1 chữ thường, 1 chữ in hoa, 1 số và 1 ký tự đặc biệt");
+    if (
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(
+        password
+      )
+    ) {
+      Alert.alert(
+        "Lỗi",
+        "Mật khẩu phải chứa ít nhất 1 chữ thường, 1 chữ in hoa, 1 số và 1 ký tự đặc biệt"
+      );
       return false;
     }
     if (!dateOfBirth) {
@@ -133,8 +148,10 @@ const RegisterScreen = () => {
 
     try {
       setLoading(true);
-      const dateOfBirthStr = dateOfBirth 
-        ? `${dateOfBirth.getFullYear()}-${String(dateOfBirth.getMonth() + 1).padStart(2, '0')}-${String(dateOfBirth.getDate()).padStart(2, '0')}`
+      const dateOfBirthStr = dateOfBirth
+        ? `${dateOfBirth.getFullYear()}-${String(
+            dateOfBirth.getMonth() + 1
+          ).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}`
         : "";
 
       const response = await registerApi({
@@ -150,12 +167,12 @@ const RegisterScreen = () => {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem("accessToken", response.data.accessToken);
         await AsyncStorage.setItem("current_user_id", response.data.user._id);
-        
+
         // Cập nhật Redux store
         dispatch(setUser(response.data.user));
         dispatch(setIsAuthenticated(true));
         dispatch(setIsDarkMode(response.data.user.settings.darkMode));
-        
+
         Alert.alert("Thành công", "Đăng ký thành công!", [
           {
             text: "OK",
@@ -163,13 +180,18 @@ const RegisterScreen = () => {
           },
         ]);
       } else {
-        Alert.alert("Lỗi đăng ký", response.message || "Đăng ký thất bại. Vui lòng thử lại.");
+        Alert.alert(
+          "Lỗi đăng ký",
+          response.message || "Đăng ký thất bại. Vui lòng thử lại."
+        );
       }
     } catch (error: any) {
       console.error("Register error:", error);
       Alert.alert(
         "Lỗi",
-        error?.response?.data?.message || error?.message || "Có lỗi xảy ra khi đăng ký. Vui lòng thử lại."
+        error?.response?.data?.message ||
+          error?.message ||
+          "Có lỗi xảy ra khi đăng ký. Vui lòng thử lại."
       );
     } finally {
       setLoading(false);
@@ -182,46 +204,28 @@ const RegisterScreen = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-      
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header với back button */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Fontisto name="arrow-left" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đăng ký</Text>
-        </View>
-
-        {/* Top Section với background image */}
+        {/* Top Section với image */}
         <View style={styles.topSection}>
           <Image
             source={bannerBG}
-            style={styles.topSectionBackground}
+            style={styles.topSectionImage}
             resizeMode="cover"
           />
-          <View style={styles.cardOverlay}>
-            <View style={styles.whiteCard}>
-              <Text style={styles.whiteCardText1}>CULTUREPLEX</Text>
-              <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>FREE</Text>
-              </View>
-              <Text style={styles.whiteCardText2}>HELLO</Text>
-            </View>
-            <View style={styles.redCard}>
-              <Text style={styles.redCardLogo}>CGV</Text>
-              <Text style={styles.redCardText}>YOUR LIFE WITH DELIGHT</Text>
-              <Text style={styles.redCardVerticalText}>CULTUREPLEX</Text>
-              <View style={styles.redCardFreeBadge}>
-                <Text style={styles.redCardFreeBadgeText}>FREE</Text>
-              </View>
-            </View>
+          {/* Header với back button */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Fontisto name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Đăng ký tài khoản</Text>
           </View>
         </View>
 
@@ -298,11 +302,7 @@ const RegisterScreen = () => {
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Fontisto
-                  name="eye"
-                  size={20}
-                  color="#666"
-                />
+                <Fontisto name="eye" size={20} color="#666" />
               </TouchableOpacity>
               <View style={styles.inputUnderline} />
             </View>
@@ -314,7 +314,12 @@ const RegisterScreen = () => {
                 style={styles.selectInput}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Text style={[styles.selectInputText, !dateOfBirth && styles.placeholder]}>
+                <Text
+                  style={[
+                    styles.selectInputText,
+                    !dateOfBirth && styles.placeholder,
+                  ]}
+                >
                   {dateOfBirth ? formatDate(dateOfBirth) : "Chọn ngày sinh"}
                 </Text>
                 <Fontisto name="angle-down" size={16} color="#666" />
@@ -329,7 +334,12 @@ const RegisterScreen = () => {
                 style={styles.selectInput}
                 onPress={() => setShowGenderPicker(true)}
               >
-                <Text style={[styles.selectInputText, !gender && styles.placeholder]}>
+                <Text
+                  style={[
+                    styles.selectInputText,
+                    !gender && styles.placeholder,
+                  ]}
+                >
                   {gender || "Chọn giới tính"}
                 </Text>
                 <Fontisto name="angle-down" size={16} color="#666" />
@@ -343,11 +353,15 @@ const RegisterScreen = () => {
                 style={styles.checkboxRow}
                 onPress={() => setCheckbox1(!checkbox1)}
               >
-                <View style={[styles.checkbox, checkbox1 && styles.checkboxChecked]}>
+                <View
+                  style={[styles.checkbox, checkbox1 && styles.checkboxChecked]}
+                >
                   {checkbox1 && <Text style={styles.checkmark}>✓</Text>}
                 </View>
                 <Text style={styles.checkboxText}>
-                  Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép CGV Việt Nam thực hiện xử lý dữ liệu cá nhân của tôi phù hợp với mục đích mà CGV Việt Nam đã thông báo tại Chính Sách Bảo Mật.
+                  Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép CGV
+                  Việt Nam thực hiện xử lý dữ liệu cá nhân của tôi phù hợp với
+                  mục đích mà CGV Việt Nam đã thông báo tại Chính Sách Bảo Mật.
                 </Text>
               </TouchableOpacity>
 
@@ -355,11 +369,16 @@ const RegisterScreen = () => {
                 style={styles.checkboxRow}
                 onPress={() => setCheckbox2(!checkbox2)}
               >
-                <View style={[styles.checkbox, checkbox2 && styles.checkboxChecked]}>
+                <View
+                  style={[styles.checkbox, checkbox2 && styles.checkboxChecked]}
+                >
                   {checkbox2 && <Text style={styles.checkmark}>✓</Text>}
                 </View>
                 <Text style={styles.checkboxText}>
-                  Thông tin cá nhân cung cấp tại đây là chính xác và trùng khớp với thông tin tại CMND/CCCD/Thẻ Căn cước và/hoặc Giấy khai sinh (Giấy tờ tùy thân). Email cung cấp tại đây là chính xác và thuộc quyền quản lý duy nhất của tôi.
+                  Thông tin cá nhân cung cấp tại đây là chính xác và trùng khớp
+                  với thông tin tại CMND/CCCD/Thẻ Căn cước và/hoặc Giấy khai
+                  sinh (Giấy tờ tùy thân). Email cung cấp tại đây là chính xác
+                  và thuộc quyền quản lý duy nhất của tôi.
                 </Text>
               </TouchableOpacity>
 
@@ -367,11 +386,14 @@ const RegisterScreen = () => {
                 style={styles.checkboxRow}
                 onPress={() => setCheckbox3(!checkbox3)}
               >
-                <View style={[styles.checkbox, checkbox3 && styles.checkboxChecked]}>
+                <View
+                  style={[styles.checkbox, checkbox3 && styles.checkboxChecked]}
+                >
                   {checkbox3 && <Text style={styles.checkmark}>✓</Text>}
                 </View>
                 <Text style={styles.checkboxText}>
-                  Nếu các thông tin là không trùng khớp, sẽ không thể cập nhật thay đổi và không được hưởng các{" "}
+                  Nếu các thông tin là không trùng khớp, sẽ không thể cập nhật
+                  thay đổi và không được hưởng các{" "}
                   <Text style={styles.linkText}>Quyền Lợi Thành Viên</Text>.
                 </Text>
               </TouchableOpacity>
@@ -380,18 +402,25 @@ const RegisterScreen = () => {
                 style={styles.checkboxRow}
                 onPress={() => setCheckbox4(!checkbox4)}
               >
-                <View style={[styles.checkbox, checkbox4 && styles.checkboxChecked]}>
+                <View
+                  style={[styles.checkbox, checkbox4 && styles.checkboxChecked]}
+                >
                   {checkbox4 && <Text style={styles.checkmark}>✓</Text>}
                 </View>
                 <Text style={styles.checkboxText}>
-                  Tôi đồng ý với <Text style={styles.linkText}>Điều Khoản Sử Dụng</Text> của CGV Việt Nam.
+                  Tôi đồng ý với{" "}
+                  <Text style={styles.linkText}>Điều Khoản Sử Dụng</Text> của
+                  CGV Việt Nam.
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Register Button */}
             <TouchableOpacity
-              style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+              style={[
+                styles.registerButton,
+                loading && styles.registerButtonDisabled,
+              ]}
               onPress={handleRegister}
               disabled={loading}
             >
@@ -493,133 +522,41 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  topSection: {
+    height: height * 0.3,
+    width: "100%",
+    position: "relative",
+  },
+  topSectionImage: {
+    width: "100%",
+    height: "100%",
+  },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: "#1a1a1a",
+    paddingVertical: 12,
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 50,
+    backgroundColor: "transparent",
+    minHeight: 50,
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
-    flex: 1,
-  },
-  topSection: {
-    height: height * 0.3,
-    position: "relative",
-    backgroundColor: "#1a1a1a",
-  },
-  topSectionBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: "100%",
-    height: "100%",
-    opacity: 0.8,
-  },
-  cardOverlay: {
-    position: "absolute",
-    top: 20,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "flex-start",
-    paddingHorizontal: 20,
-  },
-  whiteCard: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 8,
-    width: width * 0.4,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    transform: [{ rotate: "-5deg" }],
-  },
-  whiteCardText1: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 8,
-  },
-  freeBadge: {
-    backgroundColor: "#E50914",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  freeBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  whiteCardText2: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  redCard: {
-    backgroundColor: "#E50914",
-    padding: 15,
-    borderRadius: 8,
-    width: width * 0.35,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    transform: [{ rotate: "5deg" }],
-    position: "relative",
-  },
-  redCardLogo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
-  },
-  redCardText: {
-    fontSize: 10,
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  redCardVerticalText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#fff",
-    transform: [{ rotate: "-90deg" }],
-    position: "absolute",
-    left: -20,
-    top: 40,
-  },
-  redCardFreeBadge: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 3,
-    position: "absolute",
-    top: 10,
-    right: 10,
-  },
-  redCardFreeBadgeText: {
-    color: "#E50914",
-    fontSize: 8,
-    fontWeight: "bold",
+    lineHeight: 24,
   },
   bottomSection: {
     flex: 1,
@@ -788,4 +725,3 @@ const styles = StyleSheet.create({
 });
 
 export default RegisterScreen;
-
