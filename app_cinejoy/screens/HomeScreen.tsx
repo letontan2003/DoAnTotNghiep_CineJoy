@@ -18,6 +18,7 @@ import StackCarousel from "@/components/StackCarousel";
 import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
 import Fontisto from '@expo/vector-icons/Fontisto';
+import { useAppSelector } from "@/store/hooks";
 import banner1 from "assets/banner1.png";
 import banner2 from "assets/banner2.jpg";
 import banner3 from "assets/banner3.png";
@@ -49,10 +50,14 @@ const HomeScreen = () => {
   const promotionalFlatListRef = useRef<FlatList>(null);
   const partnerOffersFlatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const headerOpacity = useRef(new Animated.Value(1)).current; // Opacity cho header
-  const sideMenuTranslateX = useRef(new Animated.Value(width)).current; // Side menu position
+  const headerOpacity = useRef(new Animated.Value(1)).current;
+  const sideMenuTranslateX = useRef(new Animated.Value(width)).current;
   const [currentPartnerOfferIndex, setCurrentPartnerOfferIndex] = useState(0);
   const [isPartnerOfferAutoScroll, setIsPartnerOfferAutoScroll] = useState(true);
+  
+  // Lấy thông tin authentication từ Redux store
+  const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
+  const user = useAppSelector((state) => state.app.user);
 
   // Promotional items data
   const promotionalItems = [
@@ -136,12 +141,10 @@ const HomeScreen = () => {
     }).start();
   };
 
-  // Khởi tạo animation value khi component mount
   useEffect(() => {
-    sideMenuTranslateX.setValue(width); // Menu ban đầu nằm ngoài màn hình bên phải
+    sideMenuTranslateX.setValue(width);
   }, []);
 
-  // Đóng side menu khi click overlay
   const closeSideMenu = () => {
     if (showSideMenu) {
       toggleSideMenu();
@@ -154,7 +157,7 @@ const HomeScreen = () => {
   const handleMainScroll = (event: any) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     const bannerHeight = 179; // Chiều cao của banner section
-    const stickyThreshold = bannerHeight; // Khi tabs đụng header
+    const stickyThreshold = bannerHeight; // Khi tabs đụng header 
     
     // Tính toán opacity dựa trên scroll position
     // Bắt đầu mờ từ scrollY = 0, hoàn thành khi tabs đụng header (179px)
@@ -746,52 +749,73 @@ const HomeScreen = () => {
                 <View style={styles.menuProfileHeader}>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
                     <Fontisto name="bell" size={26} color="#fff" />
-                    <View style={styles.menuBellBadge} />
+                    {!isAuthenticated && <View style={styles.menuBellBadge} />}
                   </TouchableOpacity>
                   <View style={styles.menuAvatarContainer}>
-                    <Image source={icon} style={styles.menuProfileAvatar} />
+                    {isAuthenticated && user?.avatar ? (
+                      <Image 
+                        source={{ uri: user.avatar }} 
+                        style={styles.menuProfileAvatar} 
+                      />
+                    ) : (
+                      <View style={styles.menuProfileAvatarPlaceholder}>
+                        <Fontisto name="person" size={50} color="#666" />
+                      </View>
+                    )}
                   </View>
                   <TouchableOpacity style={styles.menuHeaderIcon}>
                     <Fontisto name="player-settings" size={26} color="#fff" />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.menuNameRow}>
-                  <Text style={styles.menuProfileName}>Ngô Nhựt Tân</Text>
-                  <View style={styles.menuMemberBadge}>
-                    <Text style={styles.menuMemberBadgeText}>MEMBER</Text>
-                  </View>
-                </View>
-                <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
-              </View>
-
-              {/* Member Card with Barcode */}
-              <View style={styles.menuMemberCard}>
-                <View style={styles.menuCardHeader}>
-                  <View style={styles.menuCardU22Badge}>
-                    <Text style={styles.menuCardU22Text}>U22</Text>
-                  </View>
-                  <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
-                  <TouchableOpacity>
-                    <Text style={styles.menuCardArrow}>→</Text>
+                {isAuthenticated ? (
+                  <>
+                    <View style={styles.menuNameRow}>
+                      <Text style={styles.menuProfileName}>{user?.fullName || "Người dùng"}</Text>
+                      <View style={styles.menuMemberBadge}>
+                        <Text style={styles.menuMemberBadgeText}>MEMBER</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
+                  </>
+                ) : (
+                  <TouchableOpacity style={styles.menuLoginButton}>
+                    <Text style={styles.menuLoginButtonText}>Đăng Nhập/Đăng Ký</Text>
                   </TouchableOpacity>
-                </View>
-                <View style={styles.menuBarcodeContainer}>
-                  <Image source={maVach} style={styles.menuBarcode} />
-                  <Text style={styles.menuBarcodeNumber}>9992123603894608</Text>
-                </View>
+                )}
               </View>
 
-              {/* Points Section */}
-              <View style={styles.menuPointsSection}>
-                <View style={styles.menuPointItem}>
-                  <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
-                  <Text style={styles.menuPointValue}>341.636 ₫</Text>
-                </View>
-                <View style={styles.menuPointItem}>
-                  <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
-                  <Text style={styles.menuPointValue}>15</Text>
-                </View>
-              </View>
+              {/* Member Card with Barcode - chỉ hiển thị khi đã login */}
+              {isAuthenticated && (
+                <>
+                  <View style={styles.menuMemberCard}>
+                    <View style={styles.menuCardHeader}>
+                      <View style={styles.menuCardU22Badge}>
+                        <Text style={styles.menuCardU22Text}>U22</Text>
+                      </View>
+                      <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
+                      <TouchableOpacity>
+                        <Text style={styles.menuCardArrow}>→</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.menuBarcodeContainer}>
+                      <Image source={maVach} style={styles.menuBarcode} />
+                      <Text style={styles.menuBarcodeNumber}>9992123603894608</Text>
+                    </View>
+                  </View>
+
+                  {/* Points Section - chỉ hiển thị khi đã login */}
+                  <View style={styles.menuPointsSection}>
+                    <View style={styles.menuPointItem}>
+                      <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
+                      <Text style={styles.menuPointValue}>341.636 ₫</Text>
+                    </View>
+                    <View style={styles.menuPointItem}>
+                      <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
+                      <Text style={styles.menuPointValue}>{user?.point || 0}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
 
               {/* Booking Buttons */}
               <TouchableOpacity style={styles.menuBookingButton}>
@@ -814,10 +838,12 @@ const HomeScreen = () => {
                 ))}
               </View>
 
-              {/* Logout Button */}
-              <TouchableOpacity style={styles.menuLogoutButton}>
-                <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
-              </TouchableOpacity>
+              {/* Logout Button - chỉ hiển thị khi đã login */}
+              {isAuthenticated && (
+                <TouchableOpacity style={styles.menuLogoutButton}>
+                  <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.menuFooter}>
                 <Image source={logo} style={styles.menuFooterLogo} />
@@ -1693,7 +1719,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     marginHorizontal: 20,
-    padding: 3,
+    padding: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1702,6 +1728,26 @@ const styles = StyleSheet.create({
     height: 74,
     borderRadius: 37,
     backgroundColor: "#fff",
+    resizeMode: "cover",
+  },
+  menuProfileAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#2a2a2a",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0,
+  },
+  menuLoginButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+  },
+  menuLoginButtonText: {
+    color: "#E50914",
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
   },
   menuNameRow: {
     flexDirection: "row",

@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchAccountApi } from '../services/api';
-import { IUser } from '../types/api';
+import { fetchAccountApi } from '@/services/api';
+import { IUser } from '@/types/api';
 
 interface AppState {
   user: IUser | null;
