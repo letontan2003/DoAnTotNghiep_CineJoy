@@ -90,7 +90,14 @@ class PointsService {
           }
 
           // Đánh dấu order đã được xử lý điểm
-          await Order.findByIdAndUpdate(order._id, { pointsProcessed: true });
+          // Đảm bảo unset expiresAt để tránh TTL index xóa orders CONFIRMED
+          await Order.findByIdAndUpdate(
+            order._id,
+            {
+              $set: { pointsProcessed: true },
+              $unset: { expiresAt: "" } // Đảm bảo expiresAt không được set lại
+            }
+          );
 
         } catch (error) {
           console.error(`❌ Error processing order ${order._id}:`, error);
@@ -197,7 +204,14 @@ class PointsService {
         );
 
         // Đánh dấu order đã được xử lý điểm
-        await Order.findByIdAndUpdate(orderId, { pointsProcessed: true });
+        // Đảm bảo unset expiresAt để tránh TTL index xóa orders CONFIRMED
+        await Order.findByIdAndUpdate(
+          orderId,
+          {
+            $set: { pointsProcessed: true },
+            $unset: { expiresAt: "" } // Đảm bảo expiresAt không được set lại
+          }
+        );
 
         console.log(`✅ Added ${pointsToAdd} points to user ${order.userId} for order ${orderId}`);
 

@@ -337,4 +337,16 @@ OrderSchema.pre("save", async function (next) {
   next();
 });
 
+// Pre-save hook: Đảm bảo orders CONFIRMED và RETURNED không bao giờ có expiresAt
+// Để tránh TTL index xóa các orders đã được xác nhận
+OrderSchema.pre("save", async function (next) {
+  // Nếu order đã được CONFIRMED hoặc RETURNED, đảm bảo expiresAt không được set
+  if (this.orderStatus === "CONFIRMED" || this.orderStatus === "RETURNED") {
+    if (this.expiresAt !== undefined && this.expiresAt !== null) {
+      this.expiresAt = undefined;
+    }
+  }
+  next();
+});
+
 export default mongoose.model<IOrder>("Order", OrderSchema);

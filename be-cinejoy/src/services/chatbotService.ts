@@ -321,18 +321,28 @@ ${timesDetails}
             - Khi người dùng hỏi về "phim đầu tiên", "phim đó", "nội dung phim đầu tiên", v.v., PHẢI tham chiếu đến danh sách phim VỪA ĐƯỢC ĐỀ CẬP trong lịch sử hội thoại
             - Chỉ khi KHÔNG có ngữ cảnh liên quan thì mới dùng phim đầu tiên trong toàn bộ danh sách
             - Trả lời dưới ${PROMPT_CONFIG.MAX_RESPONSE_WORDS} từ
+            - QUAN TRỌNG VỀ FORMATTING: 
+              - KHÔNG sử dụng markdown formatting (KHÔNG dùng dấu **, KHÔNG dùng *, KHÔNG dùng __, KHÔNG dùng bất kỳ ký tự markdown nào)
+              - Chỉ trả lời bằng văn bản thuần túy, không có định dạng đặc biệt, KHÔNG dùng dấu * ở bất kỳ đâu
+              - Khi liệt kê phim hoặc suất chiếu, chỉ dùng dấu - hoặc số thứ tự, KHÔNG dùng dấu * để liệt kê
+              - Ví dụ đúng: "Thanh gươm diệt quỷ: 18:00 - 20:00" hoặc "- Thanh gươm diệt quỷ: 18:00 - 20:00"
+              - Ví dụ sai: "* Thanh gươm diệt quỷ: 18:00 - 20:00" hoặc "**Thanh gươm diệt quỷ:** 18:00 - 20:00"
+              - Luôn luôn trả lời bằng văn bản thuần túy, không format đậm, không dùng markdown, KHÔNG dùng dấu * trong bất kỳ trường hợp nào
             ${userInfo ? `
             - QUAN TRỌNG VỀ GỌI TÊN:
-              * ${isFirstResponse 
+              - ${isFirstResponse 
                   ? `Đây là lần ĐẦU TIÊN bạn trả lời (chỉ có ${botMessagesCount} tin nhắn từ bot trước đó), nên hãy chào "Chào ${userInfo.firstName}"`
                   : `Đây KHÔNG phải là tin nhắn đầu tiên (đã có ${botMessagesCount} tin nhắn từ bot trước đó), nên KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên trong câu trả lời (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...", v.v.)`}
-              * Thay vì nói "bạn" hoặc "anh/chị", hãy sử dụng tên "${userInfo.firstName}" một cách tự nhiên và thân thiện, nhưng KHÔNG lặp lại lời chào ở các tin nhắn tiếp theo` : ''}
+              - Thay vì nói "bạn" hoặc "anh/chị", hãy sử dụng tên "${userInfo.firstName}" một cách tự nhiên và thân thiện, nhưng KHÔNG lặp lại lời chào ở các tin nhắn tiếp theo` : ''}
             `;
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const botResponse =
+      let botResponse =
         response.text() ||
         "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
+
+      // Loại bỏ tất cả dấu * khỏi response để đảm bảo không có markdown formatting
+      botResponse = botResponse.replace(/\*\*/g, '').replace(/\*/g, '');
 
       // Lưu phản hồi vào cache và lịch sử trò chuyện
       cache.set(cacheKey, botResponse);
@@ -342,8 +352,21 @@ ${timesDetails}
       });
 
       return botResponse;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling Gemini API:", error);
+      
+      // Xử lý lỗi API key bị leaked hoặc không hợp lệ
+      if (error?.status === 403 && error?.message?.includes('leaked')) {
+        console.error("❌ GEMINI API KEY ERROR: API key đã bị báo là leaked. Vui lòng tạo API key mới tại https://makersuite.google.com/app/apikey");
+        return "Xin lỗi, hệ thống chatbot đang gặp vấn đề về cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.";
+      }
+      
+      // Xử lý lỗi API key không hợp lệ hoặc thiếu
+      if (error?.status === 403 || error?.status === 401) {
+        console.error("❌ GEMINI API KEY ERROR: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra GEMINI_API_KEY trong file .env");
+        return "Xin lỗi, hệ thống chatbot đang gặp vấn đề về cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.";
+      }
+      
       return "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
     }
   },
