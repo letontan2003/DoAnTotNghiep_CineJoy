@@ -22,10 +22,12 @@ const ShowSessionForm: React.FC<ShowSessionFormProps> = ({
 
     // Danh sách tên ca chiếu mặc định với thời gian gợi ý
     const sessionNameOptions = [
-        { value: 'Ca sáng', label: 'Ca sáng', suggestedStart: '08:00', suggestedEnd: '13:00' },
-        { value: 'Ca chiều', label: 'Ca chiều', suggestedStart: '13:00', suggestedEnd: '18:00' },
-        { value: 'Ca tối', label: 'Ca tối', suggestedStart: '18:00', suggestedEnd: '20:30' },
-        { value: 'Ca đêm', label: 'Ca đêm', suggestedStart: '20:30', suggestedEnd: '00:00' }
+        { value: 'Ca 1', label: 'Ca 1', suggestedStart: '08:00', suggestedEnd: '11:00' },
+        { value: 'Ca 2', label: 'Ca 2', suggestedStart: '11:00', suggestedEnd: '14:00' },
+        { value: 'Ca 3', label: 'Ca 3', suggestedStart: '14:00', suggestedEnd: '17:00' },
+        { value: 'Ca 4', label: 'Ca 4', suggestedStart: '17:00', suggestedEnd: '20:00' },
+        { value: 'Ca 5', label: 'Ca 5', suggestedStart: '20:00', suggestedEnd: '23:00' },
+        { value: 'Ca 6', label: 'Ca 6', suggestedStart: '23:00', suggestedEnd: '00:00' }
     ];
 
     // Handler cho việc chọn tên ca chiếu
@@ -95,12 +97,17 @@ const ShowSessionForm: React.FC<ShowSessionFormProps> = ({
         const endTime = form.getFieldValue('endTime');
         
         if (startTime && endTime) {
-            // Xử lý trường hợp ca đêm qua ngày (VD: 20:30 - 00:00)
+            // Xử lý trường hợp ca đêm qua ngày (VD: 21:00 - 00:00 hoặc 00:00 - 01:00)
             const startHour = startTime.hour();
             const endHour = endTime.hour();
             
             // Nếu bắt đầu sau 20h và kết thúc lúc 0h thì coi như qua ngày
             if (startHour >= 20 && endHour === 0) {
+                return Promise.resolve(); // Ca qua ngày là hợp lệ
+            }
+            
+            // Nếu bắt đầu từ 00:00 và kết thúc sau đó (ca qua ngày)
+            if (startHour === 0 && endHour > 0) {
                 return Promise.resolve(); // Ca qua ngày là hợp lệ
             }
             
@@ -233,10 +240,12 @@ const ShowSessionForm: React.FC<ShowSessionFormProps> = ({
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <h4 className="text-sm font-semibold text-blue-800 mb-2">💡 Hướng dẫn:</h4>
                     <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• <strong>Ca sáng:</strong> 08:00 - 13:00 (5 tiếng)</li>
-                        <li>• <strong>Ca chiều:</strong> 13:00 - 18:00 (5 tiếng)</li>
-                        <li>• <strong>Ca tối:</strong> 18:00 - 20:30 (2.5 tiếng)</li>
-                        <li>• <strong>Ca đêm:</strong> 20:30 - 00:00 (3.5 tiếng, qua ngày)</li>
+                        <li>• <strong>Ca 1:</strong> 08:00 - 11:00 (3 tiếng)</li>
+                        <li>• <strong>Ca 2:</strong> 11:00 - 14:00 (3 tiếng)</li>
+                        <li>• <strong>Ca 3:</strong> 14:00 - 17:00 (3 tiếng)</li>
+                        <li>• <strong>Ca 4:</strong> 17:00 - 20:00 (3 tiếng)</li>
+                        <li>• <strong>Ca 5:</strong> 20:00 - 23:00 (3 tiếng)</li>
+                        <li>• <strong>Ca 6:</strong> 23:00 - 00:00 (1 tiếng, qua ngày)</li>
                     </ul>
                 </div>
 

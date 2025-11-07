@@ -57,7 +57,7 @@ class ShowtimeService {
   async addShowtime(showtimeData: Partial<IShowtime>): Promise<IShowtime> {
     try {
       if (!showtimeData.movieId || !showtimeData.theaterId || !showtimeData.showTimes || showtimeData.showTimes.length === 0) {
-        throw new Error("Thiếu dữ liệu bắt buộc để tạo suất chiếu");
+        throw new Error("Tất cả các suất chiếu đều bị trùng nên sẽ bỏ qua.");
       }
 
       // Chuẩn hóa mảng showTimes: LUÔN khởi tạo seats từ database để đảm bảo tính nhất quán

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Modal, Form, Select, DatePicker, TimePicker, Button, Card, Spin, message, Popconfirm, Table, Tag } from 'antd';
 const { RangePicker } = DatePicker;
@@ -71,7 +71,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
         status: 'active' | 'inactive';
     }>>([]);
     const [pendingFormData, setPendingFormData] = useState<any>(null);
-
+    
+    // Ref để lưu giá trị cũ của thời gian bắt đầu trước khi TimePicker mở
+    const previousStartTimeRef = useRef<Record<number, { startTime?: dayjs.Dayjs; endTime?: dayjs.Dayjs }>>({});
 
     useEffect(() => {
         const fetchData = async () => {
@@ -294,20 +296,6 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
         }
     };
 
-    // Helper: tính time theo phút từ HH:mm hoặc ISO datetime
-    const toMinutes = (t: string) => {
-        if (t.includes('T')) {
-            // Dùng local time để đối chiếu với ca chiếu (định nghĩa theo giờ địa phương)
-            const d = dayjs(t);
-            return d.hour() * 60 + d.minute();
-        }
-        const [h, m] = t.split(':').map(Number);
-        return (h || 0) * 60 + (m || 0);
-    };
-    const minutesToDayjs = (base: dayjs.Dayjs, minutes: number) => {
-        const h = Math.floor(minutes / 60) % 24; const m = minutes % 60;
-        return base.hour(h).minute(m).second(0).millisecond(0);
-    };
 
     // Khi chọn ca chiếu cho 1 showTime item
     const onChangeSessionForRow = async (rowIndex: number, sessionId: string) => {
@@ -319,153 +307,32 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
             message.warning('Vui lòng chọn ngày và phòng trước');
             return;
         }
-        // Sử dụng ngày đầu tiên trong khoảng để tính toán
-        const dateStr = dayjs(row.dateRange[0]).format('YYYY-MM-DD');
-        let existing = await getShowtimesByRoomAndDateApi(row.room, dateStr);
-        // Khi sửa, loại bỏ các suất thuộc cùng document hiện tại để tránh đếm trùng (đã có trong form)
-        if (editData) {
-            existing = existing.filter((e: { showtimeId?: string }) => e.showtimeId !== (editData as unknown as { _id: string })._id);
-        }
-        // lọc suất trong cùng ca
-        const sStart = toMinutes(session.startTime); const sEnd = toMinutes(session.endTime) + (session.endTime <= session.startTime ? 24*60 : 0);
-        const listInSession = existing.filter(e => {
-            const st = toMinutes(e.startTime as unknown as string); let en = toMinutes(e.endTime as unknown as string); if (en <= st) en += 24*60;
-            return st >= sStart && st < sEnd;
-        });
-        // cộng thêm các suất đang có trong form thuộc cùng ca (chưa lưu DB)
-        const inFormSameSession = rows
-            .map((r, idx) => ({ r, idx }))
-            .filter(({ r, idx }) =>
-                idx !== rowIndex &&
-                r.dateRange &&
-                r.room &&
-                r.sessionId === sessionId &&
-                r.startTime && r.endTime &&
-                r.room === row.room && // chỉ tính các dòng cùng phòng hiện tại
-                dayjs(r.dateRange[0]).isSame(dayjs(row.dateRange![0]), 'day') // và cùng ngày hiện tại
-            )
-            .map(({ r }) => ({ startTime: r.startTime!.format('HH:mm'), endTime: r.endTime!.format('HH:mm') }));
-        const combined: Array<{ startTime: string; endTime: string }> = [
-            ...listInSession,
-            ...inFormSameSession
-        ];
-        // giới hạn tối đa 2 suất/ca (áp dụng cho tất cả ca)
-        if (combined.length >= 2) {
-            message.error('Trong một ca chỉ được tối đa 2 suất chiếu.');
-            rows[rowIndex].sessionId = undefined;
-            form.setFieldValue('showTimes', rows);
-            return;
-        }
-        let nextStartMin = sStart;
-        // Tìm khoảng trống sớm nhất trong ca đủ chứa (duration + 20)
-        if (!selectedMovie) {
-            message.warning('Chưa chọn phim nên không thể tính tự động khoảng trống.');
-        } else {
-            const required = selectedMovie.duration + 20; // tổng thời lượng cần chiếm trong ca
-            // Danh sách khoảng chiếm chỗ [startMin, endMinWithCleaning]
-            const intervals: Array<{start: number; end: number}> = combined.map(it => {
-                const st = toMinutes(it.startTime);
-                let en = toMinutes(it.endTime);
-                if (en <= st) en += 24 * 60;
-                // Cộng 20' vệ sinh cho suất đã tồn tại
-                en += 20;
-                return { start: st, end: en };
-            }).sort((a,b)=> a.start - b.start);
-
-            // Thuật toán quét tìm gap
-            let candidate = sStart;
-            
-            for (const iv of intervals) {
-                if (iv.start > candidate) {
-                    const gap = iv.start - candidate;
-                    if (gap >= required) { 
-                        nextStartMin = candidate; 
-                        break; 
-                    }
-                }
-                // Cập nhật candidate để tìm vị trí tiếp theo có thể đặt suất chiếu
-                candidate = Math.max(candidate, iv.end);
-            }
-            
-            // Nếu chưa chọn được, thử cuối ca
-            if (nextStartMin === sStart) {
-                let endGap;
-                // Xử lý ca đêm (kéo dài qua ngày)
-                if (sEnd <= sStart) {
-                    // Ca đêm: sEnd = 0, sStart = 20:30, cần tính gap từ candidate đến 24:00 + từ 00:00 đến sEnd
-                    const gapToMidnight = (24 * 60) - candidate;
-                    const gapFromMidnight = sEnd;
-                    endGap = gapToMidnight + gapFromMidnight;
-                } else {
-                    // Ca bình thường
-                    endGap = sEnd - candidate;
-                }
-                
-                const isNight = /đêm/i.test(session.name);
-                
-                if (endGap >= required) {
-                    // đủ chỗ trong khung ca -> đặt ở candidate (sau suất trước)
-                    nextStartMin = candidate;
-                } else if (combined.length > 0) {
-                    if (isNight) {
-                        // QUAN TRỌNG: cho phép ca đêm lấn quá giờ ca
-                        // vẫn xếp ngay SAU suất trước (candidate), dù endGap không đủ
-                        nextStartMin = candidate;
-                    } else {
-                        // các ca khác giữ nguyên ràng buộc cũ
-                        message.error('Không còn khoảng trống phù hợp trong ca này cho phim đã chọn, chọn ca khác hoặc phim có thời lượng ngắn hơn.');
-                        rows[rowIndex].sessionId = undefined;
-                        form.setFieldValue('showTimes', rows);
-                        return;
-                    }   
-                }
-            }
-        }
-        rows[rowIndex].startTime = minutesToDayjs(dayjs(row.dateRange[0]), nextStartMin);
-        // auto compute end theo duration phim
+        
+        // Tự động điền thời gian bắt đầu = thời gian bắt đầu ca
+        const [startHour, startMinute] = session.startTime.split(':').map(Number);
+        const startDate = dayjs(row.dateRange[0]);
+        const startTime = startDate.hour(startHour).minute(startMinute).second(0).millisecond(0);
+        
+        // Tự động tính thời gian kết thúc = thời gian bắt đầu + duration phim
+        let endTime = startTime;
         if (selectedMovie?.duration) {
-            // Hiển thị giờ kết thúc theo duration phim (backend tự cộng thêm 20' khi lưu)
-            const estimatedEnd = nextStartMin + selectedMovie.duration;
-            let endTime = minutesToDayjs(dayjs(row.dateRange[0]), estimatedEnd % (24*60));
+            endTime = startTime.add(selectedMovie.duration, 'minute');
             
             // Xử lý trường hợp ca đêm qua ngày hôm sau
-            const startHour = Math.floor(nextStartMin / 60);
-            const endHour = Math.floor((estimatedEnd % (24*60)) / 60);
+            const startHourValue = startTime.hour();
+            const endHourValue = endTime.hour();
             
             // Nếu giờ bắt đầu >= 22:00 và giờ kết thúc < 6:00, coi như qua ngày
-            if (startHour >= 22 && endHour < 6) {
+            if (startHourValue >= 22 && endHourValue < 6) {
                 endTime = endTime.add(1, 'day');
             }
-            
-            rows[rowIndex].endTime = endTime;
-            // Lưu ràng buộc min start để người dùng có thể chỉnh nhưng không thấp hơn
-            rows[rowIndex].minStartBoundary = minutesToDayjs(dayjs(row.dateRange[0]), nextStartMin);
-            // validate vượt ca (trừ ca đêm)
-            if (!(session.name.includes('đêm'))) {
-                const sessionEndBound = (sEnd % (24*60));
-                // Khi kiểm tra vượt ca phải tính thêm 20' vệ sinh mà backend sẽ cộng
-                const over = (estimatedEnd + 20) > sessionEndBound;
-                if (over) {
-                    message.error('Không đủ thời gian trong ca này để thêm suất chiếu (vượt quá thời gian ca). Hãy chọn phim ngắn hơn hoặc ca/ngày khác.');
-                    rows[rowIndex].startTime = undefined;
-                    rows[rowIndex].endTime = undefined;
-                    rows[rowIndex].sessionId = undefined;
-                    form.setFieldValue('showTimes', rows);
-                    return;
-                }
-            }
-
-            // Kiểm tra: endTime của suất mới có trùng với startTime của suất khác trong ca không
-            const otherStarts = combined
-                .map(it => toMinutes(it.startTime))
-                .filter(st => st > nextStartMin);
-            if (otherStarts.some(st => st === (estimatedEnd % (24*60)))) {
-                message.warning('Thời gian kết thúc của suất mới trùng với thời gian bắt đầu của suất khác trong ca. Hệ thống đã tính 20 phút vệ sinh khi lưu, vui lòng kiểm tra lại nếu cần.');
-            }
-        } else {
-            message.warning('Chưa chọn phim nên không thể tính thời lượng để gợi ý.');
         }
+        
         rows[rowIndex].sessionId = sessionId;
+        rows[rowIndex].startTime = startTime;
+        rows[rowIndex].endTime = endTime;
+        // Bỏ minStartBoundary để cho phép chọn thời gian tự do
+        rows[rowIndex].minStartBoundary = undefined;
         form.setFieldValue('showTimes', rows);
     };
 
@@ -543,7 +410,22 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
         try {
             setIsLoading(true);
             
-            // Expand các suất chiếu theo khoảng ngày
+            // Hàm kiểm tra trùng lặp giữa 2 suất chiếu (cùng phòng, cùng ca, cùng thời gian, cùng ngày)
+            const isOverlapping = (
+                st1: { date: dayjs.Dayjs; startTime: dayjs.Dayjs; endTime: dayjs.Dayjs; room: string; sessionId?: string },
+                st2: { date: dayjs.Dayjs; startTime: dayjs.Dayjs; endTime: dayjs.Dayjs; room: string; sessionId?: string }
+            ): boolean => {
+                // Cùng phòng
+                if (st1.room !== st2.room) return false;
+                // Cùng ca (sessionId)
+                if (st1.sessionId !== st2.sessionId) return false;
+                // Cùng ngày
+                if (!st1.date.isSame(st2.date, 'day')) return false;
+                // Trùng thời gian (overlap)
+                return st1.startTime.isBefore(st2.endTime) && st1.endTime.isAfter(st2.startTime);
+            };
+            
+            // Expand các suất chiếu theo khoảng ngày và kiểm tra trùng lặp trong form
             const expandedShowtimes: Array<{
                 date: dayjs.Dayjs;
                 startTime: dayjs.Dayjs;
@@ -551,9 +433,23 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 room: string;
                 sessionId?: string;
                 status: 'active' | 'inactive';
+                originalIndex: number; // Lưu index của suất gốc để biết suất nào trước
             }> = [];
             
-            for (const showtime of values.showTimes) {
+            // Lưu các suất bị trùng trong form (để hiển thị trong modal)
+            const duplicateInForm: Array<{
+                date: dayjs.Dayjs;
+                startTime: dayjs.Dayjs;
+                endTime: dayjs.Dayjs;
+                room: string;
+                sessionId?: string;
+                status: 'active' | 'inactive';
+                originalIndex: number;
+            }> = [];
+            
+            // Expand tất cả suất trước
+            for (let i = 0; i < values.showTimes.length; i++) {
+                const showtime = values.showTimes[i];
                 const [startDate, endDate] = showtime.dateRange;
                 let currentDate = startDate;
                 
@@ -579,14 +475,29 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                         adjustedEndTime = adjustedEndTime.add(1, 'day');
                     }
                     
-                    expandedShowtimes.push({
+                    const newShowtime = {
                         date: currentDate,
                         startTime: adjustedStartTime,
                         endTime: adjustedEndTime,
                         room: showtime.room,
                         sessionId: showtime.sessionId,
-                        status: showtime.status
-                    });
+                        status: showtime.status,
+                        originalIndex: i
+                    };
+                    
+                    // Kiểm tra trùng với các suất đã expand trước đó (ưu tiên suất trước)
+                    const isDuplicateInForm = expandedShowtimes.some(existing => 
+                        isOverlapping(newShowtime, existing)
+                    );
+                    
+                    // Nếu trùng với suất trước đó, lưu vào duplicateInForm
+                    if (isDuplicateInForm) {
+                        duplicateInForm.push(newShowtime);
+                    } else {
+                        // Chỉ thêm vào nếu không trùng với suất trước đó
+                        expandedShowtimes.push(newShowtime);
+                    }
+                    
                     currentDate = currentDate.add(1, 'day');
                 }
             }
@@ -597,9 +508,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 endTime: st.endTime.format('DD/MM/YYYY HH:mm')
             })));
             
-            // Kiểm tra trùng lặp cho từng suất chiếu và phân loại
+            // Kiểm tra trùng lặp với DB cho từng suất chiếu và phân loại
             const validShowtimes: typeof expandedShowtimes = [];
-            const duplicateShowtimes: typeof expandedShowtimes = [];
+            const duplicateInDB: typeof expandedShowtimes = [];
             
             for (const showtime of expandedShowtimes) {
                 const isDuplicate = await checkDuplicateShowtime(
@@ -614,15 +525,18 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                 );
                 
                 if (isDuplicate) {
-                    duplicateShowtimes.push(showtime);
+                    duplicateInDB.push(showtime);
                 } else {
                     validShowtimes.push(showtime);
                 }
             }
             
-            // Hiển thị modal xác nhận nếu có suất trùng
-            if (duplicateShowtimes.length > 0) {
-                setDuplicateShowtimes(duplicateShowtimes);
+            // Gộp các suất trùng trong form và trùng với DB
+            const allDuplicateShowtimes = [...duplicateInForm, ...duplicateInDB];
+            
+            // Hiển thị modal xác nhận nếu có suất trùng (trong form hoặc với DB)
+            if (allDuplicateShowtimes.length > 0) {
+                setDuplicateShowtimes(allDuplicateShowtimes);
                 setValidShowtimes(validShowtimes);
                 setPendingFormData(values);
                 setShowDuplicateModal(true);
@@ -1112,6 +1026,17 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             minuteStep={15}
                                                             disabled={!selectedMovie || occupiedSeatsStatus[name]}
                                                             inputReadOnly={false}
+                                                            onOpenChange={(open) => {
+                                                                // Khi TimePicker mở, lưu giá trị hiện tại
+                                                                if (open) {
+                                                                    const currentStartTime = form.getFieldValue(['showTimes', name, 'startTime']);
+                                                                    const currentEndTime = form.getFieldValue(['showTimes', name, 'endTime']);
+                                                                    previousStartTimeRef.current[name] = {
+                                                                        startTime: currentStartTime,
+                                                                        endTime: currentEndTime
+                                                                    };
+                                                                }
+                                                            }}
                                                             // Khóa khung giờ theo ca đã chọn
                                                             disabledHours={() => {
                                                                 const sessionId = form.getFieldValue(['showTimes', name, 'sessionId']);
@@ -1122,10 +1047,9 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                 const [sh] = session.startTime.split(':').map(Number);
                                                                 const [eh, em] = session.endTime.split(':').map(Number);
                                                                 const disabled: number[] = [];
-                                                                const minStart: dayjs.Dayjs | undefined = form.getFieldValue(['showTimes', name, 'minStartBoundary']);
-                                                                const minHour = minStart ? minStart.hour() : sh;
+                                                                // Bỏ giới hạn minStartBoundary, chỉ giữ giới hạn trong khoảng ca
                                                                 for (let h = 0; h < 24; h++) {
-                                                                    if (h < Math.max(sh, minHour) || h > eh || (h === eh && em === 0)) {
+                                                                    if (h < sh || h > eh || (h === eh && em === 0)) {
                                                                         disabled.push(h);
                                                                     }
                                                                 }
@@ -1139,14 +1063,10 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                 const [sh, sm] = session.startTime.split(':').map(Number);
                                                                 const [eh, em] = session.endTime.split(':').map(Number);
                                                                 const mins: number[] = [];
-                                                                const minStart: dayjs.Dayjs | undefined = form.getFieldValue(['showTimes', name, 'minStartBoundary']);
-                                                                const minHour = minStart ? minStart.hour() : sh;
-                                                                const minMinute = minStart ? minStart.minute() : sm;
+                                                                // Bỏ giới hạn minStartBoundary, chỉ giữ giới hạn trong khoảng ca
                                                                 // Nếu giờ chọn là giờ bắt đầu ca → cấm phút < sm
-                                                                const startHourBound = Math.max(sh, minHour);
-                                                                const startMinuteBound = startHourBound === sh ? sm : minMinute;
-                                                                if (selectedHour === startHourBound) {
-                                                                    for (let m = 0; m < startMinuteBound; m++) mins.push(m);
+                                                                if (selectedHour === sh) {
+                                                                    for (let m = 0; m < sm; m++) mins.push(m);
                                                                 }
                                                                 // Nếu giờ chọn là giờ kết thúc ca → cấm phút >= em
                                                                 if (selectedHour === eh) {
@@ -1156,93 +1076,11 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                             }}
                                                             onChange={async (time) => {
                                                                 if (time && selectedMovie) {
-                                                                    // Validate nằm trong khoảng ca (nếu có session và không phải ca đêm)
-                                                                    const sessionId = form.getFieldValue(['showTimes', name, 'sessionId']);
-                                                                    const session = showSessions.find(s => s._id === sessionId);
-                                                                    const minStart: dayjs.Dayjs | undefined = form.getFieldValue(['showTimes', name, 'minStartBoundary']);
-                                                                    if (session && !/đêm/i.test(session.name)) {
-                                                                        const [sh, sm] = session.startTime.split(':').map(Number);
-                                                                        const [eh, em] = session.endTime.split(':').map(Number);
-                                                                        const startBoundary = dayjs(time).hour(sh).minute(sm).second(0).millisecond(0);
-                                                                        const endBoundary = dayjs(time).hour(eh).minute(em).second(0).millisecond(0);
-                                                                        if (time.isBefore(startBoundary) || !time.isBefore(endBoundary)) {
-                                                                            message.error('Thời gian bắt đầu phải nằm trong khoảng của ca chiếu đã chọn.');
-                                                                            // Auto snap về giới hạn đầu ca
-                                                                            time = startBoundary;
-                                                                        }
-                                                                        // Không cho phép kết thúc vượt quá thời gian ca
-                                                                        const maxStart = endBoundary.subtract(selectedMovie.duration + 20, 'minute');
-                                                                        if (time.isAfter(maxStart)) {
-                                                                            message.error('Thời gian của suất chiếu vượt quá thời gian của ca chiếu. Vui lòng chọn ca khác hoặc phim có thời lượng ngắn hơn.');
-                                                                            time = maxStart;
-                                                                        }
-                                                                    }
-                                                                    if (minStart && time.isBefore(minStart)) {
-                                                                        message.warning('Thời gian bắt đầu không thể sớm hơn suất trước trong ca. Đã điều chỉnh lên thời gian hợp lệ gần nhất.');
-                                                                        time = minStart;
-                                                                    }
-
-                                                                    // Chống chồng chéo với các suất khác trong ca cùng ngày/phòng
-                                                                    try {
-                                                                        const rowDateRange = form.getFieldValue(['showTimes', name, 'dateRange']);
-                                                                        const rowRoom = form.getFieldValue(['showTimes', name, 'room']);
-                                                                        const dateStr = rowDateRange ? dayjs(rowDateRange[0]).format('YYYY-MM-DD') : undefined;
-                                                                        if (rowRoom && dateStr && session) {
-                                                                            let existing = await getShowtimesByRoomAndDateApi(rowRoom, dateStr);
-                                                                            if (editData) {
-                                                                                existing = existing.filter((e: { showtimeId?: string }) => e.showtimeId !== (editData as any)._id);
-                                                                            }
-                                                                            const rowsAll: Array<{ dateRange?: [dayjs.Dayjs, dayjs.Dayjs]; room?: string; startTime?: dayjs.Dayjs; endTime?: dayjs.Dayjs; sessionId?: string; }> = form.getFieldValue('showTimes') || [];
-                                                                            const inFormSameSession = rowsAll
-                                                                                .map((r, idx) => ({ r, idx }))
-                                                                                .filter(({ r, idx }) => idx !== name && r.dateRange && r.room && r.sessionId === sessionId && r.startTime && r.endTime && r.room === rowRoom && dayjs(r.dateRange[0]).isSame(dayjs(rowDateRange[0]), 'day'))
-                                                                                .map(({ r }) => ({ startTime: r.startTime!.format('HH:mm'), endTime: r.endTime!.format('HH:mm') }));
-                                                                            const combinedOverlap = [
-                                                                                ...existing,
-                                                                                ...inFormSameSession
-                                                                            ];
-                                                                            const required = selectedMovie.duration + 20;
-                                                                            let startMin = time.hour() * 60 + time.minute();
-                                                                            const intervals = combinedOverlap.map((it: any) => {
-                                                                                const st = toMinutes(it.startTime);
-                                                                                let en = toMinutes(it.endTime);
-                                                                                if (en <= st) en += 24 * 60;
-                                                                                en += 20; // vệ sinh của suất đã tồn tại
-                                                                                return { start: st, end: en };
-                                                                            }).sort((a: any,b: any)=> a.start - b.start);
-                                                                            // Nếu người dùng chọn thời điểm trước suất đầu tiên nhưng không đủ chỗ trước suất đầu tiên → snap về đầu ca
-                                                                            if (intervals.length > 0) {
-                                                                                const [sh3, sm3] = session.startTime.split(':').map(Number);
-                                                                                const sessionStartMin2 = sh3 * 60 + sm3;
-                                                                                const first = intervals[0];
-                                                                                if (startMin < first.start && (startMin + required) > first.start) {
-                                                                                    message.error('Thời gian bạn chọn bị lấn sang suất chiếu khác trong ca. Hệ thống đặt lại về đầu ca.');
-                                                                                    startMin = sessionStartMin2;
-                                                                                }
-                                                                            }
-                                                                            // Nếu chồng với các suất khác, tự đẩy tới đầu khoảng trống hợp lệ tiếp theo
-                                                                            let adjusted = false;
-                                                                            let changed = true;
-                                                                            while (changed) {
-                                                                                changed = false;
-                                                                                for (const iv of intervals) {
-                                                                                    const overlaps = !(startMin + required <= iv.start || startMin >= iv.end);
-                                                                                    if (overlaps) {
-                                                                                        // Đẩy tới sau interval bị chồng
-                                                                                        startMin = iv.end;
-                                                                                        changed = true;
-                                                                                        adjusted = true;
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                            if (adjusted) {
-                                                                                message.error('Thời gian trùng với suất chiếu khác trong ca. Hệ thống đã điều chỉnh tới khoảng trống hợp lệ kế tiếp.');
-                                                                            }
-                                                                            time = minutesToDayjs(dayjs(rowDateRange[0]), startMin);
-                                                                        }
-                                                                    } catch (err) { console.error(err); }
-                                                                    // Tự động tính thời gian kết thúc
-                                                            let endTime = time.add(selectedMovie.duration, 'minute');
+                                                                    // Lấy giá trị cũ đã lưu từ ref (lưu khi TimePicker mở)
+                                                                    const previousValue = previousStartTimeRef.current[name];
+                                                                    
+                                                                    // Tự động tính thời gian kết thúc dựa trên duration phim
+                                                                    let endTime = time.add(selectedMovie.duration, 'minute');
                                                                     
                                                                     // Xử lý trường hợp ca đêm qua ngày hôm sau
                                                                     const startHour = time.hour();
@@ -1252,6 +1090,34 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                                                     if (startHour >= 22 && endHour < 6) {
                                                                         endTime = endTime.add(1, 'day');
                                                                     }
+                                                                    
+                                                                    // Kiểm tra vượt quá thời gian ca (trừ ca đêm)
+                                                                    const sessionId = form.getFieldValue(['showTimes', name, 'sessionId']);
+                                                                    const session = showSessions.find(s => s._id === sessionId);
+                                                                    if (session && !/đêm/i.test(session.name)) {
+                                                                        const [eh, em] = session.endTime.split(':').map(Number);
+                                                                        const sessionEndBound = dayjs(time).hour(eh).minute(em).second(0).millisecond(0);
+                                                                        
+                                                                        // Tính thời gian kết thúc với 20 phút vệ sinh (backend sẽ cộng thêm)
+                                                                        const endTimeWithCleaning = endTime.add(20, 'minute');
+                                                                        
+                                                                        // Kiểm tra nếu vượt quá thời gian kết thúc ca
+                                                                        if (endTimeWithCleaning.isAfter(sessionEndBound)) {
+                                                                            message.error('Thời gian kết thúc vượt quá thời gian của ca chiếu. Vui lòng chọn thời gian bắt đầu sớm hơn hoặc chọn ca khác.');
+                                                                            // Tự động chuyển về giá trị cũ đã lưu trong ref
+                                                                            if (previousValue?.startTime) {
+                                                                                // Sử dụng setTimeout để đảm bảo form được cập nhật sau khi message hiển thị
+                                                                                setTimeout(() => {
+                                                                                    form.setFieldValue(['showTimes', name, 'startTime'], previousValue.startTime);
+                                                                                    if (previousValue.endTime) {
+                                                                                        form.setFieldValue(['showTimes', name, 'endTime'], previousValue.endTime);
+                                                                                    }
+                                                                                }, 0);
+                                                                            }
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                    
                                                                     const currentShowTimes = form.getFieldValue('showTimes') || [];
                                                                     currentShowTimes[name] = {
                                                                         ...currentShowTimes[name],
@@ -1397,6 +1263,7 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                     const roomName = rooms.find(room => room._id === st.room)?.name || st.room;
                                     return {
                                         key: index,
+                                        showtimeIndex: `Suất ${(st as any).originalIndex !== undefined ? (st as any).originalIndex + 1 : 'N/A'}`,
                                         date: st.date.format('DD/MM/YYYY'),
                                         time: `${st.startTime.format('HH:mm')} - ${st.endTime.format('HH:mm')}`,
                                         room: roomName,
@@ -1406,6 +1273,12 @@ const ShowtimeForm: React.FC<ShowtimeFormProps> = ({ onCancel, onSuccess, editDa
                                 pagination={false}
                                 size="small"
                                 columns={[
+                                    {
+                                        title: 'Suất',
+                                        dataIndex: 'showtimeIndex',
+                                        key: 'showtimeIndex',
+                                        width: 80
+                                    },
                                     {
                                         title: 'Ngày',
                                         dataIndex: 'date',
