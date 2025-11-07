@@ -39,6 +39,7 @@ const PromotionReport: React.FC = () => {
   const [filteredData, setFilteredData] = useState<PromotionReportData[]>([]);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [usageStatusFilter, setUsageStatusFilter] = useState<string>('all'); // 'all', 'used', 'unused'
   const [minDate, setMinDate] = useState<dayjs.Dayjs | null>(null);
   const [maxDate, setMaxDate] = useState<dayjs.Dayjs | null>(null);
 
@@ -158,7 +159,7 @@ const PromotionReport: React.FC = () => {
     }
   };
 
-  // Filter data based on date range and status
+  // Filter data based on date range, status, and usage status
   useEffect(() => {
     let filtered = [...reportData];
 
@@ -179,9 +180,22 @@ const PromotionReport: React.FC = () => {
     if (statusFilter !== 'all') {
       filtered = filtered.filter(item => item.status === statusFilter);
     }
+
+    // Filter by usage status
+    if (usageStatusFilter !== 'all') {
+      filtered = filtered.filter(item => {
+        const isUsed = item.usedBudget > 0;
+        if (usageStatusFilter === 'used') {
+          return isUsed;
+        } else if (usageStatusFilter === 'unused') {
+          return !isUsed;
+        }
+        return true;
+      });
+    }
     
     setFilteredData(filtered);
-  }, [reportData, dateRange, statusFilter]);
+  }, [reportData, dateRange, statusFilter, usageStatusFilter]);
 
   const exportToExcel = async () => {
     // Create workbook and worksheet
@@ -537,11 +551,26 @@ const PromotionReport: React.FC = () => {
               </Select>
             </div>
 
+            {/* Usage status filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600 font-medium">Trạng thái sử dụng:</span>
+              <Select
+                value={usageStatusFilter}
+                onChange={setUsageStatusFilter}
+                style={{ width: 150 }}
+              >
+                <Option value="all">Tất cả</Option>
+                <Option value="used">Đã sử dụng</Option>
+                <Option value="unused">Chưa sử dụng</Option>
+              </Select>
+            </div>
+
             {/* Clear filters button */}
             <button
               onClick={() => {
                 setDateRange(null);
                 setStatusFilter('all');
+                setUsageStatusFilter('all');
               }}
               className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors duration-200 text-gray-600"
             >

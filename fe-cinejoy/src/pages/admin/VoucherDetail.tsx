@@ -23,6 +23,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
   const [selectedLine, setSelectedLine] = useState<IPromotionLine | null>(null);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number>(-1);
+  const [usageStatusMap, setUsageStatusMap] = useState<Map<number, boolean>>(new Map());
 
   // Tự động cập nhật trạng thái promotion lines dựa trên ngày hiện tại
   const updatePromotionLineStatuses = (voucherData: IVoucher): IVoucher => {
@@ -75,6 +76,47 @@ const VoucherDetail = ({ id: idProp }: Props) => {
     };
     load();
   }, [id]);
+
+  // Fetch usage status cho tất cả lines
+  useEffect(() => {
+    if (!voucher || !id || !Array.isArray(voucher.lines)) return;
+
+    const fetchUsageStatus = async () => {
+      const newUsageStatusMap = new Map<number, boolean>();
+      
+      for (let i = 0; i < voucher.lines.length; i++) {
+        const line = voucher.lines[i];
+        try {
+          if (line.promotionType === 'voucher') {
+            const detail = line.detail as VoucherDetail | undefined;
+            const totalQuantity = detail?.totalQuantity;
+            const remainingQuantity = detail?.quantity;
+            if (typeof totalQuantity === 'number' && typeof remainingQuantity === 'number') {
+              newUsageStatusMap.set(i, totalQuantity !== remainingQuantity);
+            } else {
+              newUsageStatusMap.set(i, false);
+            }
+          } else {
+            let usedBudget = 0;
+            if (line.promotionType === 'amount') {
+              usedBudget = await getAmountBudgetUsedApi(id, i);
+            } else if (line.promotionType === 'item') {
+              usedBudget = await getItemBudgetUsedApi(id, i);
+            } else if (line.promotionType === 'percent') {
+              usedBudget = await getPercentBudgetUsedApi(id, i);
+            }
+            newUsageStatusMap.set(i, usedBudget !== 0);
+          }
+        } catch {
+          newUsageStatusMap.set(i, false);
+        }
+      }
+      
+      setUsageStatusMap(newUsageStatusMap);
+    };
+
+    fetchUsageStatus();
+  }, [voucher, id]);
 
   // Periodic update để tự động cập nhật trạng thái promotion lines
   useEffect(() => {
@@ -523,7 +565,50 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                 render: (_, record: IPromotionLine, index: number) => {
                   // Kiểm tra xem ngày kết thúc có quá ngày hiện tại không
                   const endDate = record.validityPeriod?.endDate;
+                  const startDate = record.validityPeriod?.startDate;
                   const isEndDatePassed = endDate ? dayjs(endDate).isBefore(dayjs(), 'day') : false;
+                  
+                  // Kiểm tra ngày hiện tại có nằm trong khoảng ngày bắt đầu - ngày kết thúc không
+                  const today = dayjs();
+                  const isWithinDateRange = startDate && endDate 
+                    ? (today.isAfter(dayjs(startDate).startOf('day')) || today.isSame(dayjs(startDate), 'day')) 
+                      && (today.isBefore(dayjs(endDate).endOf('day')) || today.isSame(dayjs(endDate), 'day'))
+                    : false;
+                  
+                  const isUsed = usageStatusMap.has(index) ? (usageStatusMap.get(index) || false) : false;
+                  
+                  // Logic hiển thị nút Sửa:
+                  // - Nếu ngày chưa quá: hiển thị bình thường (bao gồm cả khi ngày hiện tại trong khoảng)
+                  // - Nếu ngày đã quá VÀ trạng thái là "không hoạt động":
+                  //   + Nếu chưa sử dụng: hiển thị nút Sửa
+                  //   + Nếu đã sử dụng: ẩn nút Sửa
+                  let shouldShowEdit = false;
+                  
+                  if (!isEndDatePassed || isWithinDateRange) {
+                    // Ngày chưa quá hoặc ngày hiện tại trong khoảng: hiển thị bình thường
+                    shouldShowEdit = true;
+                  } else if (isEndDatePassed && record.status === 'không hoạt động') {
+                    // Ngày đã quá VÀ trạng thái là "không hoạt động": kiểm tra usage status
+                    // Chỉ hiển thị nếu chưa sử dụng
+                    shouldShowEdit = !isUsed;
+                  }
+                  
+                  // Logic hiển thị nút Xóa:
+                  // - Nếu trạng thái là "hoạt động": ẩn nút Xóa
+                  // - Nếu đã sử dụng + không hoạt động + ngày hiện tại trong khoảng: ẩn nút Xóa
+                  // - Các trường hợp khác: hiển thị nút Xóa (nếu có quyền sửa)
+                  let shouldShowDelete = false;
+                  
+                  if (record.status === 'hoạt động') {
+                    // Trạng thái hoạt động: không hiển thị nút Xóa
+                    shouldShowDelete = false;
+                  } else if (isUsed && record.status === 'không hoạt động' && isWithinDateRange) {
+                    // Đã sử dụng + không hoạt động + ngày hiện tại trong khoảng: ẩn nút Xóa
+                    shouldShowDelete = false;
+                  } else if (shouldShowEdit) {
+                    // Các trường hợp khác: hiển thị nút Xóa nếu có quyền sửa
+                    shouldShowDelete = true;
+                  }
                   
                   return (
                     <div className="flex gap-2">
@@ -537,33 +622,31 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                       >
                         Xem chi tiết
                       </Button>
-                      {!isEndDatePassed && (
-                        <>
+                      {shouldShowEdit && (
+                        <Button 
+                          type="primary" 
+                          size="small"
+                          onClick={() => handleEditLine(record, index)}
+                        >
+                          Sửa
+                        </Button>
+                      )}
+                      {shouldShowDelete && (
+                        <Popconfirm
+                          title="Xóa chi tiết khuyến mãi"
+                          description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
+                          onConfirm={() => handleDeleteLine(index)}
+                          okText="Có"
+                          cancelText="Không"
+                        >
                           <Button 
                             type="primary" 
+                            danger
                             size="small"
-                            onClick={() => handleEditLine(record, index)}
                           >
-                            Sửa
+                            Xóa
                           </Button>
-                          {record.status !== 'hoạt động' && (
-                            <Popconfirm
-                              title="Xóa chi tiết khuyến mãi"
-                              description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
-                              onConfirm={() => handleDeleteLine(index)}
-                              okText="Có"
-                              cancelText="Không"
-                            >
-                              <Button 
-                                type="primary" 
-                                danger
-                                size="small"
-                              >
-                                Xóa
-                              </Button>
-                            </Popconfirm>
-                          )}
-                        </>
+                        </Popconfirm>
                       )}
                     </div>
                   );
@@ -638,17 +721,25 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                   <span className="font-medium text-gray-600">Mô tả</span>
                   <div className="mt-1 text-gray-800">{(selectedLine.detail as VoucherDetail | DiscountDetail | AmountDetail | ItemDetail)?.description || 'Không có mô tả'}</div>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-600">Trạng thái: </span>
-              
-                    <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${
+                <div className="col-span-2 flex items-center gap-65 mt-4">
+                  <div>
+                    <span className="font-medium text-gray-600">Trạng thái: </span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium inline-block ${
                       selectedLine.status === 'hoạt động' ? 'bg-green-100 text-green-700' :
-                      selectedLine.status === 'không hoạt động' ? 'bg-gray-100 text-gray-700' :
+                      selectedLine.status === 'không hoạt động' ? 'bg-red-100 text-red-700' :
                       'bg-yellow-100 text-yellow-700'
                     }`}>
                       {selectedLine.status === 'hoạt động' ? 'Hoạt động' : selectedLine.status === 'không hoạt động' ? 'Không hoạt động' : 'Đang chờ'}
                     </span>
-    
+                  </div>
+                  <div>
+                    <AsyncUsageStatus 
+                      promotionType={selectedLine.promotionType} 
+                      detail={selectedLine.detail} 
+                      voucherId={id as string} 
+                      lineIndex={selectedLineIndex} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1258,10 +1349,67 @@ const VoucherDetail = ({ id: idProp }: Props) => {
   );
 };
 
+// Component để hiển thị trạng thái sử dụng
+const AsyncUsageStatus: React.FC<{ 
+  promotionType: string; 
+  detail: VoucherDetail | DiscountDetail | AmountDetail | ItemDetail | null | undefined; 
+  voucherId: string; 
+  lineIndex: number 
+}> = ({ promotionType, detail, voucherId, lineIndex }) => {
+  const [isUsed, setIsUsed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (promotionType === 'voucher') {
+          // Với voucher: kiểm tra số lượng còn lại khác tổng số lượng
+          // totalQuantity: tổng số lượng ban đầu
+          // quantity: số lượng còn lại
+          const voucherDetail = detail as VoucherDetail | undefined;
+          const totalQuantity = voucherDetail?.totalQuantity;
+          const remainingQuantity = voucherDetail?.quantity;
+          
+          // Chỉ so sánh nếu cả hai đều có giá trị hợp lệ
+          if (typeof totalQuantity === 'number' && typeof remainingQuantity === 'number') {
+            if (mounted) setIsUsed(totalQuantity !== remainingQuantity);
+          } else {
+            // Nếu không có đủ dữ liệu, mặc định là chưa sử dụng
+            if (mounted) setIsUsed(false);
+          }
+        } else {
+          // Với các loại khác: kiểm tra ngân sách đã dùng khác 0
+          let usedBudget = 0;
+          if (promotionType === 'amount') {
+            usedBudget = await getAmountBudgetUsedApi(voucherId, lineIndex);
+          } else if (promotionType === 'item') {
+            usedBudget = await getItemBudgetUsedApi(voucherId, lineIndex);
+          } else if (promotionType === 'percent') {
+            usedBudget = await getPercentBudgetUsedApi(voucherId, lineIndex);
+          }
+          if (mounted) setIsUsed(usedBudget !== 0);
+        }
+      } catch {
+        if (mounted) setIsUsed(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [promotionType, detail, voucherId, lineIndex]);
+
+  if (isUsed === null) return <span className="text-gray-400">...</span>;
+  
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${
+      isUsed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+    }`}>
+      {isUsed ? 'Đã sử dụng' : 'Chưa sử dụng'}
+    </span>
+  );
+};
+
 export default VoucherDetail;
 
 // Component nhỏ để fetch và hiển thị ngân sách đã dùng cho amount line
-import React from 'react';
 const AsyncUsedBudget: React.FC<{ voucherId: string; lineIndex: number }> = ({ voucherId, lineIndex }) => {
   const [value, setValue] = useState<number | null>(null);
 

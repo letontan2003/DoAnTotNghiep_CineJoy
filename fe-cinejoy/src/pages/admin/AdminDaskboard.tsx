@@ -11,7 +11,7 @@ import isBetween from 'dayjs/plugin/isBetween';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import viVN from 'antd/locale/vi_VN';
-import { getVouchers, addVoucher, updateVoucher, deleteVoucher } from "@/apiservice/apiVoucher";
+import { getVouchers, addVoucher, updateVoucher, deleteVoucher, getAmountBudgetUsedApi, getItemBudgetUsedApi, getPercentBudgetUsedApi } from "@/apiservice/apiVoucher";
 import { getAllOrders } from "@/apiservice/apiOrder";
 import { getFoodCombos, addSingleProduct, addCombo, updateFoodCombo, deleteFoodCombo } from "@/apiservice/apiFoodCombo";
 import { getTheaters, addTheater, updateTheater, deleteTheater } from "@/apiservice/apiTheater";
@@ -89,6 +89,7 @@ const Dashboard: React.FC = () => {
   const [theaters, setTheaters] = useState<ITheater[]>([]);
   const [regions, setRegions] = useState<IRegion[]>([]);
   const [vouchers, setVouchers] = useState<IVoucher[]>([]);
+  const [voucherUsageStatusMap, setVoucherUsageStatusMap] = useState<Map<string, boolean>>(new Map());
   const [foodCombos, setFoodCombos] = useState<IFoodCombo[]>([]);
   const [blogs, setBlogs] = useState<IBlog[]>([]);
   const [detailBlog, setDetailBlog] = useState<IBlog | null>(null);
@@ -454,6 +455,66 @@ const Dashboard: React.FC = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch usage status cho tất cả vouchers
+  useEffect(() => {
+    if (!vouchers || vouchers.length === 0) return;
+
+    const fetchVoucherUsageStatus = async () => {
+      const newUsageStatusMap = new Map<string, boolean>();
+      
+      for (const voucher of vouchers) {
+        if (!voucher._id || !voucher.lines || voucher.lines.length === 0) {
+          if (voucher._id) {
+            newUsageStatusMap.set(voucher._id, false);
+          }
+          continue;
+        }
+
+        let hasUsedLine = false;
+        
+        for (let i = 0; i < voucher.lines.length; i++) {
+          const line = voucher.lines[i];
+          try {
+            if (line.promotionType === 'voucher') {
+              const detail = line.detail as VoucherDetail | undefined;
+              const totalQuantity = detail?.totalQuantity;
+              const remainingQuantity = detail?.quantity;
+              if (typeof totalQuantity === 'number' && typeof remainingQuantity === 'number') {
+                if (totalQuantity !== remainingQuantity) {
+                  hasUsedLine = true;
+                  break;
+                }
+              }
+            } else {
+              let usedBudget = 0;
+              if (line.promotionType === 'amount') {
+                usedBudget = await getAmountBudgetUsedApi(voucher._id, i);
+              } else if (line.promotionType === 'item') {
+                usedBudget = await getItemBudgetUsedApi(voucher._id, i);
+              } else if (line.promotionType === 'percent') {
+                usedBudget = await getPercentBudgetUsedApi(voucher._id, i);
+              }
+              if (usedBudget !== 0) {
+                hasUsedLine = true;
+                break;
+              }
+            }
+          } catch {
+            // Ignore errors, assume not used
+          }
+        }
+        
+        if (voucher._id) {
+          newUsageStatusMap.set(voucher._id, hasUsedLine);
+        }
+      }
+      
+      setVoucherUsageStatusMap(newUsageStatusMap);
+    };
+
+    fetchVoucherUsageStatus();
+  }, [vouchers]);
 
   // Cập nhật trạng thái voucher khi component được focus lại (từ VoucherDetail)
   useEffect(() => {
@@ -2829,18 +2890,28 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                               const endDate = voucher.endDate || voucher.validityPeriod?.endDate;
                               const isEndDatePassed = endDate ? dayjs(endDate as string).isBefore(dayjs(), 'day') : false;
                               
-                              // Chỉ hiển thị nút nếu ngày kết thúc chưa qua
-                              if (isEndDatePassed) {
-                                return null;
-                              }
+                              // Kiểm tra xem voucher có promotion lines đã sử dụng không
+                              const hasUsedLines = voucher._id ? (voucherUsageStatusMap.get(voucher._id) || false) : false;
+                              
+                              // Disable nút nếu có promotion lines đã sử dụng và trạng thái là "không hoạt động" và đã kết thúc
+                              const isDisabled = hasUsedLines && voucher.status === 'không hoạt động' && isEndDatePassed;
                               
                               return (
                                 <>
                                   <motion.button
-                                    onClick={(e) => { e.stopPropagation(); handleEditVoucher(voucher); }}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    onClick={(e) => { 
+                                      if (isDisabled) return;
+                                      e.stopPropagation(); 
+                                      handleEditVoucher(voucher); 
+                                    }}
+                                    disabled={isDisabled}
+                                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                                      isDisabled 
+                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                                        : 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+                                    }`}
+                                    whileHover={!isDisabled ? { scale: 1.05 } : {}}
+                                    whileTap={!isDisabled ? { scale: 0.95 } : {}}
                                   >
                                     Sửa
                                   </motion.button>
@@ -2848,17 +2919,34 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                                     <Popconfirm
                                       title="Xóa khuyến mãi"
                                       description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
-                                      onConfirm={() => handleDeleteVoucher(voucher._id!)}
+                                      onConfirm={() => {
+                                        if (!isDisabled) {
+                                          handleDeleteVoucher(voucher._id!);
+                                        }
+                                      }}
                                       okText="Có"
                                       cancelText="Không"
-                                      onOpenChange={(open) => setBlockVoucherRowNavigate(open)}
+                                      onOpenChange={(open) => {
+                                        if (!isDisabled) {
+                                          setBlockVoucherRowNavigate(open);
+                                        }
+                                      }}
                                       onCancel={() => setBlockVoucherRowNavigate(false)}
+                                      disabled={isDisabled}
                                     >
                                       <motion.button
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        onClick={(e) => {
+                                          if (isDisabled) return;
+                                          e.stopPropagation();
+                                        }}
+                                        disabled={isDisabled}
+                                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                                          isDisabled 
+                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                                            : 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
+                                        }`}
+                                        whileHover={!isDisabled ? { scale: 1.05 } : {}}
+                                        whileTap={!isDisabled ? { scale: 0.95 } : {}}
                                       >
                                         Xóa
                                       </motion.button>
