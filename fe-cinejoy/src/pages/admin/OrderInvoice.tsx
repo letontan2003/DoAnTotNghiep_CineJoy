@@ -23,7 +23,7 @@ const OrderInvoicePage: React.FC = () => {
   const [isRefunding, setIsRefunding] = useState<boolean>(false);
 
   const getStatusDisplay = (status: string) => {
-    if (status === "CONFIRMED") return "Đã đặt";
+    if (status === "CONFIRMED") return "Đã thanh toán";
     if (status === "RETURNED") return "Trả vé";
     if (status === "CANCELLED") return "Đã hủy";
     if (status === "COMPLETED") return "Hoàn thành";
@@ -47,6 +47,12 @@ const OrderInvoicePage: React.FC = () => {
     const showDate = dayjs(order.showDate).format('DD/MM/YYYY');
     const seats = order.seats?.map((s: any) => s.seatId).join(', ');
 
+    const hasPromotions = voucher > 0 || amountDiscountVal > 0 || percentPromotions.length > 0 || itemPromotions.length > 0;
+    const totalDiscount = (voucher || 0) + (amountDiscountVal || 0) + (percentPromotions.reduce((sum: number, p: any) => {
+      const cut = typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0);
+      return sum + cut;
+    }, 0) || 0);
+
     const html = `
       <html>
       <head>
@@ -55,12 +61,17 @@ const OrderInvoicePage: React.FC = () => {
         <style>
           body { font-family: Arial, sans-serif; margin: 24px; color: #000; }
           h1 { font-size: 20px; margin-bottom: 16px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
-          th { background: #f3f3f3; text-align: left; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+          th, td { border: 1px solid #ccc; padding: 12px; vertical-align: top; }
+          th { background: #f5f5f5; text-align: left; font-weight: bold; }
           .right { text-align: right; }
           .mt { margin-top: 16px; }
           .mb { margin-bottom: 12px; }
+          .promo-table { margin-top: 16px; }
+          .promo-table th { background: #f9f9f9; }
+          .discount-amount { font-weight: bold; color: #000; }
+          .total-section { margin-top: 24px; padding-top: 16px; border-top: 2px solid #999; text-align: right; }
+          .total-amount { font-size: 18px; font-weight: bold; color: #dc2626; }
         </style>
       </head>
       <body>
@@ -86,6 +97,7 @@ const OrderInvoicePage: React.FC = () => {
             </tr>
           </tbody>
         </table>
+        
         <table>
           <thead>
             <tr>
@@ -93,10 +105,6 @@ const OrderInvoicePage: React.FC = () => {
               <th>Suất chiếu</th>
               <th>Vé</th>
               <th>Concession(s)</th>
-              ${voucher > 0 ? '<th>Voucher</th>' : ''}
-              ${amountDiscountVal > 0 ? '<th>Khuyến mãi tiền</th>' : ''}
-              ${percentPromotions.length ? '<th>Khuyến mãi chiết khấu</th>' : ''}
-              ${itemPromotions.length ? '<th>Khuyến mãi hàng</th>' : ''}
               <th class="right">Thành tiền</th>
             </tr>
           </thead>
@@ -104,28 +112,51 @@ const OrderInvoicePage: React.FC = () => {
             <tr>
               <td><b>${movieTitle}</b></td>
               <td>
-                <div>${theater}</div>
-                <div>${order.room}</div>
-                <div>${showDate}</div>
+                <div style="margin-bottom: 4px;">${theater}</div>
+                <div style="margin-bottom: 4px;">${order.room}</div>
+                <div style="margin-bottom: 4px;">${showDate}</div>
                 <div>Từ ${order.showTime}</div>
               </td>
               <td>
-                <div>${order.seats?.[0]?.type || ''}</div>
-                <div>${seats}</div>
+                <div style="margin-bottom: 4px;">${order.seats?.[0]?.type || ''}</div>
+                <div style="margin-bottom: 4px;">${seats}</div>
                 <div><b>${currency(order.seats?.[0]?.price || 0)}</b></div>
               </td>
               <td>
-                ${order.foodCombos && order.foodCombos.length ? order.foodCombos.map((c: any) => `<div><b>${c.comboId?.name || 'Combo'}</b></div><div>${c.quantity} x ${currency(c.price)}</div>`).join('') : '-'}
+                ${order.foodCombos && order.foodCombos.length ? order.foodCombos.map((c: any) => `<div style="margin-bottom: 8px;"><b>${c.comboId?.name || 'Combo'}</b><br/>${c.quantity} x ${currency(c.price)}</div>`).join('') : '-'}
               </td>
-              ${voucher > 0 ? `<td>- ${currency(voucher)}</td>` : ''}
-              ${amountDiscountVal > 0 ? `<td><div>${amountDiscountInfo?.description || ''}</div><div>- ${currency(amountDiscountVal)}</div></td>` : ''}
-              ${percentPromotions.length ? `<td>${percentPromotions.map((p: any) => `<div>${p.description || ''}</div><div>- ${currency(typeof p.discountAmount === 'number' ? p.discountAmount : (p.amount || 0))}</div>`).join('')}</td>` : ''}
-              ${itemPromotions.length ? `<td>${itemPromotions.map((it: any) => `<div>${it.description || ''}</div><div>+${it.rewardQuantity || 0} ${it.rewardItem || ''}</div>`).join('')}</td>` : ''}
               <td class="right"><b>${currency(order.totalAmount || 0)}</b></td>
             </tr>
           </tbody>
         </table>
-        <div class="mt right"><b>Tổng cộng: ${currency(order.finalAmount || 0)}</b></div>
+
+        ${hasPromotions ? `
+        <table class="promo-table">
+          <thead>
+            <tr>
+              ${amountDiscountVal > 0 ? '<th>Khuyến mãi tiền</th>' : ''}
+              ${percentPromotions.length ? '<th>Khuyến mãi chiết khấu</th>' : ''}
+              ${itemPromotions.length ? '<th>Khuyến mãi hàng</th>' : ''}
+              ${(voucher > 0 || amountDiscountVal > 0 || percentPromotions.length > 0) ? '<th class="right">Tổng tiền giảm</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              ${amountDiscountVal > 0 ? `<td><div style="margin-bottom: 4px; font-size: 13px;">${amountDiscountInfo?.description || ''}</div><div class="discount-amount">- ${currency(amountDiscountVal)}</div></td>` : ''}
+              ${percentPromotions.length ? `<td>${percentPromotions.map((p: any) => {
+                const cut = typeof p.discountAmount === 'number' ? p.discountAmount : (p.amount || 0);
+                return `<div style="margin-bottom: 8px;"><div style="font-size: 13px;">${p.description || ''}</div><div class="discount-amount">- ${currency(cut)}</div></div>`;
+              }).join('')}</td>` : ''}
+              ${itemPromotions.length ? `<td>${itemPromotions.map((it: any) => `<div style="margin-bottom: 8px;"><div style="font-size: 13px;">${it.description || ''}</div><div style="font-weight: bold; color: #16a34a;">+${it.rewardQuantity || 0} ${it.rewardItem || ''}</div></div>`).join('')}</td>` : ''}
+              ${(voucher > 0 || amountDiscountVal > 0 || percentPromotions.length > 0) ? `<td class="right"><div class="discount-amount" style="font-size: 16px;">- ${currency(totalDiscount)}</div></td>` : ''}
+            </tr>
+          </tbody>
+        </table>
+        ` : ''}
+
+        <div class="total-section">
+          <div class="total-amount">Tổng cộng: ${currency(order.finalAmount || 0)}</div>
+        </div>
       </body>
       </html>
     `;
@@ -169,7 +200,7 @@ const OrderInvoicePage: React.FC = () => {
             const orderEmail = (o?.customerInfo?.email || "").toLowerCase();
             const targetEmail = decodeURIComponent(email).toLowerCase();
             const status = (o?.orderStatus || "").toUpperCase();
-            return orderEmail === targetEmail && status === "CONFIRMED";
+            return orderEmail === targetEmail && (status === "CONFIRMED" || status === "RETURNED");
           })
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setOrders(confirmedForCustomer);
@@ -306,7 +337,11 @@ const OrderInvoicePage: React.FC = () => {
                       <td className="p-3">{r.orderDate}</td>
                       <td className="p-3">{r.paymentTime}</td>
                       <td className="p-3">
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          r.status === "Trả vé" 
+                            ? "bg-orange-100 text-orange-700" 
+                            : "bg-green-100 text-green-700"
+                        }`}>
                           {r.status}
                         </span>
                       </td>
@@ -319,23 +354,25 @@ const OrderInvoicePage: React.FC = () => {
                         >
                           Xem chi tiết
                         </button>
-                        <button
-                          className={`px-3 py-1 rounded border mr-2 ${
-                            r.canRefund
-                              ? "border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer"
-                              : "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
-                          }`}
-                          onClick={() => { 
-                            if (r.canRefund) {
-                              setRefundTarget(r.raw); 
-                              setRefundReason(""); 
-                            }
-                          }}
-                          disabled={!r.canRefund}
-                          title={!r.canRefund ? "Không thể trả vé sau 25 phút trước giờ chiếu" : ""}
-                        >
-                          {r.canRefund ? "Trả vé" : "Hết hạn trả vé"}
-                        </button>
+                        {r.raw.orderStatus !== "RETURNED" && (
+                          <button
+                            className={`px-3 py-1 rounded border mr-2 ${
+                              r.canRefund
+                                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 cursor-pointer"
+                                : "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
+                            }`}
+                            onClick={() => { 
+                              if (r.canRefund) {
+                                setRefundTarget(r.raw); 
+                                setRefundReason(""); 
+                              }
+                            }}
+                            disabled={!r.canRefund}
+                            title={!r.canRefund ? "Không thể trả vé sau 25 phút trước giờ chiếu" : ""}
+                          >
+                            {r.canRefund ? "Trả vé" : "Hết hạn trả vé"}
+                          </button>
+                        )}
                         <button
                           className="px-3 py-1 rounded border border-gray-300 text-black bg-white hover:bg-gray-50 cursor-pointer"
                           onClick={() => printOrder(r.raw)}
@@ -373,7 +410,11 @@ const OrderInvoicePage: React.FC = () => {
                   <strong>Thời gian thanh toán:</strong> {viewOrder?.paymentInfo?.paymentDate ? dayjs(viewOrder.paymentInfo.paymentDate).format('HH:mm DD/MM/YYYY') : '—'}
                 </div>
                 <div>
-                  <strong>Trạng thái:</strong> <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">{getStatusDisplay(viewOrder.orderStatus || '')}</span>
+                  <strong>Trạng thái:</strong> <span className={`px-2 py-1 rounded-full text-xs ${
+                    viewOrder.orderStatus === "RETURNED" 
+                      ? "bg-orange-100 text-orange-700" 
+                      : "bg-green-100 text-green-700"
+                  }`}>{getStatusDisplay(viewOrder.orderStatus || '')}</span>
                 </div>
                 <div>
                   <strong>Phương thức thanh toán:</strong> {viewOrder.paymentMethod}
@@ -384,43 +425,37 @@ const OrderInvoicePage: React.FC = () => {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full">
+                <table className="min-w-full border-collapse">
                   <thead className="bg-gray-100">
                     <tr>
-                      <th className="p-3 text-left font-semibold">Sản phẩm</th>
-                      <th className="p-3 text-left font-semibold">Suất chiếu</th>
-                      <th className="p-3 text-left font-semibold">Vé</th>
-                      <th className="p-3 text-left font-semibold">Concession(s)</th>
-                      {promoInfo?.hasVoucher && <th className="p-3 text-left font-semibold" style={{minWidth: 100}}>Voucher</th>}
-                      {promoInfo?.hasAmountDiscount && <th className="p-3 text-left font-semibold">Khuyến mãi tiền</th>}
-                      {promoInfo?.hasPercentPromotions && <th className="p-3 text-left font-semibold">Khuyến mãi chiết khấu</th>}
-                      {promoInfo?.hasItemPromotions && <th className="p-3 text-left font-semibold">Khuyến mãi hàng</th>}
-                      <th className="p-3 text-left font-semibold">Thành tiền</th>
+                      <th className="p-3 text-left font-semibold border border-gray-300">Sản phẩm</th>
+                      <th className="p-3 text-left font-semibold border border-gray-300">Suất chiếu</th>
+                      <th className="p-3 text-left font-semibold border border-gray-300">Vé</th>
+                      <th className="p-3 text-left font-semibold border border-gray-300">Concession(s)</th>
+                      <th className="p-3 text-left font-semibold border border-gray-300">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b align-top">
-                      <td className="p-3 font-medium">{(viewOrder.movieId as any)?.title || '—'}</td>
-                      <td className="p-3">
-                        <div>{(viewOrder.theaterId as any)?.name || '—'}</div>
-                        <div>{viewOrder.room}</div>
-                        <div>{dayjs(viewOrder.showDate).format('DD/MM/YYYY')}</div>
-                        <div>
-                          Từ {viewOrder.showTime}
-                        </div>
+                    <tr>
+                      <td className="p-3 font-medium border border-gray-300 align-top">{(viewOrder.movieId as any)?.title || '—'}</td>
+                      <td className="p-3 border border-gray-300 align-top">
+                        <div className="mb-1">{(viewOrder.theaterId as any)?.name || '—'}</div>
+                        <div className="mb-1">{viewOrder.room}</div>
+                        <div className="mb-1">{dayjs(viewOrder.showDate).format('DD/MM/YYYY')}</div>
+                        <div>Từ {viewOrder.showTime}</div>
                       </td>
-                      <td className="p-3">
-                        <div>{viewOrder.seats?.[0]?.type || 'VIP'}</div>
-                        <div>{viewOrder.seats?.map((s: any) => s.seatId).join(', ')}</div>
+                      <td className="p-3 border border-gray-300 align-top">
+                        <div className="mb-1">{viewOrder.seats?.[0]?.type || 'VIP'}</div>
+                        <div className="mb-1">{viewOrder.seats?.map((s: any) => s.seatId).join(', ')}</div>
                         <div className="font-semibold">{currency(viewOrder.seats?.[0]?.price || 0)}</div>
                       </td>
-                      <td className="p-3">
+                      <td className="p-3 border border-gray-300 align-top">
                         {viewOrder.foodCombos && viewOrder.foodCombos.length > 0 ? (
                           <div className="space-y-2">
                             {viewOrder.foodCombos.map((combo: any, idx: number) => (
-                              <div key={idx}>
+                              <div key={idx} className="mb-2">
                                 <div className="font-medium">{combo.comboId?.name || 'Food Combo'}</div>
-                                <div>{combo.quantity} x {currency(combo.price)}</div>
+                                <div className="text-sm text-gray-600">{combo.quantity} x {currency(combo.price)}</div>
                               </div>
                             ))}
                           </div>
@@ -428,49 +463,78 @@ const OrderInvoicePage: React.FC = () => {
                           <span className="text-gray-500">-</span>
                         )}
                       </td>
-
-                      {promoInfo?.hasVoucher && (
-                        <td className="p-3">- {currency(viewOrder.voucherDiscount || 0)}</td>
-                      )}
-
-                      {promoInfo?.hasAmountDiscount && (
-                        <td className="p-3">
-                          <div>{promoInfo?.amountDiscountInfo?.description}</div>
-                          <div>- {currency(promoInfo?.amountDiscountVal || 0)}</div>
-                        </td>
-                      )}
-
-                      {promoInfo?.hasPercentPromotions && (
-                        <td className="p-3">
-                          {promoInfo?.percentPromotions.map((p: any, i: number) => {
-                            const cut = typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0);
-                            return (
-                              <div key={i}>
-                                <div>{p?.description}</div>
-                                <div>- {currency(cut)}</div>
-                              </div>
-                            );
-                          })}
-                        </td>
-                      )}
-
-                      {promoInfo?.hasItemPromotions && (
-                        <td className="p-3">
-                          {promoInfo?.itemPromotions.map((it: any, i: number) => (
-                            <div key={i}>
-                              <div>{it.description || ''}</div>
-                              <div>+{it.rewardQuantity || 0} {it.rewardItem || ''}</div>
-                            </div>
-                          ))}
-                        </td>
-                      )}
-
-                      <td className="p-3 font-semibold">{currency(viewOrder.totalAmount || 0)}</td>
+                      <td className="p-3 font-semibold border border-gray-300 align-top text-right">{currency(viewOrder.totalAmount || 0)}</td>
                     </tr>
                   </tbody>
                 </table>
+
+                {(promoInfo?.hasAmountDiscount || promoInfo?.hasPercentPromotions || promoInfo?.hasItemPromotions || promoInfo?.hasVoucher) && (
+                  <div className="mt-4">
+                    <table className="min-w-full border-collapse">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {promoInfo?.hasAmountDiscount && <th className="p-3 text-left font-semibold border border-gray-300">Khuyến mãi tiền</th>}
+                          {promoInfo?.hasPercentPromotions && <th className="p-3 text-left font-semibold border border-gray-300">Khuyến mãi chiết khấu</th>}
+                          {promoInfo?.hasItemPromotions && <th className="p-3 text-left font-semibold border border-gray-300">Khuyến mãi hàng</th>}
+                          {(promoInfo?.hasVoucher || promoInfo?.hasAmountDiscount || promoInfo?.hasPercentPromotions) && (
+                            <th className="p-3 text-left font-semibold border border-gray-300">Tổng tiền giảm</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {promoInfo?.hasAmountDiscount && (
+                            <td className="p-3 border border-gray-300 align-top">
+                              <div className="mb-1 text-sm">{promoInfo?.amountDiscountInfo?.description}</div>
+                              <div className="font-bold text-black">- {currency(promoInfo?.amountDiscountVal || 0)}</div>
+                            </td>
+                          )}
+                          {promoInfo?.hasPercentPromotions && (
+                            <td className="p-3 border border-gray-300 align-top">
+                              {promoInfo?.percentPromotions.map((p: any, i: number) => {
+                                const cut = typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0);
+                                return (
+                                  <div key={i} className={i > 0 ? "mt-2" : ""}>
+                                    <div className="mb-1 text-sm">{p?.description}</div>
+                                    <div className="font-bold text-black">- {currency(cut)}</div>
+                                  </div>
+                                );
+                              })}
+                            </td>
+                          )}
+                          {promoInfo?.hasItemPromotions && (
+                            <td className="p-3 border border-gray-300 align-top">
+                              {promoInfo?.itemPromotions.map((it: any, i: number) => (
+                                <div key={i} className={i > 0 ? "mt-2" : ""}>
+                                  <div className="mb-1 text-sm">{it.description || ''}</div>
+                                  <div className="font-semibold text-green-600">+{it.rewardQuantity || 0} {it.rewardItem || ''}</div>
+                                </div>
+                              ))}
+                            </td>
+                          )}
+                          {(promoInfo?.hasVoucher || promoInfo?.hasAmountDiscount || promoInfo?.hasPercentPromotions) && (
+                            <td className="p-3 font-semibold border border-gray-300 align-top text-right">
+                              <div className="text-lg font-bold text-black">
+                                - {currency(
+                                  (viewOrder.voucherDiscount || 0) + 
+                                  (promoInfo?.amountDiscountVal || 0) + 
+                                  (promoInfo?.percentPromotions?.reduce((sum: number, p: any) => {
+                                    const cut = typeof p?.discountAmount === 'number' ? p.discountAmount : (p?.amount || 0);
+                                    return sum + cut;
+                                  }, 0) || 0)
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div className="mt-4 text-right font-bold">Tổng cộng: {currency(viewOrder.finalAmount || 0)}</div>
+              <div className="mt-6 pt-4 border-t-2 border-gray-400 text-right">
+                <div className="text-xl font-bold">Tổng cộng: <span className="text-red-600">{currency(viewOrder.finalAmount || 0)}</span></div>
+              </div>
             </div>
           )}
         </Modal>

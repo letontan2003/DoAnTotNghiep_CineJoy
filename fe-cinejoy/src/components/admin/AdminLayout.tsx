@@ -193,7 +193,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     <Link to={{ pathname: "/admin" }} state={{ tab: 'orders' }} className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🧾</span>
-                        <span>Đơn vé</span>
+                        <span>Hóa đơn</span>
                       </div>
                     </Link>
                   </li>

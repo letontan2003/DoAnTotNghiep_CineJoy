@@ -121,8 +121,6 @@ const Dashboard: React.FC = () => {
   // Orders filters & pagination (đặt ở ngoài bảng)
   const [ordersPage, setOrdersPage] = useState<number>(1);
   const [orderSearch, setOrderSearch] = useState<string>("");
-  const [filterFrom, setFilterFrom] = useState<string>(""); // yyyy-MM-dd
-  const [filterTo, setFilterTo] = useState<string>("");
   const ordersItemsPerPage = 10;
 
   const loadOrders = useCallback(async () => {
@@ -146,62 +144,40 @@ const Dashboard: React.FC = () => {
     }
   }, [activeTab, ordersLoaded, ordersLoading, loadOrders]);
 
-  // Gom theo khách hàng (email) -> tính from/to
+  // Gom theo khách hàng (email)
   const groupedOrders = useMemo(() => {
-      const map = new Map<string, { fullName: string; email: string; from: string; to: string }>();
+      const map = new Map<string, { fullName: string; email: string; phoneNumber: string }>();
       for (const od of orders) {
         const email = od?.customerInfo?.email || "";
         const fullName = od?.customerInfo?.fullName || "";
-        const created = od?.createdAt ? new Date(od.createdAt) : null;
-        if (!email || !created) continue;
+        const phoneNumber = od?.customerInfo?.phoneNumber || "";
+        if (!email) continue;
         const key = email.toLowerCase();
         if (!map.has(key)) {
           map.set(key, {
             fullName,
             email,
-            from: created.toISOString(),
-            to: created.toISOString(),
+            phoneNumber,
           });
-        } else {
-          const item = map.get(key)!;
-          if (created.toISOString() < item.from) item.from = created.toISOString();
-          if (created.toISOString() > item.to) item.to = created.toISOString();
         }
       }
       // chuyển thành mảng và sắp xếp theo tên
       return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
     }, [orders]);
 
-  // Lọc theo text và ngày (áp dụng cho groupedOrders)
+  // Lọc theo text (áp dụng cho groupedOrders)
   const filteredOrders = useMemo(() => {
       const text = orderSearch.trim().toLowerCase();
       const hasText = text.length > 0;
-      const hasFrom = !!filterFrom;
-      const hasTo = !!filterTo;
-
-      const fromDate = hasFrom ? new Date(filterFrom) : null;
-      const toDate = hasTo ? new Date(filterTo) : null;
-      if (toDate) {
-        toDate.setHours(23, 59, 59, 999);
-      }
-
-      const isWithin = (d: Date) => {
-        if (fromDate && toDate) return d >= fromDate && d <= toDate;
-        if (fromDate && !toDate) return d >= fromDate;
-        if (!fromDate && toDate) return d <= toDate;
-        return true; // không lọc
-      };
 
       return groupedOrders.filter((g) => {
-        const matchText = !hasText || g.fullName.toLowerCase().includes(text) || g.email.toLowerCase().includes(text);
-        if (!matchText) return false;
-        if (!hasFrom && !hasTo) return true;
-        const from = new Date(g.from);
-        const to = new Date(g.to);
-        // Chỉ cần 1 trong 2 mốc nằm trong khoảng chọn
-        return isWithin(from) || isWithin(to);
+        const matchText = !hasText || 
+          g.fullName.toLowerCase().includes(text) || 
+          g.email.toLowerCase().includes(text) ||
+          g.phoneNumber.toLowerCase().includes(text);
+        return matchText;
       });
-    }, [groupedOrders, orderSearch, filterFrom, filterTo]);
+    }, [groupedOrders, orderSearch]);
 
   const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ordersItemsPerPage));
   const startIndexOrders = (ordersPage - 1) * ordersItemsPerPage;
@@ -211,7 +187,7 @@ const Dashboard: React.FC = () => {
     if (ordersPage > totalOrderPages) setOrdersPage(1);
   }, [totalOrderPages, ordersPage]);
 
-  const OrdersTable: React.FC<{ rows: { fullName: string; email: string; from: string; to: string }[] }>
+  const OrdersTable: React.FC<{ rows: { fullName: string; email: string; phoneNumber: string }[] }>
     = ({ rows }) => {
     return (
       <div>
@@ -219,24 +195,22 @@ const Dashboard: React.FC = () => {
           <table className="min-w-full">
             <thead className="bg-gray-100 text-black border-b border-gray-200">
               <tr>
-                <th className="p-3 text-left font-semibold text-black">Từ ngày</th>
-                <th className="p-3 text-left font-semibold text-black">Đến ngày</th>
                 <th className="p-3 text-left font-semibold text-black">Người mua</th>
                 <th className="p-3 text-left font-semibold text-black">Email</th>
+                <th className="p-3 text-left font-semibold text-black">Số điện thoại</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((g: { fullName: string; email: string; from: string; to: string }) => (
+              {rows.map((g: { fullName: string; email: string; phoneNumber: string }) => (
                 <tr key={g.email} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/orders/invoice/${encodeURIComponent(g.email)}`)}>
-                  <td className="p-3">{new Date(g.from).toLocaleDateString("vi-VN")}</td>
-                  <td className="p-3">{new Date(g.to).toLocaleDateString("vi-VN")}</td>
                   <td className="p-3">{g.fullName}</td>
                   <td className="p-3">{g.email}</td>
+                  <td className="p-3">{g.phoneNumber}</td>
                 </tr>
               ))}
               {rows.length === 0 && !ordersLoading && (
                 <tr>
-                  <td className="p-4 text-center text-gray-500" colSpan={4}>Không có dữ liệu</td>
+                  <td className="p-4 text-center text-gray-500" colSpan={3}>Không có dữ liệu</td>
                 </tr>
               )}
             </tbody>
@@ -1367,17 +1341,38 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
 
   const handleDeleteVoucher = async (voucherId: string) => {
     try {
+      // Kiểm tra xem voucher có promotion lines đã sử dụng không
+      const hasUsedLines = voucherUsageStatusMap.get(voucherId) || false;
+      const voucher = vouchers.find(v => v._id === voucherId);
+      const endDate = voucher?.endDate || voucher?.validityPeriod?.endDate;
+      const isEndDatePassed = endDate ? dayjs(endDate as string).isBefore(dayjs(), 'day') : false;
+      
+      if (hasUsedLines && voucher?.status === 'không hoạt động' && isEndDatePassed) {
+        message.error('Các chương trình khuyến mãi đã sử dụng, không thể xóa.');
+        return;
+      }
+
       await deleteVoucher(voucherId);
       // Reload dữ liệu sau khi xóa
       await loadVouchers();
-    toast.success("Xóa khuyến mãi thành công!");
+      toast.success("Xóa khuyến mãi thành công!");
     } catch (error) {
       console.error("Error deleting voucher:", error);
-    toast.error("Xóa khuyến mãi thất bại!");
+      toast.error("Xóa khuyến mãi thất bại!");
     }
   };
 
   const handleEditVoucher = (voucher: IVoucher) => {
+    // Kiểm tra xem voucher có promotion lines đã sử dụng không
+    const hasUsedLines = voucher._id ? (voucherUsageStatusMap.get(voucher._id) || false) : false;
+    const endDate = voucher.endDate || voucher.validityPeriod?.endDate;
+    const isEndDatePassed = endDate ? dayjs(endDate as string).isBefore(dayjs(), 'day') : false;
+    
+    if (hasUsedLines && voucher.status === 'không hoạt động' && isEndDatePassed) {
+      message.error('Các chương trình khuyến mãi đã sử dụng, không thể sửa.');
+      return;
+    }
+
     setSelectedVoucher(voucher);
     setShowVoucherForm(true);
   };
@@ -1645,7 +1640,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
                     { label: "Khuyến mãi", value: "vouchers", icon: "🎫" },
                     { label: "Thống Kê", value: "statistics", icon: "📊" },
-                    { label: "Đơn vé", value: "orders", icon: "🧾" },
+                    { label: "Hóa đơn", value: "orders", icon: "🧾" },
                   ].map((subItem) => (
                     <li
                       key={subItem.value}
@@ -2886,32 +2881,16 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                         </div>
                         <div className="flex gap-2 justify-start" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                             {(() => {
-                              // Kiểm tra xem ngày kết thúc có quá ngày hiện tại không
-                              const endDate = voucher.endDate || voucher.validityPeriod?.endDate;
-                              const isEndDatePassed = endDate ? dayjs(endDate as string).isBefore(dayjs(), 'day') : false;
-                              
-                              // Kiểm tra xem voucher có promotion lines đã sử dụng không
-                              const hasUsedLines = voucher._id ? (voucherUsageStatusMap.get(voucher._id) || false) : false;
-                              
-                              // Disable nút nếu có promotion lines đã sử dụng và trạng thái là "không hoạt động" và đã kết thúc
-                              const isDisabled = hasUsedLines && voucher.status === 'không hoạt động' && isEndDatePassed;
-                              
                               return (
                                 <>
                                   <motion.button
                                     onClick={(e) => { 
-                                      if (isDisabled) return;
                                       e.stopPropagation(); 
                                       handleEditVoucher(voucher); 
                                     }}
-                                    disabled={isDisabled}
-                                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                                      isDisabled 
-                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                                        : 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
-                                    }`}
-                                    whileHover={!isDisabled ? { scale: 1.05 } : {}}
-                                    whileTap={!isDisabled ? { scale: 0.95 } : {}}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                   >
                                     Sửa
                                   </motion.button>
@@ -2920,33 +2899,22 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                                       title="Xóa khuyến mãi"
                                       description="Bạn có chắc chắn muốn xóa khuyến mãi này? Tất cả chi tiết liên quan sẽ bị xóa."
                                       onConfirm={() => {
-                                        if (!isDisabled) {
-                                          handleDeleteVoucher(voucher._id!);
-                                        }
+                                        handleDeleteVoucher(voucher._id!);
                                       }}
                                       okText="Có"
                                       cancelText="Không"
                                       onOpenChange={(open) => {
-                                        if (!isDisabled) {
-                                          setBlockVoucherRowNavigate(open);
-                                        }
+                                        setBlockVoucherRowNavigate(open);
                                       }}
                                       onCancel={() => setBlockVoucherRowNavigate(false)}
-                                      disabled={isDisabled}
                                     >
                                       <motion.button
                                         onClick={(e) => {
-                                          if (isDisabled) return;
                                           e.stopPropagation();
                                         }}
-                                        disabled={isDisabled}
-                                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                                          isDisabled 
-                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                                            : 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
-                                        }`}
-                                        whileHover={!isDisabled ? { scale: 1.05 } : {}}
-                                        whileTap={!isDisabled ? { scale: 0.95 } : {}}
+                                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                       >
                                         Xóa
                                       </motion.button>
@@ -2974,7 +2942,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
           {activeTab === "orders" && (
             <div>
               <h2 className="text-2xl font-semibold mb-6 text-black select-none">
-                Quản lý Đơn vé
+                Quản lý Hóa đơn
               </h2>
               {/* Thanh công cụ lọc & phân trang nằm ngoài bảng */}
               <div className="mb-4 flex items-center justify-between">
@@ -2983,25 +2951,9 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
                     value={orderSearch}
                     onChange={(e) => { setOrdersPage(1); setOrderSearch(e.target.value); }}
                     type="text"
-                    placeholder="Tìm theo tên hoặc email..."
+                    placeholder="Tìm theo tên, email hoặc Sdt..."
                     className="border border-gray-300 bg-white text-black rounded-lg p-2 w-64 focus:outline-none focus:ring-2 focus:ring-black"
                   />
-                  <DatePicker.RangePicker
-                    value={[filterFrom ? (dayjs as any)(filterFrom) : null, filterTo ? (dayjs as any)(filterTo) : null] as any}
-                    onChange={(vals) => {
-                      setOrdersPage(1);
-                      const [start, end] = vals || [];
-                      setFilterFrom(start ? (start as any).format('YYYY-MM-DD') : '');
-                      setFilterTo(end ? (end as any).format('YYYY-MM-DD') : '');
-                    }}
-                    format="DD/MM/YYYY"
-                  />
-                  <button
-                    className="px-3 py-1 bg-gray-100 text-black rounded hover:bg-gray-200 cursor-pointer"
-                    onClick={() => { setOrderSearch(""); setFilterFrom(""); setFilterTo(""); setOrdersPage(1); }}
-                  >
-                    Xóa lọc
-                  </button>
                 </div>
                 <div className="text-sm text-gray-700">
                   Trang {ordersPage} / {totalOrderPages}
