@@ -25,6 +25,56 @@ const ChatbotController = {
         res.json({ reply: response });
     },
 
+    // Xử lý upload poster phim (Multi-modal)
+    uploadPoster: async (req: any, res: any) => {
+        try {
+            const { imageBase64, mimeType = "image/jpeg", sessionId = "default" } = req.body;
+
+            if (!imageBase64) {
+                return res.status(400).json({ 
+                    success: false,
+                    error: "Hình ảnh không được để trống." 
+                });
+            }
+
+            // Lấy userId từ req.user nếu có (khi đã authenticate)
+            const userId = (req as any).user?._id?.toString() || req.body.userId;
+
+            // Xử lý poster
+            const result = await chatbotService.processPosterUpload(
+                imageBase64,
+                mimeType,
+                userId
+            );
+
+            // Lưu tin nhắn vào lịch sử
+            chatbotService.saveMessage(sessionId, {
+                sender: "user",
+                text: "[Đã upload poster phim]",
+            });
+
+            chatbotService.saveMessage(sessionId, {
+                sender: "bot",
+                text: result.message,
+            });
+
+            res.json({
+                success: result.success,
+                reply: result.message,
+                movie: result.movie,
+                showtimes: result.showtimes,
+                movieTitle: result.movieTitle,
+            });
+        } catch (error: any) {
+            console.error("Error in uploadPoster:", error);
+            res.status(500).json({
+                success: false,
+                error: "Đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.",
+                details: error.message,
+            });
+        }
+    },
+
 
 
     //Trên Faceboook

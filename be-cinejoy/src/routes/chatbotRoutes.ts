@@ -8,6 +8,9 @@ const router = express.Router();
 // optionalVerifyToken: nếu có token thì lấy user info, không có thì vẫn hoạt động bình thường
 router.post('/chat', optionalVerifyToken as express.RequestHandler, ChatbotController.getChatResponse);
 
+// Route để upload poster phim (Multi-modal Assistant)
+router.post('/upload-poster', optionalVerifyToken as express.RequestHandler, ChatbotController.uploadPoster);
+
 // Facebook Messenger Webhook routes
 router.get('/webhook', ChatbotController.verifyWebhook);
 router.post('/webhook', ChatbotController.handleWebhook);

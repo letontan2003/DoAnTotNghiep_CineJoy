@@ -7,10 +7,19 @@ import { FaFacebookF } from 'react-icons/fa';
 interface Message {
     sender: 'user' | 'bot';
     text: string;
+    image?: string; // Base64 image URL for display
 }
 
 interface ChatResponse {
     reply: string;
+}
+
+interface PosterUploadResponse {
+    success: boolean;
+    reply: string;
+    movie?: any;
+    showtimes?: any[];
+    movieTitle?: string;
 }
 
 const Chatbot: React.FC = () => {
@@ -111,6 +120,85 @@ const Chatbot: React.FC = () => {
         }
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Vui lòng chọn file hình ảnh!');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Kích thước file không được vượt quá 5MB!');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            // Convert file to base64
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64String = (reader.result as string).split(',')[1]; // Remove data:image/...;base64, prefix
+                const mimeType = file.type;
+
+                // Lấy token từ localStorage nếu có
+                const token = localStorage.getItem('accessToken');
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                // Gọi API upload poster
+                const response = await axios.post<PosterUploadResponse>(
+                    'http://localhost:5000/chatbot/upload-poster',
+                    {
+                        imageBase64: base64String,
+                        mimeType: mimeType,
+                    },
+                    { headers }
+                );
+
+                // Hiển thị image trong message user
+                const imageUrl = URL.createObjectURL(file);
+                setMessages(prev => [...prev, { 
+                    sender: 'user', 
+                    text: '📷 [Đã upload poster phim]',
+                    image: imageUrl
+                }]);
+
+                // Hiển thị response từ bot
+                setMessages(prev => [...prev, { 
+                    sender: 'bot', 
+                    text: response.data.reply 
+                }]);
+            };
+
+            reader.onerror = () => {
+                alert('Lỗi khi đọc file!');
+                setIsLoading(false);
+            };
+
+            reader.readAsDataURL(file);
+        } catch (error: any) {
+            console.error('Error uploading image:', error);
+            setMessages(prev => [...prev, {
+                sender: 'bot',
+                text: error.response?.data?.error || 'Xin lỗi, đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.'
+            }]);
+        } finally {
+            setIsLoading(false);
+            // Reset input
+            e.target.value = '';
+        }
+    };
+
     return (
         <>
             <div className="fixed bottom-8 right-5 flex flex-col items-center z-9999">
@@ -173,7 +261,17 @@ const Chatbot: React.FC = () => {
                                             : 'bg-white text-gray-800 border border-gray-200'
                                             }`}
                                     >
-                                        {message.text}
+                                        {message.image && (
+                                            <div className="mb-2">
+                                                <img 
+                                                    src={message.image} 
+                                                    alt="Uploaded poster" 
+                                                    className="max-w-full h-auto rounded-lg"
+                                                    style={{ maxHeight: '200px' }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="whitespace-pre-line">{message.text}</div>
                                     </div>
                                 </div>
                             ))}
@@ -193,7 +291,25 @@ const Chatbot: React.FC = () => {
 
                         {/* Input */}
                         <div className="border-t border-gray-200 bg-gray-50 p-4 rounded-b-xl">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                                {/* Nút upload image */}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    id="poster-upload"
+                                    className="hidden"
+                                    onChange={handleImageUpload}
+                                    disabled={isLoading}
+                                />
+                                <label
+                                    htmlFor="poster-upload"
+                                    className="bg-gray-200 text-gray-700 px-3 py-3 rounded-xl hover:bg-gray-300 transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95 flex items-center justify-center min-w-[48px] disabled:opacity-50"
+                                    title="Upload poster phim"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </label>
                                 <input
                                     ref={inputRef}
                                     type="text"
