@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Spin, Typography, DatePicker, Button } from 'antd';
+import { Table, Spin, Typography, DatePicker, Button, Select } from 'antd';
 import { ArrowLeftOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getAllOrders } from '@/apiservice/apiOrder';
+import { getTheaters } from '@/apiservice/apiTheater';
 import useAppStore from '@/store/app.store';
 import dayjs from 'dayjs';
 import ExcelJS from 'exceljs';
@@ -35,10 +36,39 @@ const SalesReportByDay: React.FC = () => {
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [minDate, setMinDate] = useState<dayjs.Dayjs | null>(null);
   const [maxDate, setMaxDate] = useState<dayjs.Dayjs | null>(null);
+  const [theaters, setTheaters] = useState<ITheater[]>([]);
+  const [selectedTheaterCode, setSelectedTheaterCode] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportData();
+    fetchTheaters();
   }, []);
+
+  // Debug: Log theaters state changes
+  useEffect(() => {
+    console.log('Theaters state updated:', theaters);
+    console.log('Theaters count:', theaters.length);
+  }, [theaters]);
+
+  const fetchTheaters = async () => {
+    try {
+      console.log('Fetching theaters...');
+      const theatersData = await getTheaters();
+      console.log('Theaters data received:', theatersData);
+      console.log('Is array?', Array.isArray(theatersData));
+      
+      if (Array.isArray(theatersData)) {
+        setTheaters(theatersData);
+        console.log('Theaters set successfully, count:', theatersData.length);
+      } else {
+        console.warn('Theaters data is not an array:', theatersData);
+        setTheaters([]);
+      }
+    } catch (error) {
+      console.error('Error fetching theaters:', error);
+      setTheaters([]);
+    }
+  };
 
   const fetchReportData = async () => {
     try {
@@ -190,23 +220,33 @@ const SalesReportByDay: React.FC = () => {
     }
   };
 
-  // Filter data based on date range
+  // Filter data based on date range and theater
   useEffect(() => {
     console.log('Filtering data. Report data length:', reportData.length);
     let filtered = [...reportData];
 
-    // Filter by date range
-    if (dateRange) {
-      const [startDate, endDate] = dateRange;
-      
+    // Filter by date range and/or theater
+    const hasDateFilter = dateRange !== null;
+    const hasTheaterFilter = selectedTheaterCode !== null;
+
+    if (hasDateFilter || hasTheaterFilter) {
       // Lọc chỉ lấy các dòng dữ liệu (không phải tổng cộng)
       const dataOnly = reportData.filter(item => !item.isSubtotal && !item.isGrandTotal);
       
-      // Lọc theo khoảng ngày
-      const filteredData = dataOnly.filter(item => {
-        const itemDate = dayjs(item.date, 'DD/MM/YYYY');
-        return itemDate.isSameOrAfter(startDate) && itemDate.isSameOrBefore(endDate);
-      });
+      // Lọc theo khoảng ngày và/hoặc rạp
+      let filteredData = dataOnly;
+      
+      if (hasDateFilter) {
+        const [startDate, endDate] = dateRange!;
+        filteredData = filteredData.filter(item => {
+          const itemDate = dayjs(item.date, 'DD/MM/YYYY');
+          return itemDate.isSameOrAfter(startDate) && itemDate.isSameOrBefore(endDate);
+        });
+      }
+      
+      if (hasTheaterFilter) {
+        filteredData = filteredData.filter(item => item.theaterCode === selectedTheaterCode);
+      }
       
       // Nhóm lại theo rạp và tính lại tổng
       const theaterGroups: Record<string, SalesReportData[]> = {};
@@ -283,7 +323,7 @@ const SalesReportByDay: React.FC = () => {
     
     console.log('Filtered data length:', filtered.length);
     setFilteredData(filtered);
-  }, [reportData, dateRange]);
+  }, [reportData, dateRange, selectedTheaterCode]);
 
   // Hàm format tiền với dấu chấm phân cách
   const formatCurrency = (amount: number): string => {
@@ -344,9 +384,22 @@ const SalesReportByDay: React.FC = () => {
     infoCell4.value = `Từ ngày: ${fromDate}         Đến ngày: ${toDate}`;
     infoCell4.alignment = { horizontal: 'left', vertical: 'middle' };
     
-    // Empty row 5
+    // Add theater filter info if selected
+    if (selectedTheaterCode) {
+      const selectedTheater = theaters.find(t => t.theaterCode === selectedTheaterCode);
+      const theaterInfo = selectedTheater 
+        ? `${selectedTheater.theaterCode} - ${selectedTheater.name}`
+        : selectedTheaterCode;
+      worksheet.mergeCells('A5:H5');
+      const infoCell5 = worksheet.getCell('A5');
+      infoCell5.value = `Rạp: ${theaterInfo}`;
+      infoCell5.alignment = { horizontal: 'left', vertical: 'middle' };
+    }
     
-    // Add table headers (Row 6) - IN ĐẬM
+    // Empty row (5 or 6 depending on theater filter)
+    const emptyRow = selectedTheaterCode ? 6 : 5;
+    
+    // Add table headers - IN ĐẬM
     const headers = [
       'STT',
       'Mã Rạp',
@@ -358,7 +411,7 @@ const SalesReportByDay: React.FC = () => {
       'Doanh số sau CK'
     ];
     
-    const headerRow = worksheet.getRow(6);
+    const headerRow = worksheet.getRow(emptyRow);
     headerRow.values = headers;
     headerRow.font = { bold: true };
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -381,7 +434,7 @@ const SalesReportByDay: React.FC = () => {
     
     // Add data rows
     filteredData.forEach((item, index) => {
-      const row = worksheet.getRow(7 + index);
+      const row = worksheet.getRow(emptyRow + 1 + index);
       
       // Handle grand total row specially
       if (item.isGrandTotal) {
@@ -426,7 +479,7 @@ const SalesReportByDay: React.FC = () => {
     let currentGroupStt: number | null = null;
     
     filteredData.forEach((item, index) => {
-      const rowIndex = 7 + index;
+      const rowIndex = emptyRow + 1 + index;
       
       if (item.isFirstInGroup && !item.isSubtotal && !item.isGrandTotal) {
         // Nếu có nhóm trước đó, merge nó
@@ -460,7 +513,7 @@ const SalesReportByDay: React.FC = () => {
     
     // Merge nhóm cuối cùng nếu còn
     if (currentGroupStart !== null && currentGroupStt !== null) {
-      const lastRow = 7 + filteredData.length - 1;
+      const lastRow = emptyRow + 1 + filteredData.length - 1;
       if (lastRow > currentGroupStart) {
         worksheet.mergeCells(`A${currentGroupStart}:A${lastRow}`);
         const cell = worksheet.getCell(`A${currentGroupStart}`);
@@ -489,6 +542,13 @@ const SalesReportByDay: React.FC = () => {
       filename += ` từ ${startDate} đến ${endDate}`;
     } else {
       filename += ` từ ${fromDate} đến ${toDate}`;
+    }
+    if (selectedTheaterCode) {
+      const selectedTheater = theaters.find(t => t.theaterCode === selectedTheaterCode);
+      const theaterInfo = selectedTheater 
+        ? `${selectedTheater.theaterCode} - ${selectedTheater.name}`
+        : selectedTheaterCode;
+      filename += ` - ${theaterInfo}`;
     }
     
     // Save file
@@ -634,7 +694,7 @@ const SalesReportByDay: React.FC = () => {
           </button>
           <div className="text-center mt-2">
             <Title level={2} className="mb-0 text-gray-800">
-              DOANH SỐ BÁN HÀNG THEO NGÀY
+              DOANH SỐ BÁN HÀNG THEO NGÀY CỦA HỆ THỐNG RẠP
             </Title>
           </div>
           <div className="flex items-center">
@@ -674,10 +734,35 @@ const SalesReportByDay: React.FC = () => {
               />
             </div>
 
+            {/* Theater filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600 font-medium">Rạp:</span>
+              <Select
+                value={selectedTheaterCode}
+                onChange={(value) => setSelectedTheaterCode(value)}
+                placeholder="Chọn rạp"
+                allowClear
+                style={{ width: 250 }}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={theaters && theaters.length > 0 
+                  ? theaters.map(theater => ({
+                      value: theater.theaterCode,
+                      label: `${theater.theaterCode} - ${theater.name}`
+                    }))
+                  : []
+                }
+                notFoundContent={theaters.length === 0 ? 'Đang tải dữ liệu...' : 'Không có dữ liệu'}
+              />
+            </div>
+
             {/* Clear filters button */}
             <button
               onClick={() => {
                 setDateRange(null);
+                setSelectedTheaterCode(null);
               }}
               className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors duration-200 text-gray-600"
             >

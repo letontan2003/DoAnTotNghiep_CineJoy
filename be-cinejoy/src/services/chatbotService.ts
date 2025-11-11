@@ -51,6 +51,11 @@ const ChatbotService = {
                 - Thể loại: ${movie.genre?.join(", ") || "Chưa phân loại"}
                 - Thời lượng: ${movie.duration || "Chưa cập nhật"} phút
                 - Ngày khởi chiếu: ${
+                  movie.startDate
+                    ? new Date(movie.startDate).toLocaleDateString("vi-VN")
+                    : "Chưa cập nhật"
+                }
+                - Ngày phát hành: ${
                   movie.releaseDate
                     ? new Date(movie.releaseDate).toLocaleDateString("vi-VN")
                     : "Chưa cập nhật"
