@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +8,8 @@ import {
   StatusBar,
   ScrollView,
   Platform,
+  Linking,
+  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -68,6 +69,65 @@ const MovieDetailScreen = () => {
     return ratingMap[ageRating] || ageRating;
   };
 
+  // Lấy YouTube video ID từ URL
+  const getYouTubeVideoId = (url: string): string | null => {
+    if (!url) return null;
+
+    let videoId = "";
+
+    // Format: https://www.youtube.com/watch?v=VIDEO_ID
+    if (url.includes("youtube.com/watch?v=")) {
+      videoId = url.split("v=")[1]?.split("&")[0] || "";
+    }
+    // Format: https://youtu.be/VIDEO_ID
+    else if (url.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1]?.split("?")[0] || "";
+    }
+    // Format: https://www.youtube.com/embed/VIDEO_ID
+    else if (url.includes("youtube.com/embed/")) {
+      videoId = url.split("embed/")[1]?.split("?")[0] || "";
+    }
+    // Nếu đã là video ID trực tiếp
+    else if (!url.includes("http")) {
+      videoId = url;
+    }
+
+    return videoId || null;
+  };
+
+  const handlePlayTrailer = async () => {
+    if (!movie.trailer) {
+      Alert.alert("Thông báo", "Trailer chưa có sẵn");
+      return;
+    }
+
+    const videoId = getYouTubeVideoId(movie.trailer);
+    if (!videoId) {
+      Alert.alert("Lỗi", "Link trailer không hợp lệ.");
+      return;
+    }
+
+    // Thử mở YouTube app trước, nếu không có thì mở browser
+    const youtubeAppUrl =
+      Platform.OS === "ios"
+        ? `youtube://watch?v=${videoId}`
+        : `vnd.youtube:${videoId}`;
+    const youtubeWebUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    try {
+      const canOpenApp = await Linking.canOpenURL(youtubeAppUrl);
+      if (canOpenApp) {
+        await Linking.openURL(youtubeAppUrl);
+      } else {
+        await Linking.openURL(youtubeWebUrl);
+      }
+    } catch (error) {
+      console.error("Error opening YouTube:", error);
+      // Fallback: mở browser
+      await Linking.openURL(youtubeWebUrl);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -89,7 +149,11 @@ const MovieDetailScreen = () => {
           />
           {/* Play button overlay */}
           <View style={styles.playButtonContainer}>
-            <TouchableOpacity style={styles.playButton}>
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={handlePlayTrailer}
+              activeOpacity={0.8}
+            >
               <View style={styles.playIconContainer}>
                 <Fontisto name="play" size={24} color="#E50914" />
               </View>
@@ -200,7 +264,7 @@ const MovieDetailScreen = () => {
             contentContainerStyle={styles.promotionsScrollContent}
           >
             <View style={styles.promotionCard}>
-              <Text style={styles.promotionCardLogo}>CGV</Text>
+              <Text style={styles.promotionCardLogo}>CNJ</Text>
               <Text style={styles.promotionCardTitle}>QUÀ ĐỘC QUYỀN</Text>
               <TouchableOpacity style={styles.promotionCardButton}>
                 <Text style={styles.promotionCardButtonText}>ĐẶT VÉ</Text>
@@ -208,7 +272,7 @@ const MovieDetailScreen = () => {
             </View>
             <View style={styles.promotionCard}>
               <Text style={styles.promotionCardLogo}>Zalopay</Text>
-              <Text style={styles.promotionCardTitle}>CGV</Text>
+              <Text style={styles.promotionCardTitle}>CNJ</Text>
               <Text style={styles.promotionCardSubtitle}>Khao Ban T</Text>
               <Text style={styles.promotionCardText}>Không giới hạn</Text>
             </View>
@@ -241,7 +305,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   topSection: {
-    height: height * 0.5,
+    height: height * 0.3,
     width: "100%",
     position: "relative",
   },

@@ -10,6 +10,8 @@ import HomeScreen from "@/screens/HomeScreen";
 import LoginScreen from "@/screens/LoginScreen";
 import RegisterScreen from "@/screens/RegisterScreen";
 import MovieDetailScreen from "@/screens/MovieDetailScreen";
+import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
+import MemberScreen from "@/screens/MemberScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -42,6 +44,11 @@ export default function App() {
                   name="MovieDetailScreen"
                   component={MovieDetailScreen}
                 />
+                <Stack.Screen
+                  name="ForgotPasswordScreen"
+                  component={ForgotPasswordScreen}
+                />
+                <Stack.Screen name="MemberScreen" component={MemberScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </AppProvider>

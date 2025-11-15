@@ -29,6 +29,7 @@ type RootStackParamList = {
   HomeScreen: undefined;
   RegisterScreen: undefined;
   LoginScreen: undefined;
+  ForgotPasswordScreen: undefined;
 };
 
 type LoginScreenNavigationProp = StackNavigationProp<
@@ -87,10 +88,7 @@ const LoginScreen = () => {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Thông báo",
-      "Tính năng quên mật khẩu sẽ được phát triển trong tương lai"
-    );
+    navigation.navigate("ForgotPasswordScreen");
   };
 
   return (
@@ -100,11 +98,7 @@ const LoginScreen = () => {
     >
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.contentWrapper}>
         {/* Top Section với image */}
         <View style={styles.topSection}>
           <Image
@@ -116,7 +110,7 @@ const LoginScreen = () => {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate("HomeScreen")}
             >
               <Fontisto name="arrow-left" size={24} color="#fff" />
             </TouchableOpacity>
@@ -126,86 +120,92 @@ const LoginScreen = () => {
 
         {/* Bottom Section với form */}
         <View style={styles.bottomSection}>
-          <View style={styles.formContainer}>
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <View style={styles.inputUnderline} />
-            </View>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.formContainer}>
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.inputUnderline} />
+              </View>
 
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Mật khẩu"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mật khẩu"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Fontisto name="eye" size={20} color="#666" />
+                </TouchableOpacity>
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Login Button */}
               <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
+                style={[
+                  styles.loginButton,
+                  loading && styles.loginButtonDisabled,
+                ]}
+                onPress={handleLogin}
+                disabled={loading}
               >
-                <Fontisto name="eye" size={20} color="#666" />
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
+                )}
               </TouchableOpacity>
-              <View style={styles.inputUnderline} />
+
+              {/* Forgot Password */}
+              <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={handleForgotPassword}
+              >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
+
+              {/* Separator */}
+              <View style={styles.separator}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>hoặc</Text>
+                <View style={styles.separatorLine} />
+              </View>
+
+              {/* Register Button */}
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => navigation.navigate("RegisterScreen")}
+              >
+                <Text style={styles.registerButtonText}>
+                  Đăng ký tài khoản CNJ
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Login Button */}
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                loading && styles.loginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Forgot Password */}
-            <TouchableOpacity
-              style={styles.forgotPasswordButton}
-              onPress={handleForgotPassword}
-            >
-              <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-            </TouchableOpacity>
-
-            {/* Separator */}
-            <View style={styles.separator}>
-              <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>hoặc</Text>
-              <View style={styles.separatorLine} />
-            </View>
-
-            {/* Register Button */}
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => navigation.navigate("RegisterScreen")}
-            >
-              <Text style={styles.registerButtonText}>
-                Đăng ký tài khoản CGV
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -215,8 +215,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  contentWrapper: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 30,
   },
   topSection: {
     height: height * 0.35,
@@ -261,10 +265,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     marginTop: -20,
     paddingTop: 30,
+    minHeight: height * 0.65,
   },
   formContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
   },
   inputContainer: {
     marginBottom: 20,

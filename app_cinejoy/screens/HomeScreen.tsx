@@ -43,6 +43,7 @@ type RootStackParamList = {
   RegisterScreen: undefined;
   LoginScreen: undefined;
   MovieDetailScreen: { movie: IMovie };
+  MemberScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -99,7 +100,7 @@ const HomeScreen = () => {
     },
     {
       id: 2,
-      title: "MUA VÉ XEM PHIM C18 TẠI CGV NHẬN QUÀ SPECIAL TỪ SWEETBOX",
+      title: "MUA VÉ XEM PHIM C18 TẠI CNJ NHẬN QUÀ SPECIAL TỪ SWEETBOX",
       image: banner2,
       brand: "SWEETBOX",
     },
@@ -107,7 +108,7 @@ const HomeScreen = () => {
       id: 3,
       title: "KHUYẾN MÃI THÁNG 12 - ƯU ĐÃI ĐẶC BIỆT CHO THÀNH VIÊN",
       image: banner3,
-      brand: "CGV",
+      brand: "CNJ",
     },
     {
       id: 4,
@@ -143,13 +144,13 @@ const HomeScreen = () => {
   // Side menu items data - Grid menu với icons
   const menuGridItems = [
     { id: 1, title: "Trang chủ", icon: "🏠" },
-    { id: 2, title: "Thành viên CGV", icon: "👤" },
+    { id: 2, title: "Thành viên CNJ", icon: "👤" },
     { id: 3, title: "Rạp", icon: "ℹ️" },
     { id: 4, title: "Rạp đặc biệt", icon: "⭐" },
     { id: 5, title: "Tin mới & Ưu đãi", icon: "🎁" },
     { id: 6, title: "Vé của tôi", icon: "🎟️" },
-    { id: 7, title: "CGV Store", icon: "🍿" },
-    { id: 8, title: "CGV eGift", icon: "🎁" },
+    { id: 7, title: "CNJ Store", icon: "🍿" },
+    { id: 8, title: "CNJ eGift", icon: "🎁" },
     { id: 9, title: "Đổi ưu đãi", icon: "🎗️" },
   ];
 
@@ -163,6 +164,20 @@ const HomeScreen = () => {
       duration: 300,
       useNativeDriver: true,
     }).start();
+  };
+
+  // Hàm xử lý click vào menu item
+  const handleMenuItemPress = (item: { id: number; title: string }) => {
+    if (item.id === 2) {
+      // Thành viên CNJ
+      closeSideMenu();
+      if (isAuthenticated) {
+        navigation.navigate("MemberScreen");
+      } else {
+        navigation.navigate("LoginScreen");
+      }
+    }
+    // Có thể thêm logic cho các menu items khác ở đây
   };
 
   useEffect(() => {
@@ -949,7 +964,11 @@ const HomeScreen = () => {
               {/* Menu Grid */}
               <View style={styles.menuGrid}>
                 {menuGridItems.map((item) => (
-                  <TouchableOpacity key={item.id} style={styles.menuGridItem}>
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.menuGridItem}
+                    onPress={() => handleMenuItemPress(item)}
+                  >
                     <View style={styles.menuGridIconContainer}>
                       <Text style={styles.menuGridIcon}>{item.icon}</Text>
                       {item.id === 8 && <View style={styles.menuGridBadge} />}

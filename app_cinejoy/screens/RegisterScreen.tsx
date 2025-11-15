@@ -359,9 +359,9 @@ const RegisterScreen = () => {
                   {checkbox1 && <Text style={styles.checkmark}>✓</Text>}
                 </View>
                 <Text style={styles.checkboxText}>
-                  Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép CGV
+                  Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép CNJ
                   Việt Nam thực hiện xử lý dữ liệu cá nhân của tôi phù hợp với
-                  mục đích mà CGV Việt Nam đã thông báo tại Chính Sách Bảo Mật.
+                  mục đích mà CNJ Việt Nam đã thông báo tại Chính Sách Bảo Mật.
                 </Text>
               </TouchableOpacity>
 
@@ -410,7 +410,7 @@ const RegisterScreen = () => {
                 <Text style={styles.checkboxText}>
                   Tôi đồng ý với{" "}
                   <Text style={styles.linkText}>Điều Khoản Sử Dụng</Text> của
-                  CGV Việt Nam.
+                  CNJ Việt Nam.
                 </Text>
               </TouchableOpacity>
             </View>

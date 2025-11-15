@@ -1,0 +1,310 @@
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar,
+  ScrollView,
+  Platform,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import Fontisto from "@expo/vector-icons/Fontisto";
+import { useAppSelector } from "@/store/hooks";
+
+const { width, height } = Dimensions.get("window");
+
+type RootStackParamList = {
+  HomeScreen: undefined;
+  LoginScreen: undefined;
+  MemberScreen: undefined;
+};
+
+type MemberScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "MemberScreen"
+>;
+
+interface MenuItem {
+  id: number;
+  title: string;
+  icon: string;
+}
+
+const MemberScreen = () => {
+  const navigation = useNavigation<MemberScreenNavigationProp>();
+  const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
+  const user = useAppSelector((state) => state.app.user);
+
+  // Menu Items
+  const menuItems: MenuItem[] = [
+    { id: 1, title: "Thông tin Tài khoản", icon: "person" },
+    { id: 2, title: "Đổi mật khẩu", icon: "locked" },
+    { id: 3, title: "Cài đặt mật mã thanh toán", icon: "key" },
+    { id: 4, title: "Thẻ thành viên", icon: "star" },
+    { id: 5, title: "Giới Thiệu Bạn Mới", icon: "persons" },
+    { id: 6, title: "Điểm", icon: "wallet" },
+    {
+      id: 7,
+      title: "Thẻ Q.Tặng | Voucher | Coupon",
+      icon: "gift",
+    },
+    { id: 8, title: "Lịch sử Giao dịch", icon: "list" },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Fontisto name="arrow-left" size={24} color="#E50914" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Thành viên CNJ</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Fontisto name="ticket" size={24} color="#E50914" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerIcon}>
+              <Fontisto name="nav-icon-grid-a" size={24} color="#E50914" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Profile Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.avatarWrapper}>
+            <View style={styles.avatarContainer}>
+              {isAuthenticated && user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Fontisto name="person" size={60} color="#fff" />
+                </View>
+              )}
+            </View>
+            <TouchableOpacity style={styles.cameraIcon}>
+              <Fontisto name="camera" size={16} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          {isAuthenticated ? (
+            <View style={styles.nameRow}>
+              <Text style={styles.userName}>
+                {user?.fullName || "Người dùng"}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => navigation.navigate("LoginScreen")}
+            >
+              <Text style={styles.loginButtonText}>Đăng Nhập/Đăng Ký</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Menu Items List */}
+        <View style={styles.menuList}>
+          {menuItems.map((item, index) => (
+            <View key={item.id}>
+              <TouchableOpacity style={styles.menuItem}>
+                <View style={styles.menuItemLeft}>
+                  <View style={styles.menuIconContainer}>
+                    <Fontisto
+                      name={item.icon as any}
+                      size={24}
+                      color="#E50914"
+                    />
+                  </View>
+                  <Text style={styles.menuItemText}>{item.title}</Text>
+                </View>
+                <Fontisto name="angle-right" size={20} color="#999" />
+              </TouchableOpacity>
+              {index < menuItems.length - 1 && (
+                <View style={styles.menuSeparator} />
+              )}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 50,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    flex: 1,
+    textAlign: "center",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileSection: {
+    alignItems: "center",
+    paddingTop: 30,
+    paddingBottom: 20,
+    backgroundColor: "#fff",
+  },
+  avatarWrapper: {
+    position: "relative",
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#8B0000",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    resizeMode: "cover",
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cameraIcon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#f0f0f0",
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  memberBadge: {
+    width: 70,
+    height: 30,
+    borderWidth: 1,
+    borderColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "0deg" }],
+    backgroundColor: "#fff",
+  },
+  memberBadgeText: {
+    color: "#000",
+    fontSize: 11,
+    fontWeight: "bold",
+    letterSpacing: 0.5,
+  },
+  loginButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+  },
+  loginButtonText: {
+    color: "#E50914",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  menuList: {
+    backgroundColor: "#fff",
+    marginTop: 10,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+  },
+  menuItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: "#333",
+    flex: 1,
+  },
+  menuSeparator: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginLeft: 72,
+  },
+});
+
+export default MemberScreen;
