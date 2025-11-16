@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector } from "@/store/hooks";
+import SideMenu from "@/components/SideMenu";
 
 const { width, height } = Dimensions.get("window");
 
@@ -38,6 +39,16 @@ const MemberScreen = () => {
   const navigation = useNavigation<MemberScreenNavigationProp>();
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
   const user = useAppSelector((state) => state.app.user);
+  const [showSideMenu, setShowSideMenu] = useState(false);
+
+  // Hàm mở/đóng side menu
+  const toggleSideMenu = () => {
+    setShowSideMenu(!showSideMenu);
+  };
+
+  const closeSideMenu = () => {
+    setShowSideMenu(false);
+  };
 
   // Menu Items
   const menuItems: MenuItem[] = [
@@ -77,8 +88,11 @@ const MemberScreen = () => {
             <TouchableOpacity style={styles.headerIcon}>
               <Fontisto name="ticket" size={24} color="#E50914" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIcon}>
-              <Fontisto name="nav-icon-grid-a" size={24} color="#E50914" />
+            <TouchableOpacity
+              style={styles.headerIcon}
+              onPress={toggleSideMenu}
+            >
+              <Text style={styles.menuIconText}>☰</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -140,6 +154,9 @@ const MemberScreen = () => {
           ))}
         </View>
       </ScrollView>
+
+      {/* Side Menu */}
+      <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
     </View>
   );
 };
@@ -162,7 +179,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingTop:
-      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 50,
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 30,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
@@ -190,6 +207,10 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+  },
+  menuIconText: {
+    fontSize: 30,
+    color: "#E50914",
   },
   profileSection: {
     alignItems: "center",

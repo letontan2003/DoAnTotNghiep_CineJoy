@@ -11,10 +11,12 @@ import {
   Linking,
   Alert,
 } from "react-native";
+import { useState } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { IMovie } from "@/types/api";
+import SideMenu from "@/components/SideMenu";
 
 const { width, height } = Dimensions.get("window");
 
@@ -40,6 +42,16 @@ const MovieDetailScreen = () => {
   const navigation = useNavigation<MovieDetailScreenNavigationProp>();
   const route = useRoute<MovieDetailScreenRouteProp>();
   const { movie } = route.params;
+  const [showSideMenu, setShowSideMenu] = useState(false);
+
+  // Hàm mở/đóng side menu
+  const toggleSideMenu = () => {
+    setShowSideMenu(!showSideMenu);
+  };
+
+  const closeSideMenu = () => {
+    setShowSideMenu(false);
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -130,11 +142,22 @@ const MovieDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
-      />
+      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
+
+      {/* Sticky Header với background đen */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Fontisto name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Phim</Text>
+        <TouchableOpacity style={styles.menuButton} onPress={toggleSideMenu}>
+          <Text style={styles.menuButtonText}>☰</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -158,17 +181,6 @@ const MovieDetailScreen = () => {
                 <Fontisto name="play" size={24} color="#E50914" />
               </View>
             </TouchableOpacity>
-          </View>
-
-          {/* Header với back button */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Fontisto name="arrow-left" size={24} color="#fff" />
-            </TouchableOpacity>
-            {/* <Text style={styles.headerTitle}>Quay lại</Text> */}
           </View>
         </View>
 
@@ -289,6 +301,9 @@ const MovieDetailScreen = () => {
           <Text style={styles.bookButtonText}>ĐẶT VÉ</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Side Menu */}
+      <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
     </View>
   );
 };
@@ -337,34 +352,40 @@ const styles = StyleSheet.create({
   playIconContainer: {
     marginLeft: 4,
   },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+  stickyHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
     paddingTop:
-      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 50,
-    backgroundColor: "transparent",
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 12 : 35,
+    paddingBottom: 12,
+    backgroundColor: "#000",
     minHeight: 50,
-    zIndex: 10,
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
-    zIndex: 11,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
     lineHeight: 24,
+    flex: 1,
+    textAlign: "center",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuButtonText: {
+    fontSize: 30,
+    color: "#fff",
   },
   movieTitleSection: {
     flexDirection: "row",
@@ -443,6 +464,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ccc",
     lineHeight: 22,
+    textAlign: "justify",
   },
   detailRow: {
     flexDirection: "row",
@@ -535,12 +557,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#000",
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: Platform.OS === "ios" ? 30 : 12,
-    borderTopWidth: 1,
-    borderTopColor: "#333",
   },
   bookButton: {
     backgroundColor: "#E50914",

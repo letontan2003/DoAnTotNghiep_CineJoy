@@ -12,17 +12,16 @@ import {
   ScrollView,
   Animated,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import StackCarousel from "@/components/StackCarousel";
-import { getMoviesByStatusApi, logoutApi } from "services/api";
+import SideMenu from "@/components/SideMenu";
+import { getMoviesByStatusApi } from "services/api";
 import { IMovie } from "types/api";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { logout } from "@/store/appSlice";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
+import { useAppSelector } from "@/store/hooks";
 import banner1 from "assets/banner1.png";
 import banner2 from "assets/banner2.jpg";
 import banner3 from "assets/banner3.png";
@@ -34,7 +33,6 @@ import backgroundTab from "assets/backgroundTab.png";
 import logo from "assets/logoCNJ.png";
 import icon from "assets/iconHome.png";
 import startHome from "assets/startHome.png";
-import maVach from "assets/maVach.png";
 
 const { width, height } = Dimensions.get("window");
 
@@ -53,7 +51,6 @@ type HomeScreenNavigationProp = StackNavigationProp<
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const dispatch = useAppDispatch();
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
@@ -64,21 +61,19 @@ const HomeScreen = () => {
   const [isStickyHeader, setIsStickyHeader] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasShownModal = useRef(false);
   const flatListRef = useRef<FlatList>(null);
   const promotionalFlatListRef = useRef<FlatList>(null);
   const partnerOffersFlatListRef = useRef<FlatList>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const headerOpacity = useRef(new Animated.Value(1)).current;
-  const sideMenuTranslateX = useRef(new Animated.Value(width)).current;
   const [currentPartnerOfferIndex, setCurrentPartnerOfferIndex] = useState(0);
   const [isPartnerOfferAutoScroll, setIsPartnerOfferAutoScroll] =
     useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Lấy thông tin authentication từ Redux store
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
-  const user = useAppSelector((state) => state.app.user);
 
   // Promotional items data
   const promotionalItems = [
@@ -141,97 +136,21 @@ const HomeScreen = () => {
     ...partnerOffersOriginal,
   ];
 
-  // Side menu items data - Grid menu với icons
-  const menuGridItems = [
-    { id: 1, title: "Trang chủ", icon: "🏠" },
-    { id: 2, title: "Thành viên CNJ", icon: "👤" },
-    { id: 3, title: "Rạp", icon: "ℹ️" },
-    { id: 4, title: "Rạp đặc biệt", icon: "⭐" },
-    { id: 5, title: "Tin mới & Ưu đãi", icon: "🎁" },
-    { id: 6, title: "Vé của tôi", icon: "🎟️" },
-    { id: 7, title: "CNJ Store", icon: "🍿" },
-    { id: 8, title: "CNJ eGift", icon: "🎁" },
-    { id: 9, title: "Đổi ưu đãi", icon: "🎗️" },
-  ];
-
   // Hàm mở/đóng side menu
   const toggleSideMenu = () => {
-    const willOpen = !showSideMenu;
-    setShowSideMenu(willOpen);
-
-    Animated.timing(sideMenuTranslateX, {
-      toValue: willOpen ? 0 : width,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    setShowSideMenu(!showSideMenu);
   };
-
-  // Hàm xử lý click vào menu item
-  const handleMenuItemPress = (item: { id: number; title: string }) => {
-    if (item.id === 2) {
-      // Thành viên CNJ
-      closeSideMenu();
-      if (isAuthenticated) {
-        navigation.navigate("MemberScreen");
-      } else {
-        navigation.navigate("LoginScreen");
-      }
-    }
-    // Có thể thêm logic cho các menu items khác ở đây
-  };
-
-  useEffect(() => {
-    sideMenuTranslateX.setValue(width);
-  }, []);
 
   const closeSideMenu = () => {
-    if (showSideMenu) {
-      toggleSideMenu();
-    }
+    setShowSideMenu(false);
   };
 
-  // Hàm xử lý đăng xuất
-  const handleLogout = async () => {
-    Alert.alert("Xác nhận đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
-      {
-        text: "Hủy",
-        style: "cancel",
-      },
-      {
-        text: "Đăng xuất",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setIsLoggingOut(true);
-            // Gọi API logout
-            await logoutApi();
-
-            // Xóa token khỏi AsyncStorage
-            await AsyncStorage.removeItem("accessToken");
-            await AsyncStorage.removeItem("current_user_id");
-
-            // Cập nhật Redux store
-            dispatch(logout());
-
-            // Đóng side menu
-            closeSideMenu();
-
-            // Hiển thị thông báo thành công
-            Alert.alert("Thành công", "Đăng xuất thành công!");
-          } catch (error: any) {
-            console.error("Logout error:", error);
-            // Vẫn xóa token và đăng xuất local nếu API fail
-            await AsyncStorage.removeItem("accessToken");
-            await AsyncStorage.removeItem("current_user_id");
-            dispatch(logout());
-            closeSideMenu();
-            Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
-      },
-    ]);
+  const handleNavigateToMemberScreen = () => {
+    if (isAuthenticated) {
+      navigation.navigate("MemberScreen");
+    } else {
+      navigation.navigate("LoginScreen");
+    }
   };
 
   const tabs = ["Đang chiếu", "Đặc biệt", "Sắp chiếu"];
@@ -324,6 +243,75 @@ const HomeScreen = () => {
       fetchMovies(status);
     }
   }, [selectedTab]);
+
+  // Hàm xử lý pull-to-refresh - reload toàn bộ screen như lần đầu vào
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Reset tất cả state về trạng thái ban đầu
+      setCurrentBannerIndex(0);
+      setCurrentMovieIndex(0);
+      setCurrentPromotionalPage(0);
+      setCurrentPartnerOfferIndex(0);
+      setIsStickyHeader(false);
+      setIsAutoPlaying(true);
+      setIsPartnerOfferAutoScroll(true);
+
+      // Reset header opacity về 1 (trạng thái ban đầu)
+      headerOpacity.setValue(1);
+
+      // Reset scroll position về đầu
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+
+      // Reset banner carousel về đầu
+      try {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      } catch (error) {
+        try {
+          flatListRef.current?.scrollToIndex({ index: 0, animated: false });
+        } catch (e) {
+          // Ignore nếu cả hai đều fail
+        }
+      }
+
+      // Reset promotional carousel về đầu
+      try {
+        promotionalFlatListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      } catch (error) {
+        // Ignore
+      }
+
+      // Reset partner offers carousel về đầu
+      try {
+        partnerOffersFlatListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      } catch (error) {
+        // Ignore
+      }
+
+      // Reload movies theo tab hiện tại
+      const status = tabStatusMap[selectedTab];
+      if (status) {
+        await fetchMovies(status);
+      }
+
+      // Hiển thị lại modal promo như lần đầu vào
+      hasShownModal.current = false;
+      setTimeout(() => {
+        setShowPromoModal(true);
+        hasShownModal.current = true;
+      }, 500);
+    } catch (error) {
+      console.error("Error refreshing:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Hiển thị modal khi vào HomeScreen lần đầu tiên
   useFocusEffect(() => {
@@ -426,7 +414,7 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar
-        barStyle="light-content"
+        barStyle={isStickyHeader ? "dark-content" : "light-content"}
         backgroundColor="#1a1a1a"
         translucent
       />
@@ -455,7 +443,10 @@ const HomeScreen = () => {
           ]}
         >
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.headerIcon}>
+            <TouchableOpacity
+              style={styles.headerIcon}
+              onPress={handleNavigateToMemberScreen}
+            >
               <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
 
@@ -473,7 +464,7 @@ const HomeScreen = () => {
               <TouchableOpacity style={styles.headerIcon}>
                 <Fontisto
                   name="ticket-alt"
-                  size={22}
+                  size={23}
                   color={isStickyHeader ? "#E50914" : "#fff"}
                 />
               </TouchableOpacity>
@@ -502,7 +493,10 @@ const HomeScreen = () => {
           ]}
         >
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.headerIcon}>
+            <TouchableOpacity
+              style={styles.headerIcon}
+              onPress={handleNavigateToMemberScreen}
+            >
               <Image source={icon} style={styles.headerIconImage} />
             </TouchableOpacity>
 
@@ -515,7 +509,7 @@ const HomeScreen = () => {
 
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.headerIcon}>
-                <Fontisto name="ticket-alt" size={22} color="#E50914" />
+                <Fontisto name="ticket-alt" size={23} color="#E50914" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.headerIcon}
@@ -571,6 +565,14 @@ const HomeScreen = () => {
         bounces={true}
         onScroll={handleMainScroll}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#E50914"
+            colors={["#E50914"]}
+          />
+        }
       >
         {/* Banner Section - SCROLL */}
         <View style={styles.bannerSection}>
@@ -839,171 +841,8 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Side Menu - Slide from right */}
-      {showSideMenu && (
-        <View style={styles.sideMenuOverlay}>
-          <TouchableOpacity
-            style={styles.sideMenuOverlayTouchable}
-            activeOpacity={1}
-            onPress={closeSideMenu}
-          />
-          <Animated.View
-            style={[
-              styles.sideMenuContainer,
-              {
-                transform: [{ translateX: sideMenuTranslateX }],
-              },
-            ]}
-          >
-            <ScrollView
-              style={styles.sideMenuContent}
-              contentContainerStyle={styles.sideMenuContentContainer}
-              showsVerticalScrollIndicator={true}
-            >
-              {/* User Profile Section */}
-              <View style={styles.menuProfileSection}>
-                <View style={styles.menuProfileHeader}>
-                  <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Fontisto name="bell" size={26} color="#fff" />
-                    {!isAuthenticated && <View style={styles.menuBellBadge} />}
-                  </TouchableOpacity>
-                  <View style={styles.menuAvatarContainer}>
-                    {isAuthenticated && user?.avatar ? (
-                      <Image
-                        source={{ uri: user.avatar }}
-                        style={styles.menuProfileAvatar}
-                      />
-                    ) : (
-                      <View style={styles.menuProfileAvatarPlaceholder}>
-                        <Fontisto name="person" size={50} color="#666" />
-                      </View>
-                    )}
-                  </View>
-                  <TouchableOpacity style={styles.menuHeaderIcon}>
-                    <Fontisto name="player-settings" size={26} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-                {isAuthenticated ? (
-                  <>
-                    <View style={styles.menuNameRow}>
-                      <Text style={styles.menuProfileName}>
-                        {user?.fullName || "Người dùng"}
-                      </Text>
-                      <View style={styles.menuMemberBadge}>
-                        <Text style={styles.menuMemberBadgeText}>MEMBER</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.menuProfileMember}>Thẻ thành viên</Text>
-                  </>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.menuLoginButton}
-                    onPress={() => {
-                      closeSideMenu();
-                      navigation.navigate("LoginScreen");
-                    }}
-                  >
-                    <Text style={styles.menuLoginButtonText}>
-                      Đăng Nhập/Đăng Ký
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Member Card with Barcode - chỉ hiển thị khi đã login */}
-              {isAuthenticated && (
-                <>
-                  <View style={styles.menuMemberCard}>
-                    <View style={styles.menuCardHeader}>
-                      <View style={styles.menuCardU22Badge}>
-                        <Text style={styles.menuCardU22Text}>U22</Text>
-                      </View>
-                      <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
-                      <TouchableOpacity>
-                        <Text style={styles.menuCardArrow}>→</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.menuBarcodeContainer}>
-                      <Image source={maVach} style={styles.menuBarcode} />
-                      <Text style={styles.menuBarcodeNumber}>
-                        9992123603894608
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Points Section - chỉ hiển thị khi đã login */}
-                  <View style={styles.menuPointsSection}>
-                    <View style={styles.menuPointItem}>
-                      <Text style={styles.menuPointLabel}>
-                        Tổng chi tiêu 2025
-                      </Text>
-                      <Text style={styles.menuPointValue}>341.636 ₫</Text>
-                    </View>
-                    <View style={styles.menuPointItem}>
-                      <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
-                      <Text style={styles.menuPointValue}>
-                        {user?.point || 0}
-                      </Text>
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {/* Booking Buttons */}
-              <TouchableOpacity style={styles.menuBookingButton}>
-                <Text style={styles.menuBookingButtonText}>
-                  Đặt vé theo Phim
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuBookingButton}>
-                <Text style={styles.menuBookingButtonText}>
-                  Đặt vé theo Rạp
-                </Text>
-              </TouchableOpacity>
-
-              {/* Menu Grid */}
-              <View style={styles.menuGrid}>
-                {menuGridItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.menuGridItem}
-                    onPress={() => handleMenuItemPress(item)}
-                  >
-                    <View style={styles.menuGridIconContainer}>
-                      <Text style={styles.menuGridIcon}>{item.icon}</Text>
-                      {item.id === 8 && <View style={styles.menuGridBadge} />}
-                    </View>
-                    <Text style={styles.menuGridItemText}>{item.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Logout Button - chỉ hiển thị khi đã login */}
-              {isAuthenticated && (
-                <TouchableOpacity
-                  style={[
-                    styles.menuLogoutButton,
-                    isLoggingOut && styles.menuLogoutButtonDisabled,
-                  ]}
-                  onPress={handleLogout}
-                  disabled={isLoggingOut}
-                >
-                  {isLoggingOut ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.menuLogoutButtonText}>Đăng xuất</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.menuFooter}>
-                <Image source={logo} style={styles.menuFooterLogo} />
-                <Text style={styles.menuFooterText}>CULTUREPLEX</Text>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </View>
-      )}
+      {/* Side Menu */}
+      <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
 
       {/* Promo Modal - Hiển thị khi vào HomeScreen lần đầu */}
       <Modal
@@ -1034,6 +873,16 @@ const HomeScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Loading Indicator khi reload */}
+      {refreshing && (
+        <View style={styles.refreshLoadingOverlay}>
+          <View style={styles.refreshLoadingContainer}>
+            <ActivityIndicator size="large" color="#E50914" />
+            <Text style={styles.refreshLoadingText}>Đang tải...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -1086,7 +935,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "#fff",
     paddingHorizontal: 6,
-    paddingTop: 10,
+    paddingTop: 2,
     height: 90,
   },
   tabsContainerSticky: {
@@ -1137,7 +986,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#000014",
     paddingHorizontal: 6,
-    paddingTop: 10,
+    paddingTop: 2,
     height: 90,
   },
   headerContent: {
@@ -1155,7 +1004,7 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   headerIconText: {
-    fontSize: 24,
+    fontSize: 35,
     color: "#fff",
   },
   headerIconTextSticky: {
@@ -1775,7 +1624,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: "absolute",
-    top: 20,
+    top: -10,
     right: -15,
     width: 40,
     height: 40,
@@ -1798,7 +1647,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#fff",
     fontWeight: "bold",
-    marginTop: -3,
   },
   modalImage: {
     width: width * 0.85,
@@ -2103,6 +1951,37 @@ const styles = StyleSheet.create({
     color: "#333",
     fontSize: 12,
     fontWeight: "500",
+  },
+  // Refresh Loading Overlay
+  refreshLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 3000,
+  },
+  refreshLoadingContainer: {
+    backgroundColor: "rgba(26, 26, 26, 0.95)",
+    borderRadius: 30,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  refreshLoadingText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 12,
   },
 });
 
