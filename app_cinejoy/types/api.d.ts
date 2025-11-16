@@ -80,3 +80,49 @@ export interface IMovie {
   startDate: string;
   movieCode: string;
 }
+
+// Region types
+export interface IRegion {
+  _id: string;
+  regionCode: string;
+  name: string;
+}
+
+// Theater types
+export interface ITheater {
+  _id: string;
+  theaterCode: string;
+  name: string;
+  regionId: string;
+  location: {
+    city: string;
+    address: string;
+  };
+}
+
+// Showtime types
+export interface IShowtimeSeat {
+  seat: string;
+  status: "available" | "selected" | "maintenance" | "reserved" | "occupied";
+  reservedUntil?: Date;
+  reservedBy?: string;
+}
+
+export interface IShowtimeSession {
+  date: Date;
+  start: Date;
+  end: Date;
+  room: string | { _id: string; name: string };
+  showSessionId?:
+    | string
+    | { _id: string; name: string; startTime: string; endTime: string };
+  status: "active" | "inactive";
+  seats: IShowtimeSeat[];
+}
+
+export interface IShowtime {
+  _id: string;
+  movieId: string | IMovie;
+  theaterId: string | ITheater;
+  showTimes: IShowtimeSession[];
+}

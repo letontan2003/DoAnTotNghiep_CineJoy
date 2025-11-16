@@ -1,7 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import createInstanceAxios from "services/axios.customize";
 import config from "../config/env";
-import { IBackendResponse, IRegister, ILogin, IMovie, IFetchAccount } from "types/api";
+import {
+  IBackendResponse,
+  IRegister,
+  ILogin,
+  IMovie,
+  IFetchAccount,
+  IRegion,
+  ITheater,
+  IShowtime,
+} from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
 
@@ -96,13 +105,46 @@ export const getMovieByIdApi = async (id: string) => {
 // Lọc movies theo status từ danh sách tất cả movies
 export const getMoviesByStatusApi = async (status: string) => {
   const allMovies = await getAllMoviesApi();
-  return allMovies.filter(movie => movie.status === status);
+  return allMovies.filter((movie) => movie.status === status);
 };
 
 // Hàm helper để lấy movies theo nhiều status
 export const getMoviesByMultipleStatusApi = async (statuses: string[]) => {
   const allMovies = await getAllMoviesApi();
-  return allMovies.filter(movie => statuses.includes(movie.status));
+  return allMovies.filter((movie) => statuses.includes(movie.status));
+};
+
+// Region APIs
+export const getRegionsApi = async () => {
+  const response = await axios.get<IRegion[]>("/regions");
+  return response.data;
+};
+
+// Theater APIs
+export const getTheatersApi = async () => {
+  const response = await axios.get<ITheater[]>("/theaters");
+  return response.data;
+};
+
+export const getTheaterByIdApi = async (id: string) => {
+  const response = await axios.get<ITheater>(`/theaters/${id}`);
+  return response.data;
+};
+
+// Showtime APIs
+export const getShowtimesApi = async () => {
+  const response = await axios.get<IShowtime[]>("/showtimes");
+  return response.data;
+};
+
+export const getShowtimesByTheaterMovieApi = async (
+  theaterId: string,
+  movieId: string
+) => {
+  const response = await axios.get<IShowtime[]>(`/showtimes/filter`, {
+    params: { theaterId, movieId },
+  });
+  return response.data;
 };
 
 export default axios;

@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
-  Dimensions,
   StatusBar,
   ScrollView,
   Platform,
@@ -15,8 +14,6 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
-
-const { width, height } = Dimensions.get("window");
 
 type RootStackParamList = {
   HomeScreen: undefined;
@@ -70,33 +67,30 @@ const MemberScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+      {/* Sticky Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Fontisto name="arrow-left" size={24} color="#E50914" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Thành viên CNJ</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerIcon}>
+            <Fontisto name="ticket" size={24} color="#E50914" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerIcon} onPress={toggleSideMenu}>
+            <Text style={styles.menuIconText}>☰</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Fontisto name="arrow-left" size={24} color="#E50914" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Thành viên CNJ</Text>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerIcon}>
-              <Fontisto name="ticket" size={24} color="#E50914" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerIcon}
-              onPress={toggleSideMenu}
-            >
-              <Text style={styles.menuIconText}>☰</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.avatarWrapper}>
@@ -170,9 +164,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 64 : 64,
     paddingBottom: 20,
   },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -183,6 +183,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   backButton: {
     width: 40,
@@ -214,7 +220,7 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     alignItems: "center",
-    paddingTop: 30,
+    paddingTop: 35,
     paddingBottom: 20,
     backgroundColor: "#fff",
   },

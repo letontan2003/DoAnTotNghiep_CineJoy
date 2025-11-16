@@ -125,6 +125,9 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
             // Đóng side menu
             onClose();
 
+            // Redirect về HomeScreen
+            navigation.navigate("HomeScreen");
+
             // Hiển thị thông báo thành công
             Alert.alert("Thành công", "Đăng xuất thành công!");
           } catch (error: any) {
@@ -134,6 +137,10 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
             await AsyncStorage.removeItem("current_user_id");
             dispatch(logout());
             onClose();
+
+            // Redirect về HomeScreen
+            navigation.navigate("HomeScreen");
+
             Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
           } finally {
             setIsLoggingOut(false);

@@ -25,6 +25,7 @@ type RootStackParamList = {
   RegisterScreen: undefined;
   LoginScreen: undefined;
   MovieDetailScreen: { movie: IMovie };
+  BookTicketScreen: { movie: IMovie };
 };
 
 type MovieDetailScreenNavigationProp = StackNavigationProp<
@@ -297,7 +298,12 @@ const MovieDetailScreen = () => {
 
       {/* Floating Book Tickets Button */}
       <View style={styles.floatingButtonContainer}>
-        <TouchableOpacity style={styles.bookButton}>
+        <TouchableOpacity
+          style={styles.bookButton}
+          onPress={() => {
+            navigation.navigate("BookTicketScreen", { movie });
+          }}
+        >
           <Text style={styles.bookButtonText}>ĐẶT VÉ</Text>
         </TouchableOpacity>
       </View>

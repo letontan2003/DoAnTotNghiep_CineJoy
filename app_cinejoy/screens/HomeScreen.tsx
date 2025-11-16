@@ -42,6 +42,7 @@ type RootStackParamList = {
   LoginScreen: undefined;
   MovieDetailScreen: { movie: IMovie };
   MemberScreen: undefined;
+  BookTicketScreen: { movie: IMovie };
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -713,7 +714,16 @@ const HomeScreen = () => {
                   </View>
                 </View>
               </View>
-              <TouchableOpacity style={styles.bookButton}>
+              <TouchableOpacity
+                style={styles.bookButton}
+                onPress={() => {
+                  if (movies[currentMovieIndex]) {
+                    navigation.navigate("BookTicketScreen", {
+                      movie: movies[currentMovieIndex],
+                    });
+                  }
+                }}
+              >
                 <Text style={styles.bookButtonText}>Đặt Vé</Text>
               </TouchableOpacity>
             </View>
