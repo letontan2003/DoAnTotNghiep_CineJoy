@@ -66,6 +66,38 @@ export const deleteShowtime = async (id: string) => {
   }
 };
 
+export const checkShowtimeOccupiedSeats = async (
+  id: string
+): Promise<{
+  hasOccupiedSeats: boolean;
+  occupiedCount: number;
+  totalSeats: number;
+}> => {
+  try {
+    const response = await axiosClient.get<
+      IBackendResponse<{
+        hasOccupiedSeats: boolean;
+        occupiedCount: number;
+        totalSeats: number;
+      }>
+    >(`/showtimes/check-occupied/${id}`);
+    // Response format: { status: true, error: 0, message: '...', data: { hasOccupiedSeats, occupiedCount, totalSeats } }
+    const responseData = response as unknown as {
+      data: {
+        data: {
+          hasOccupiedSeats: boolean;
+          occupiedCount: number;
+          totalSeats: number;
+        };
+      };
+    };
+    return responseData.data?.data || response.data;
+  } catch (error) {
+    console.error("Error checking occupied seats:", error);
+    throw error;
+  }
+};
+
 export const getShowTimesByFilter = async (
   movieId: string,
   theaterId: string
@@ -163,7 +195,7 @@ export const getSeatsForShowtimeApi = async (
       };
     }>
   >(`/showtimes/${showtimeId}/seats?${params.toString()}`);
-  
+
   console.log("getSeatsForShowtimeApi response:", response.data);
   console.log("getSeatsForShowtimeApi timestamp:", new Date().toISOString());
   return response.data;
@@ -225,28 +257,36 @@ export const getSeatsWithReservationStatusApi = async (
 ) => {
   try {
     const response = await axiosClient.get<
-      IBackendResponse<Array<{
-        seatId: string;
-        status: string;
-        reservedBy?: string;
-        reservedUntil?: string;
-        isReservedByMe: boolean;
-      }>>
+      IBackendResponse<
+        Array<{
+          seatId: string;
+          status: string;
+          reservedBy?: string;
+          reservedUntil?: string;
+          isReservedByMe: boolean;
+        }>
+      >
     >(`/v1/api/showtimes/seats-with-reservation`, {
-      params: { 
-        showtimeId, 
-        date, 
-        startTime, 
+      params: {
+        showtimeId,
+        date,
+        startTime,
         room,
         fromPaymentReturn: isFromPaymentReturn.toString(),
         // Chỉ cache busting khi từ payment return để đảm bảo data mới
         ...(isFromPaymentReturn && { _t: Date.now().toString() }),
       },
     });
-    
+
     console.log("getSeatsWithReservationStatusApi response:", response.data);
-    console.log("getSeatsWithReservationStatusApi timestamp:", new Date().toISOString());
-    console.log("getSeatsWithReservationStatusApi isFromPaymentReturn:", isFromPaymentReturn);
+    console.log(
+      "getSeatsWithReservationStatusApi timestamp:",
+      new Date().toISOString()
+    );
+    console.log(
+      "getSeatsWithReservationStatusApi isFromPaymentReturn:",
+      isFromPaymentReturn
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching seats with reservation status:", error);
@@ -320,16 +360,42 @@ export const releaseUserReservedSeatsApi = async () => {
 };
 
 // API kiểm tra xem showtime có ghế đã đặt không
-export const checkOccupiedSeatsApi = async (showtimeId: string): Promise<{
+export const checkOccupiedSeatsApi = async (
+  showtimeId: string
+): Promise<{
   hasOccupiedSeats: boolean;
   occupiedCount: number;
   totalSeats: number;
 }> => {
   try {
-    const response = await axiosClient.get(`/showtimes/check-occupied/${showtimeId}`);
+    const response = await axiosClient.get(
+      `/showtimes/check-occupied/${showtimeId}`
+    );
     return response.data.data;
   } catch (error) {
     console.error("Error checking occupied seats:", error);
+    throw error;
+  }
+};
+
+// API kiểm tra từng suất chiếu có ghế đã đặt không
+export const checkEachShowtimeOccupiedSeatsApi = async (
+  showtimeId: string
+): Promise<{
+  showtimes: Array<{
+    index: number;
+    hasOccupiedSeats: boolean;
+    occupiedCount: number;
+    totalSeats: number;
+  }>;
+}> => {
+  try {
+    const response = await axiosClient.get(
+      `/showtimes/check-each-occupied/${showtimeId}`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error("Error checking each showtime occupied seats:", error);
     throw error;
   }
 };

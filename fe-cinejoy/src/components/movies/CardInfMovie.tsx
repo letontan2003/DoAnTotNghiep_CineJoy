@@ -99,7 +99,6 @@ const CardInfMovie = () => {
     showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
       const start = dayjs(st.start);
       const end = dayjs(st.end);
-
       // Xử lý trường hợp ca đêm qua ngày hôm sau
       if (start.hour() >= 22 && end.hour() < 6) {
         // Ca đêm: kiểm tra xem đã qua end time chưa
@@ -150,12 +149,10 @@ const CardInfMovie = () => {
 
         console.log("Fetching movie with ID:", id);
         const response = await getMovieById(id);
-
         if (!response) {
           setMovieError("Không tìm thấy thông tin phim");
           return;
         }
-
         setMovie(response);
         console.log("Movie loaded successfully:", response.title);
         console.log("Movie image URLs:", {
@@ -215,27 +212,36 @@ const CardInfMovie = () => {
   const filteredMovies = (() => {
     let filtered = [];
 
+    // Lọc bỏ phim đã ẩn (isHidden = true)
+    const visibleMovies = movies.filter((movie) => !movie.isHidden);
+
     switch (activeTab) {
       case "Phim đang chiếu":
         // Chỉ hiển thị phim đang chiếu, không bao gồm suất chiếu đặc biệt
-        filtered = movies.filter((movie) => movie.status === "Phim đang chiếu");
+        filtered = visibleMovies.filter(
+          (movie) => movie.status === "Phim đang chiếu"
+        );
         break;
       case "Phim sắp chiếu":
         // Chỉ hiển thị phim sắp chiếu
-        filtered = movies.filter((movie) => movie.status === "Phim sắp chiếu");
+        filtered = visibleMovies.filter(
+          (movie) => movie.status === "Phim sắp chiếu"
+        );
         break;
       case "Suất chiếu đặc biệt":
         // Chỉ hiển thị suất chiếu đặc biệt
-        filtered = movies.filter(
+        filtered = visibleMovies.filter(
           (movie) => movie.status === "Suất chiếu đặc biệt"
         );
         break;
       case "Đã kết thúc":
         // Chỉ hiển thị phim đã kết thúc
-        filtered = movies.filter((movie) => movie.status === "Đã kết thúc");
+        filtered = visibleMovies.filter(
+          (movie) => movie.status === "Đã kết thúc"
+        );
         break;
       default:
-        filtered = movies;
+        filtered = visibleMovies;
     }
 
     return filtered;

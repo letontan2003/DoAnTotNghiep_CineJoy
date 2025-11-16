@@ -37,8 +37,9 @@ export interface IOrder extends Document {
   }>;
   percentPromotions?: Array<{
     description: string;
-    comboName: string;
-    comboId: string;
+    comboName?: string;
+    comboId?: string;
+    seatType?: string;
     discountPercent: number;
     discountAmount: number;
   }>;
@@ -48,8 +49,12 @@ export interface IOrder extends Document {
   finalAmount: number;
   paymentMethod: "MOMO" | "VNPAY"; // Required
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
-  orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
-  pointsProcessed?: boolean; // Đánh dấu order đã được xử lý điểm chưa
+  orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RETURNED";
+  pointsProcessed?: boolean;
+  returnInfo?: {
+    reason?: string;
+    returnDate?: Date;
+  };
   customerInfo: {
     fullName: string;
     phoneNumber: string;
@@ -62,7 +67,7 @@ export interface IOrder extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
-  expiresAt: Date;
+  expiresAt?: Date;
 }
 
 const OrderSchema: Schema = new Schema(
@@ -203,11 +208,15 @@ const OrderSchema: Schema = new Schema(
         },
         comboName: {
           type: String,
-          required: true,
+          required: false,
         },
         comboId: {
           type: String,
-          required: true,
+          required: false,
+        },
+        seatType: {
+          type: String,
+          required: false,
         },
         discountPercent: {
           type: Number,
@@ -252,7 +261,7 @@ const OrderSchema: Schema = new Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"],
+      enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "RETURNED"],
       default: "PENDING",
       index: true,
     },
@@ -260,6 +269,16 @@ const OrderSchema: Schema = new Schema(
       type: Boolean,
       default: false,
       index: true,
+    },
+    returnInfo: {
+      reason: {
+        type: String,
+        required: false,
+      },
+      returnDate: {
+        type: Date,
+        required: false,
+      },
     },
     customerInfo: {
       fullName: {
@@ -293,7 +312,7 @@ const OrderSchema: Schema = new Schema(
     },
     expiresAt: {
       type: Date,
-      required: true,
+      required: false,
       index: { expireAfterSeconds: 0 },
     },
   },
@@ -303,17 +322,23 @@ const OrderSchema: Schema = new Schema(
   }
 );
 
-// Indexes for better performance
 OrderSchema.index({ userId: 1, createdAt: -1 });
 OrderSchema.index({ paymentStatus: 1, orderStatus: 1 });
-// expiresAt index is already defined above with TTL
 
-// Generate unique order code before saving (backup in case not provided)
 OrderSchema.pre("save", async function (next) {
   if (this.isNew && !this.orderCode) {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substring(2, 7);
     this.orderCode = `CJ${timestamp}${random}`.toUpperCase();
+  }
+  next();
+});
+
+OrderSchema.pre("save", async function (next) {
+  if (this.orderStatus === "CONFIRMED" || this.orderStatus === "RETURNED") {
+    if (this.expiresAt !== undefined && this.expiresAt !== null) {
+      this.expiresAt = undefined;
+    }
   }
   next();
 });

@@ -114,6 +114,15 @@ const ScheduleList: React.FC = () => {
           const movie = st.movieId as IMovie;
           const theaterData = st.theaterId as ITheater;
 
+          // Kiểm tra null/undefined trước khi truy cập thuộc tính
+          if (!movie || !theaterData) {
+            console.warn("Missing movie or theater data:", {
+              movie,
+              theaterData,
+              st,
+            });
+            return [];
+          }
 
           return st.showTimes.map((innerSt) => ({
             ...innerSt,
@@ -124,7 +133,12 @@ const ScheduleList: React.FC = () => {
             genre: movie.genre,
             theaterId: theaterData._id,
             theaterName: theaterData.name,
-            room: typeof innerSt.room === 'string' ? innerSt.room : (innerSt.room as { name?: string; _id?: string })?.name || (innerSt.room as { name?: string; _id?: string })?._id || 'Unknown Room',
+            room:
+              typeof innerSt.room === "string"
+                ? innerSt.room
+                : (innerSt.room as { name?: string; _id?: string })?.name ||
+                  (innerSt.room as { name?: string; _id?: string })?._id ||
+                  "Unknown Room",
           }));
         })
         .flat();
@@ -141,12 +155,12 @@ const ScheduleList: React.FC = () => {
         showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
           const start = dayjs(st.start);
           const end = dayjs(st.end);
-          
+
           // Xử lý trường hợp ca đêm qua ngày hôm sau
           if (start.hour() >= 22 && end.hour() < 6) {
             // Ca đêm: kiểm tra xem đã qua end time chưa
             const endTimeToday = end.format("YYYY-MM-DD HH:mm");
-            const nowFormatted = now.format("YYYY-MM-DD HH:mm");
+            // const nowFormatted = now.format("YYYY-MM-DD HH:mm");
             return dayjs(endTimeToday).add(5, "minute").isAfter(now);
           } else {
             // Ca bình thường: kiểm tra start time
@@ -266,7 +280,7 @@ const ScheduleList: React.FC = () => {
     ) {
       setSelectedDate(todayConst);
     }
-  }, [showtimes]);
+  }, [showtimes, selectedDate]);
 
   // Khi dữ liệu rạp thay đổi, nếu selectedCity không còn rạp nào, tự động chọn thành phố đầu tiên có rạp
   useEffect(() => {
@@ -274,35 +288,45 @@ const ScheduleList: React.FC = () => {
       const citiesWithCinemas = [
         ...new Set(theater.map((c) => (c.location?.city || "").trim())),
       ];
-      if (!citiesWithCinemas.map((n)=>n.toLowerCase()).includes(selectedCity.trim().toLowerCase())) {
+      if (
+        !citiesWithCinemas
+          .map((n) => n.toLowerCase())
+          .includes(selectedCity.trim().toLowerCase())
+      ) {
         setSelectedCity(citiesWithCinemas[0] || "");
       }
     }
-  }, [theater]);
+  }, [theater, selectedCity]);
 
   const filteredCinemas = theater.filter(
-    (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
+    (c) =>
+      (c.location?.city || "").trim().toLowerCase() ===
+      selectedCity.trim().toLowerCase()
   );
 
-  // Khi đổi thành phố, chọn lại rạp đầu tiên hoặc reset nếu không có rạp
+  // Auto-select rạp đầu tiên khi load trang hoặc đổi thành phố
   useEffect(() => {
-    // Chỉ auto-select khi thành phố thực sự thay đổi (không phải lần render đầu tiên hoặc re-render)
-    const cityChanged = previousCityRef.current !== "" && previousCityRef.current !== selectedCity;
-    
-    if (cityChanged) {
-      const filtered = theater.filter(
-        (c) => (c.location?.city || "").trim().toLowerCase() === selectedCity.trim().toLowerCase()
-      );
-      if (filtered.length > 0) {
-        setSelectedCinemaId(filtered[0]._id);
-      } else {
-        setSelectedCinemaId("");
-      }
+    const filtered = theater.filter(
+      (c) =>
+        (c.location?.city || "").trim().toLowerCase() ===
+        selectedCity.trim().toLowerCase()
+    );
+
+    // Auto-select rạp đầu tiên nếu:
+    // 1. Chưa có rạp nào được chọn (selectedCinemaId rỗng)
+    // 2. Hoặc rạp hiện tại không còn trong danh sách filtered
+    if (
+      filtered.length > 0 &&
+      (!selectedCinemaId || !filtered.find((c) => c._id === selectedCinemaId))
+    ) {
+      setSelectedCinemaId(filtered[0]._id);
+    } else if (filtered.length === 0) {
+      setSelectedCinemaId("");
     }
-    
+
     // Cập nhật ref cho lần kiểm tra tiếp theo
     previousCityRef.current = selectedCity;
-  }, [selectedCity, theater]);
+  }, [selectedCity, theater, selectedCinemaId]);
 
   return (
     <div className={`${isDarkMode ? "bg-[#181a1f]" : "bg-white"} py-8`}>
@@ -354,39 +378,39 @@ const ScheduleList: React.FC = () => {
                 filteredCinemas.map((cinema) => {
                   const isSelected = selectedCinemaId === cinema._id;
                   return (
-                  <button
-                    key={cinema._id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded border w-full text-left cursor-pointer transition-all duration-200 ${
-                      isSelected
-                        ? isDarkMode
-                          ? "bg-blue-600 border-blue-500 text-white shadow-lg"
-                          : "bg-blue-600 border-blue-700 text-white shadow-lg"
-                        : isDarkMode
-                        ? "bg-[#3a3c4a] border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-blue-400"
-                        : "bg-white border-gray-200 hover:bg-[#f5f5f5] hover:border-[#0f1b4c]"
-                    }`}
-                    onClick={() => {
-                      console.log('Clicked cinema:', cinema._id, cinema.name);
-                      setSelectedCinemaId(cinema._id);
-                    }}
-                  >
-                    <img
-                      src="https://res.cloudinary.com/dd1vwmybp/image/upload/v1757904774/cinejoy/bynlzrloegzerc5ucbxw.png"
-                      alt="CNJ"
-                      className="w-9 h-9"
-                    />
-                    <span
-                      className={`${
+                    <button
+                      key={cinema._id}
+                      className={`flex items-center gap-2 px-3 py-2 rounded border w-full text-left cursor-pointer transition-all duration-200 ${
                         isSelected
-                          ? "text-white font-semibold"
+                          ? isDarkMode
+                            ? "bg-blue-600 border-blue-500 text-white shadow-lg"
+                            : "bg-blue-600 border-blue-700 text-white shadow-lg"
                           : isDarkMode
-                          ? "text-gray-200"
-                          : "text-gray-800"
+                          ? "bg-[#3a3c4a] border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-blue-400"
+                          : "bg-white border-gray-200 hover:bg-[#f5f5f5] hover:border-[#0f1b4c]"
                       }`}
+                      onClick={() => {
+                        console.log("Clicked cinema:", cinema._id, cinema.name);
+                        setSelectedCinemaId(cinema._id);
+                      }}
                     >
-                      {cinema.name}
-                    </span>
-                  </button>
+                      <img
+                        src="https://res.cloudinary.com/dd1vwmybp/image/upload/v1757904774/cinejoy/bynlzrloegzerc5ucbxw.png"
+                        alt="CNJ"
+                        className="w-9 h-9"
+                      />
+                      <span
+                        className={`${
+                          isSelected
+                            ? "text-white font-semibold"
+                            : isDarkMode
+                            ? "text-gray-200"
+                            : "text-gray-800"
+                        }`}
+                      >
+                        {cinema.name}
+                      </span>
+                    </button>
                   );
                 })
               )}
@@ -602,10 +626,10 @@ const ScheduleList: React.FC = () => {
                                   setIsModalOpen(true);
                                   return;
                                 }
-                                
+
                                 // Giải phóng ghế tạm giữ trước khi chọn suất chiếu mới
                                 await releaseUserReservedSeats();
-                                
+
                                 navigate(`/selectSeat`, {
                                   state: {
                                     movie: {

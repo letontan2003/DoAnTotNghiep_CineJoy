@@ -2,7 +2,16 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Modal, Button, Typography, Row, Col, message } from "antd";
-import { validateVoucherApi, applyVoucherApi, createOrderApi, processPaymentApi, getAmountDiscountApi, getActiveItemPromotionsApi, applyItemPromotionsApi, applyPercentPromotionsApi } from "@/services/api";
+import {
+  validateVoucherApi,
+  applyVoucherApi,
+  createOrderApi,
+  processPaymentApi,
+  getAmountDiscountApi,
+  getActiveItemPromotionsApi,
+  applyItemPromotionsApi,
+  applyPercentPromotionsApi,
+} from "@/services/api";
 import { getFoodCombos } from "@/apiservice/apiFoodCombo";
 import { getCurrentPriceList } from "@/apiservice/apiPriceList";
 import type { IPriceList, IPriceListLine } from "@/apiservice/apiPriceList";
@@ -42,7 +51,7 @@ const PaymentPage = () => {
     theaterId = "",
     showtimeId = "",
   } = location.state || {};
-  
+
   // Kiểu dữ liệu hiển thị cho Dịch vụ kèm (tên/mô tả từ FoodCombo, giá từ bảng giá)
   interface UIComboItem {
     _id: string;
@@ -73,18 +82,30 @@ const PaymentPage = () => {
 
   // State cho khuyến mãi hàng
   const [appliedItemPromotions, setAppliedItemPromotions] = useState<any[]>([]);
-  
+
   // State cho khuyến mãi chiết khấu
-  const [appliedPercentPromotions, setAppliedPercentPromotions] = useState<any[]>([]);
+  const [appliedPercentPromotions, setAppliedPercentPromotions] = useState<
+    any[]
+  >([]);
+
+  // Tính tiền vé từ seatTypeCounts và bảng giá hiện tại
+  const [ticketTotal, setTicketTotal] = useState<number>(0);
+  const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>(
+    {}
+  );
 
   // Tính toán selectedCombos từ comboCounts - sử dụng useMemo để tránh tạo array mới mỗi lần render
-  const selectedCombos = useMemo(() => 
-    combos.filter(combo => comboCounts[combo._id] > 0).map(combo => ({
-      _id: combo._id,
-      quantity: comboCounts[combo._id],
-      name: combo.name
-    }))
-  , [combos, comboCounts]);
+  const selectedCombos = useMemo(
+    () =>
+      combos
+        .filter((combo) => comboCounts[combo._id] > 0)
+        .map((combo) => ({
+          _id: combo._id,
+          quantity: comboCounts[combo._id],
+          name: combo.name,
+        })),
+    [combos, comboCounts]
+  );
   const [amountDiscount, setAmountDiscount] = useState<{
     description: string;
     discountAmount: number;
@@ -93,7 +114,7 @@ const PaymentPage = () => {
   const [voucherError, setVoucherError] = useState<string>("");
   const [isModalPaymentOpen, setIsModalPaymentOpen] = useState<boolean>(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState<boolean>(false);
-  const [paymentMethod, setPaymentMethod] = useState<'MOMO' | 'VNPAY'>('MOMO');
+  const [paymentMethod, setPaymentMethod] = useState<"MOMO" | "VNPAY">("MOMO");
 
   // releaseSeatsOnExit function removed - seats should stay reserved when navigating back
 
@@ -111,7 +132,7 @@ const PaymentPage = () => {
 
   //   // Lắng nghe sự kiện beforeunload (đóng tab, refresh, navigate away)
   //   window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
   //   // Lắng nghe sự kiện popstate (back/forward button)
   //   window.addEventListener('popstate', handleRouteChange);
 
@@ -127,12 +148,12 @@ const PaymentPage = () => {
   //   return () => {
   //     // Kiểm tra xem có đang redirect đến payment gateway không
   //     const isRedirectingToPayment = sessionStorage.getItem('payment_redirecting');
-      
+
   //     if (!isRedirectingToPayment) {
   //       // Chỉ release ghế khi KHÔNG đang redirect đến payment gateway
   //       releaseSeatsOnExit();
   //     }
-      
+
   //     // Đảm bảo cờ redirecting được xóa khi component unmount
   //     try {
   //       sessionStorage.removeItem('payment_redirecting');
@@ -145,19 +166,19 @@ const PaymentPage = () => {
   // Set flag khi vào trang payment để đánh dấu có thể quay lại
   useEffect(() => {
     try {
-      sessionStorage.setItem('from_payment_page', 'true');
-      console.log('🏷️ Set from_payment_page flag');
+      sessionStorage.setItem("from_payment_page", "true");
+      console.log("🏷️ Set from_payment_page flag");
     } catch (error) {
-      console.error('Error setting payment page flag:', error);
+      console.error("Error setting payment page flag:", error);
     }
 
     // Cleanup: xóa flag khi component unmount (user navigate đến trang khác)
     return () => {
       try {
-        sessionStorage.removeItem('from_payment_page');
-        console.log('🧹 Removed from_payment_page flag on unmount');
+        sessionStorage.removeItem("from_payment_page");
+        console.log("🧹 Removed from_payment_page flag on unmount");
       } catch (error) {
-        console.error('Error removing payment page flag:', error);
+        console.error("Error removing payment page flag:", error);
       }
     };
   }, []);
@@ -274,26 +295,33 @@ const PaymentPage = () => {
 
     try {
       // B1: kiểm tra hợp lệ cơ bản
-    const response = await validateVoucherApi(voucherCode, user?._id);
+      const response = await validateVoucherApi(voucherCode, user?._id);
       if (!response || !(response as VoucherResponse).status) {
-        setVoucherError((response as VoucherResponse)?.message || "Mã voucher không hợp lệ");
+        setVoucherError(
+          (response as VoucherResponse)?.message || "Mã voucher không hợp lệ"
+        );
         setAppliedVoucher(null);
         return;
       }
 
       // B2: áp dụng theo tổng hiện tại để tính đúng phần trăm và trần tối đa
-      const applyRes = await applyVoucherApi(voucherCode, currentSubTotal, user?._id);
+      const applyRes = await applyVoucherApi(
+        voucherCode,
+        currentSubTotal,
+        user?._id
+      );
       if (!applyRes || !applyRes.status || !applyRes.data) {
         setVoucherError(applyRes?.message || "Không áp dụng được voucher");
-      setAppliedVoucher(null);
-      return;
-    }
+        setAppliedVoucher(null);
+        return;
+      }
 
       const percent = (response as VoucherResponse)?.data?.discount || 0;
-      const cap = Number(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((response as any)?.data?.voucher?.maxDiscountValue) ?? undefined
-      ) || undefined;
+      const cap =
+        Number(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (response as any)?.data?.voucher?.maxDiscountValue ?? undefined
+        ) || undefined;
       setAppliedVoucher({
         code: voucherCode,
         discountPercent: percent,
@@ -328,60 +356,103 @@ const PaymentPage = () => {
     }
   };
 
-
-
-  // Tự động áp dụng khuyến mãi hàng (không hiển thị message)
+  // Tự động áp dụng khuyến mãi hàng cho cả combo và vé (không hiển thị message)
   const applyItemPromotionsAuto = useCallback(async () => {
-    if (selectedCombos.length === 0) {
+    // Chỉ áp dụng nếu có combo hoặc có vé
+    if (selectedCombos.length === 0 && (!seats || seats.length === 0)) {
       setAppliedItemPromotions([]);
       return;
     }
 
     try {
-      const comboData = selectedCombos.map(combo => ({
+      const comboData = selectedCombos.map((combo) => ({
         comboId: combo._id,
         quantity: combo.quantity,
-        name: combo.name
+        name: combo.name,
       }));
 
-      const response = await applyItemPromotionsApi(comboData, []);
-      
-      console.log('🎯 Frontend API Response:', response);
-      console.log('🎯 Selected combos:', comboData);
-      
+      // Chuẩn bị dữ liệu vé để gửi lên API
+      const seatData = seats.map((seatId: string) => {
+        const seatType = (seatTypeMap[seatId] || "normal").toLowerCase(); // Normalize to lowercase
+        return {
+          seatId: seatId,
+          type: seatType,
+          price: 0, // Price không cần thiết cho logic khuyến mãi hàng
+        };
+      });
+
+      const response = await applyItemPromotionsApi(comboData, [], seatData);
+
+      console.log("🎯 Frontend API Response:", response);
+      console.log("🎯 Selected combos:", comboData);
+      console.log("🎯 Selected seats:", seatData);
+
       if (response.status && response.data) {
-        console.log('🎯 Setting applied promotions:', response.data.applicablePromotions);
+        console.log(
+          "🎯 Setting applied promotions:",
+          response.data.applicablePromotions
+        );
         setAppliedItemPromotions(response.data.applicablePromotions);
       } else {
-        console.log('🎯 No promotions found');
+        console.log("🎯 No promotions found");
         setAppliedItemPromotions([]);
       }
     } catch (error) {
       console.error("Error applying item promotions:", error);
       setAppliedItemPromotions([]);
     }
-  }, [selectedCombos]);
+  }, [selectedCombos, seats, seatTypeMap]);
 
-  // Tự động áp dụng khuyến mãi chiết khấu (không hiển thị message)
+  // Tự động áp dụng khuyến mãi chiết khấu cho cả combo và vé (không hiển thị message)
   const applyPercentPromotionsAuto = useCallback(async () => {
-    if (selectedCombos.length === 0) {
+    // Chỉ áp dụng nếu có combo hoặc có vé
+    if (selectedCombos.length === 0 && (!seats || seats.length === 0)) {
       setAppliedPercentPromotions([]);
       return;
     }
 
     try {
-      const comboData = selectedCombos.map(combo => {
-        const fullCombo = combos.find(c => c._id === combo._id);
+      const comboData = selectedCombos.map((combo) => {
+        const fullCombo = combos.find((c) => c._id === combo._id);
         return {
           comboId: combo._id,
           quantity: combo.quantity,
           name: combo.name,
-          price: fullCombo?.price || 0
+          price: fullCombo?.price || 0,
         };
       });
 
-      const response = await applyPercentPromotionsApi(comboData, []);
-      
+      // Chuẩn bị dữ liệu vé với giá để tính phần trăm giảm
+      // Lấy giá vé từ ticketPriceMap (đã được load từ price list)
+      const seatDataWithPrice = seats.map((seatId: string) => {
+        const seatType = (seatTypeMap[seatId] || "normal").toLowerCase(); // Normalize to lowercase
+        // Lấy giá từ ticketPriceMap theo loại ghế (normalize seatType để match với price list)
+        const seatPrice = ticketPriceMap[seatType] || 0;
+
+        console.log(
+          `🎯 Seat ${seatId}: type=${seatType}, price=${seatPrice} from ticketPriceMap[${seatType}]`
+        );
+
+        return {
+          seatId: seatId,
+          type: seatType,
+          price: seatPrice, // Giá vé từ price list, để backend tính phần trăm giảm
+        };
+      });
+
+      console.log(
+        "🎯 Percent promotions - seatDataWithPrice:",
+        seatDataWithPrice
+      );
+      console.log("🎯 Percent promotions - ticketPriceMap:", ticketPriceMap);
+      console.log("🎯 Percent promotions - seatTypeMap:", seatTypeMap);
+
+      const response = await applyPercentPromotionsApi(
+        comboData,
+        [],
+        seatDataWithPrice
+      );
+
       if (response.status && response.data) {
         setAppliedPercentPromotions(response.data.applicablePromotions);
       } else {
@@ -391,7 +462,7 @@ const PaymentPage = () => {
       console.error("Error applying percent promotions:", error);
       setAppliedPercentPromotions([]);
     }
-  }, [selectedCombos]);
+  }, [selectedCombos, seats, seatTypeMap, combos, ticketPriceMap]);
 
   const handleOpenModal = () => {
     if (!editableUserInfo.fullName.trim()) {
@@ -426,24 +497,24 @@ const PaymentPage = () => {
         showDate: date,
         showTime: time,
         room: room,
-          seats: seats.map((seatId: string) => ({
-            seatId,
-            type: (seatTypeMap as Record<string, string>)[seatId] || "normal",
-            // Giá lấy từ bảng giá đang hoạt động theo loại ghế; fallback 0
-            price: (() => {
-              const type = (seatTypeMap as Record<string, string>)[seatId];
-              // Map giá theo loại ghế đã được tính ở dưới: ticketPriceMap
-              return ticketPriceMap[type || ""] || 0;
-            })()
-          })),
+        seats: seats.map((seatId: string) => ({
+          seatId,
+          type: (seatTypeMap as Record<string, string>)[seatId] || "normal",
+          // Giá lấy từ bảng giá đang hoạt động theo loại ghế; fallback 0
+          price: (() => {
+            const type = (seatTypeMap as Record<string, string>)[seatId];
+            // Map giá theo loại ghế đã được tính ở dưới: ticketPriceMap
+            return ticketPriceMap[type || ""] || 0;
+          })(),
+        })),
         foodCombos: Object.entries(comboCounts)
           .filter(([, count]) => count > 0)
           .map(([comboId, count]) => {
-            const combo = combos.find(c => c._id === comboId);
+            const combo = combos.find((c) => c._id === comboId);
             return {
               comboId,
               quantity: count,
-              price: combo?.price || 0
+              price: combo?.price || 0,
             };
           }),
         voucherId: appliedVoucher?.userVoucherId || null,
@@ -451,10 +522,9 @@ const PaymentPage = () => {
         customerInfo: {
           fullName: editableUserInfo.fullName,
           phoneNumber: editableUserInfo.phoneNumber,
-          email: editableUserInfo.email
-        }
+          email: editableUserInfo.email,
+        },
       };
-
 
       // Gọi API tạo order
       try {
@@ -462,64 +532,82 @@ const PaymentPage = () => {
         // orderResult theo chuẩn IBackendResponse
         // Nếu backend trả status=false hoặc không có data → hiển thị message cụ thể và dừng
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const orderOk = !!orderResult && (orderResult as any)?.status !== false && (orderResult as any)?.data;
+        const orderOk =
+          !!orderResult &&
+          (orderResult as any)?.status !== false &&
+          (orderResult as any)?.data;
         if (!orderOk) {
-          const backendMsg = (orderResult as any)?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.';
+          const backendMsg =
+            (orderResult as any)?.message ||
+            "Không thể tạo đơn hàng. Vui lòng thử lại.";
           message.error(backendMsg);
           setIsPaymentLoading(false);
           return;
         }
-        
+
         // Gọi API thanh toán
         const paymentData = {
           paymentMethod: paymentMethod,
           returnUrl: "http://localhost:3000/payment/success",
-          cancelUrl: "http://localhost:3000/payment/cancel"
+          cancelUrl: "http://localhost:3000/payment/cancel",
         };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const orderId = (orderResult.data as any)?.orderId || (orderResult.data as any)?._id || (orderResult as any)?.orderId || (orderResult as any)?._id;
-        
+        const orderId =
+          (orderResult.data as any)?.orderId ||
+          (orderResult.data as any)?._id ||
+          (orderResult as any)?.orderId ||
+          (orderResult as any)?._id;
+
         // Persist orderId for cancellation if user aborts payment
         try {
           if (orderId) {
-            sessionStorage.setItem('last_order_id', String(orderId));
+            sessionStorage.setItem("last_order_id", String(orderId));
           }
         } catch (e: unknown) {
-          console.error('Error setting last_order_id:', e);
+          console.error("Error setting last_order_id:", e);
         }
 
         const paymentResult = await processPaymentApi(orderId, paymentData);
         // Redirect đến URL thanh toán
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const paymentUrl = (paymentResult as any)?.data?.paymentUrl || (paymentResult as any)?.paymentUrl;
+        const paymentUrl =
+          (paymentResult as any)?.data?.paymentUrl ||
+          (paymentResult as any)?.paymentUrl;
         if (paymentUrl) {
           // Set flag để không release ghế khi redirect đến payment gateway
           try {
-            sessionStorage.setItem('payment_redirecting', '1');
+            sessionStorage.setItem("payment_redirecting", "1");
           } catch (e) {
-            console.error('Error setting payment_redirecting flag:', e);
+            console.error("Error setting payment_redirecting flag:", e);
           }
           window.location.href = paymentUrl;
         } else {
-          const payMsg = (paymentResult as any)?.message || 'Không tạo được đường dẫn thanh toán.';
+          const payMsg =
+            (paymentResult as any)?.message ||
+            "Không tạo được đường dẫn thanh toán.";
           message.error(payMsg);
           setIsPaymentLoading(false);
           return;
         }
-        
       } catch (apiError) {
         // Hiển thị thông điệp chi tiết từ backend nếu có (ví dụ ghế không khả dụng)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const backendMsg = (apiError as any)?.response?.data?.message || (apiError as any)?.message || 'Có lỗi xảy ra khi tạo đơn hàng/thanh toán.';
+        const backendMsg =
+          (apiError as any)?.response?.data?.message ||
+          (apiError as any)?.message ||
+          "Có lỗi xảy ra khi tạo đơn hàng/thanh toán.";
         message.error(backendMsg);
         setIsPaymentLoading(false);
         return;
       }
-
     } catch (error) {
       console.error("Payment error:", error);
-      message.error(error instanceof Error ? error.message : "Có lỗi xảy ra trong quá trình thanh toán!");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra trong quá trình thanh toán!"
+      );
     } finally {
       setIsPaymentLoading(false);
     }
@@ -530,11 +618,6 @@ const PaymentPage = () => {
     (sum, c) => sum + (comboCounts[c._id] || 0) * (c.price || 0),
     0
   );
-
-  // Tính tiền vé từ seatTypeCounts và bảng giá hiện tại (đã load ở SelectSeat và truyền tổng)
-  // Fallback: nếu không có seatTypeCounts, tạm tính 0 để tránh sai số
-  const [ticketTotal, setTicketTotal] = useState<number>(0);
-  const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>({});
   useEffect(() => {
     const calc = async () => {
       try {
@@ -542,10 +625,21 @@ const PaymentPage = () => {
         const priceList: IPriceList | null = await getCurrentPriceList();
         const map: Record<string, number> = {};
         (priceList?.lines || []).forEach((l) => {
-          if (l.type === 'ticket' && l.seatType) map[l.seatType] = l.price || 0;
+          if (l.type === "ticket" && l.seatType) {
+            // Normalize seatType to lowercase để match với database
+            const normalizedSeatType = (l.seatType || "").toLowerCase();
+            map[normalizedSeatType] = l.price || 0;
+          }
         });
+        console.log("🎯 Payment - ticketPriceMap from price list:", map);
         setTicketPriceMap(map);
-        const total = Object.entries(seatTypeCounts || {}).reduce((sum, [type, count]) => sum + (map[type] || 0) * (count as number), 0);
+        const total = Object.entries(seatTypeCounts || {}).reduce(
+          (sum, [type, count]) => {
+            const normalizedType = (type || "").toLowerCase();
+            return sum + (map[normalizedType] || 0) * (count as number);
+          },
+          0
+        );
         setTicketTotal(total);
       } catch {
         setTicketTotal(0);
@@ -560,22 +654,41 @@ const PaymentPage = () => {
   const amountDiscountValue = amountDiscount?.discountAmount || 0;
 
   // Tính tổng discount từ percent promotions
-  const percentDiscountTotal = appliedPercentPromotions.reduce((sum, promo) => sum + (promo.discountAmount || 0), 0);
-  
-  const total = Math.max(0, currentSubTotal - voucherDiscount - amountDiscountValue - percentDiscountTotal);
+  const percentDiscountTotal = appliedPercentPromotions.reduce(
+    (sum, promo) => sum + (promo.discountAmount || 0),
+    0
+  );
+
+  const total = Math.max(
+    0,
+    currentSubTotal -
+      voucherDiscount -
+      amountDiscountValue -
+      percentDiscountTotal
+  );
 
   // Khi tổng thay đổi mà đã có voucher, gọi lại API apply để cập nhật số tiền giảm cho đúng trần
   useEffect(() => {
     const reapply = async () => {
       if (!appliedVoucher?.code) return;
       try {
-        const applyRes = await applyVoucherApi(appliedVoucher.code, currentSubTotal, user?._id);
+        const applyRes = await applyVoucherApi(
+          appliedVoucher.code,
+          currentSubTotal,
+          user?._id
+        );
         if (applyRes?.status && applyRes.data) {
-          setAppliedVoucher((prev) => prev ? {
-            ...prev,
-            discountAmount: (applyRes.data?.discountAmount as number) || 0,
-            userVoucherId: applyRes.data?.userVoucherId || prev.userVoucherId,
-          } : prev);
+          setAppliedVoucher((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  discountAmount:
+                    (applyRes.data?.discountAmount as number) || 0,
+                  userVoucherId:
+                    applyRes.data?.userVoucherId || prev.userVoucherId,
+                }
+              : prev
+          );
         }
       } catch {
         // ignore
@@ -621,10 +734,14 @@ const PaymentPage = () => {
       setTimeLeft((prevTime) => {
         if (prevTime <= 1) {
           // Hết thời gian: đặt cờ để Layout hiển thị modal sau khi redirect
-          try { setIsModalOpen(false); } catch (error) {
+          try {
+            setIsModalOpen(false);
+          } catch (error) {
             console.error("Error setting isModalOpen to false:", error);
           }
-          try { sessionStorage.setItem('show_timeout_modal', '1'); } catch (error) {
+          try {
+            sessionStorage.setItem("show_timeout_modal", "1");
+          } catch (error) {
             console.error("Error setting show_timeout_modal:", error);
           }
           navigate("/");
@@ -642,16 +759,27 @@ const PaymentPage = () => {
     loadActiveItemPromotions();
   }, []);
 
-  // Tự động áp dụng khuyến mãi hàng và chiết khấu khi selectedCombos thay đổi
+  // Tự động áp dụng khuyến mãi hàng và chiết khấu khi selectedCombos hoặc seats thay đổi
   useEffect(() => {
-    if (selectedCombos.length > 0) {
+    // Áp dụng khuyến mãi hàng nếu có combo hoặc có vé
+    if (selectedCombos.length > 0 || (seats && seats.length > 0)) {
       applyItemPromotionsAuto();
-      applyPercentPromotionsAuto();
     } else {
       setAppliedItemPromotions([]);
+    }
+
+    // Áp dụng khuyến mãi chiết khấu nếu có combo hoặc có vé
+    if (selectedCombos.length > 0 || (seats && seats.length > 0)) {
+      applyPercentPromotionsAuto();
+    } else {
       setAppliedPercentPromotions([]);
     }
-  }, [selectedCombos, applyItemPromotionsAuto, applyPercentPromotionsAuto]);
+  }, [
+    selectedCombos,
+    seats,
+    applyItemPromotionsAuto,
+    applyPercentPromotionsAuto,
+  ]);
 
   return (
     <>
@@ -662,7 +790,6 @@ const PaymentPage = () => {
             : "bg-[#e7ede7] text-[#162d5a]"
         } min-h-screen py-8`}
       >
-        
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-8">
           {/* Thông tin thanh toán */}
           <div
@@ -677,53 +804,73 @@ const PaymentPage = () => {
                 <button
                   onClick={async () => {
                     // Release ghế khi quay lại từ trang thanh toán
-                    console.log('🔓 Releasing seats when navigating back from payment page');
-                    
+                    console.log(
+                      "🔓 Releasing seats when navigating back from payment page"
+                    );
+
                     try {
                       // Import API function
-                      const { releaseSeatsApi } = await import('@/apiservice/apiShowTime');
-                      
+                      const { releaseSeatsApi } = await import(
+                        "@/apiservice/apiShowTime"
+                      );
+
                       // Release ghế đã chọn
-                      if (showtimeId && date && time && room && seats.length > 0) {
-                        console.log('🔓 Releasing seats:', seats);
-                        await releaseSeatsApi(showtimeId, date, time, room, seats);
-                        console.log('✅ Successfully released seats when navigating back');
+                      if (
+                        showtimeId &&
+                        date &&
+                        time &&
+                        room &&
+                        seats.length > 0
+                      ) {
+                        console.log("🔓 Releasing seats:", seats);
+                        await releaseSeatsApi(
+                          showtimeId,
+                          date,
+                          time,
+                          room,
+                          seats
+                        );
+                        console.log(
+                          "✅ Successfully released seats when navigating back"
+                        );
                       }
-                      
+
                       // Clear cache
-                      sessionStorage.removeItem('booking_reserved_info');
+                      sessionStorage.removeItem("booking_reserved_info");
                     } catch (error) {
-                      console.error('❌ Error releasing seats when navigating back:', error);
+                      console.error(
+                        "❌ Error releasing seats when navigating back:",
+                        error
+                      );
                       // Vẫn navigate back dù có lỗi
                     }
-                    
+
                     navigate(-1);
                   }}
                   className={`flex items-center gap-1 px-2 py-1 rounded-lg font-medium select-none cursor-pointer transition-all duration-200 ${
-                      isDarkMode
+                    isDarkMode
                       ? "text-white hover:underline"
                       : "text-gray-700 hover:underline"
                   }`}
                   aria-label="Quay lại"
                 >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Quay lại
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Quay lại
                 </button>
-                
               </div>
-              </div>
+            </div>
             {/* Phần nhập thông tin thanh toán đã được chuyển sang panel bên phải */}
 
             {/* Dịch vụ kèm */}
@@ -749,16 +896,18 @@ const PaymentPage = () => {
                 } shadow-sm border ${
                   isDarkMode ? "border-gray-700" : "border-gray-200"
                 }`}
-                style={{ 
-                  maxHeight: '400px', 
-                  overflowY: 'auto'
+                style={{
+                  maxHeight: "400px",
+                  overflowY: "auto",
                 }}
               >
                 <table className={`w-full ${isDarkMode ? "" : "bg-[#e7ede7]"}`}>
                   <thead className="sticky top-0 z-10">
                     <tr
                       className={`text-left select-none border-b ${
-                        isDarkMode ? "border-gray-600 bg-[#1a1f2e]" : "border-gray-300 bg-gray-50"
+                        isDarkMode
+                          ? "border-gray-600 bg-[#1a1f2e]"
+                          : "border-gray-300 bg-gray-50"
                       }`}
                     >
                       <th
@@ -809,26 +958,24 @@ const PaymentPage = () => {
                           </div>
                         </td>
                         <td className="py-3 text-sm text-center">
-                            <span
-                              className={
-                                c.quantity === 0 ? "text-gray-500" : ""
-                              }
-                            >
-                              {c.description}
-                            </span>
+                          <span
+                            className={c.quantity === 0 ? "text-gray-500" : ""}
+                          >
+                            {c.description}
+                          </span>
                         </td>
                         <td className="py-3 text-center">
-                            <span
-                              className={`font-bold text-base ${
-                                c.quantity === 0
-                                  ? "text-gray-500"
-                                  : isDarkMode
-                                  ? "text-green-400"
-                                  : "text-green-600"
-                              }`}
-                            >
-                            {c.price ? c.price.toLocaleString() : '0'} VNĐ
-                            </span>
+                          <span
+                            className={`font-bold text-base ${
+                              c.quantity === 0
+                                ? "text-gray-500"
+                                : isDarkMode
+                                ? "text-green-400"
+                                : "text-green-600"
+                            }`}
+                          >
+                            {c.price ? c.price.toLocaleString() : "0"} VNĐ
+                          </span>
                         </td>
                         <td className="py-1 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -926,21 +1073,25 @@ const PaymentPage = () => {
             <div className="mb-4">
               <div className="space-y-3">
                 {/* MOMO */}
-                <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                  paymentMethod === 'MOMO' 
-                    ? isDarkMode 
-                      ? 'bg-blue-900/30 border-blue-500' 
-                      : 'bg-[#f5f3ff] border-blue-400' // light mode selected: subtle lavender
-                    : isDarkMode 
-                      ? 'bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]' 
-                      : 'bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]' // light mode idle: soft gray
-                }`}>
+                <label
+                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                    paymentMethod === "MOMO"
+                      ? isDarkMode
+                        ? "bg-blue-900/30 border-blue-500"
+                        : "bg-[#f5f3ff] border-blue-400" // light mode selected: subtle lavender
+                      : isDarkMode
+                      ? "bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]"
+                      : "bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]" // light mode idle: soft gray
+                  }`}
+                >
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="MOMO"
-                    checked={paymentMethod === 'MOMO'}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'MOMO' | 'VNPAY')}
+                    checked={paymentMethod === "MOMO"}
+                    onChange={(e) =>
+                      setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+                    }
                     className="mr-3 w-4 h-4 text-blue-600"
                   />
                   <div className="flex items-center">
@@ -957,21 +1108,25 @@ const PaymentPage = () => {
                 </label>
 
                 {/* VNPAY */}
-                <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                  paymentMethod === 'VNPAY' 
-                    ? isDarkMode 
-                      ? 'bg-blue-900/30 border-blue-500' 
-                      : 'bg-[#eef5ff] border-blue-400' // light mode selected: pale blue
-                    : isDarkMode 
-                      ? 'bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]' 
-                      : 'bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]'
-                }`}>
+                <label
+                  className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                    paymentMethod === "VNPAY"
+                      ? isDarkMode
+                        ? "bg-blue-900/30 border-blue-500"
+                        : "bg-[#eef5ff] border-blue-400" // light mode selected: pale blue
+                      : isDarkMode
+                      ? "bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]"
+                      : "bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]"
+                  }`}
+                >
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="VNPAY"
-                    checked={paymentMethod === 'VNPAY'}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'MOMO' | 'VNPAY')}
+                    checked={paymentMethod === "VNPAY"}
+                    onChange={(e) =>
+                      setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+                    }
                     className="mr-3 w-4 h-4 text-blue-600"
                   />
                   <div className="flex items-center">
@@ -1091,112 +1246,160 @@ const PaymentPage = () => {
 
                 {/* Voucher (moved here) */}
                 <div className="mt-4">
-                      <h4 className={`mt-4 text-lg text-center font-bold mb-2 ${isDarkMode ? 'text-cyan-300' : 'text-blue-600'}`}>Giảm giá</h4>
-                      {!appliedVoucher ? (
-                        <div className="mb-3">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={voucherCode}
-                              onChange={(e) => {
-                                setVoucherCode(e.target.value.toUpperCase());
-                                if (e.target.value.trim() === "") {
-                                  setVoucherError("");
-                                }
-                              }}
-                              placeholder="Nhập mã voucher"
-                              className={`flex-1 border rounded-md px-2.5 py-2 h-10 ${
-                                isDarkMode
-                                  ? "bg-[#232c3b] text-white border-[#3a3d46] placeholder-gray-400"
-                                  : "border-gray-300"
-                              }`}
-                            />
-                            <button
-                              onClick={handleApplyVoucher}
-                              disabled={voucherLoading || !voucherCode.trim()}
-                              className={`px-2 py-2 rounded font-semibold transition-all duration-200 h-10 whitespace-nowrap ${
-                                voucherLoading || !voucherCode.trim()
-                                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                                  : isDarkMode
-                                  ? "bg-cyan-600 hover:bg-cyan-500 text-white cursor-pointer"
-                                  : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
-                              }`}
-                            >
-                              {voucherLoading ? "Check..." : "Áp dụng"}
-                            </button>
-                          </div>
-                          {voucherError && (
-                            <div className="text-red-500 text-xs mt-2 select-none">{voucherError}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className={`border rounded p-3 mb-2 ${
-                          isDarkMode ? 'bg-[#232c3b] border-[#3a3d46]' : 'bg-green-50 border-green-300'
-                        }`}>
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-semibold text-green-600">✓ Mã voucher: {appliedVoucher.code}</div>
-                              <div className="text-sm">
-                                Bạn được giảm {appliedVoucher.discountPercent}%
-                                {typeof appliedVoucher.maxCap === 'number' && (
-                                  <> (tối đa {appliedVoucher.maxCap.toLocaleString()} VNĐ)</>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              onClick={handleRemoveVoucher}
-                              className="text-red-500 hover:text-red-700 font-semibold text-sm cursor-pointer"
-                            >
-                              Hủy
-                            </button>
-                          </div>
+                  <h4
+                    className={`mt-4 text-lg text-center font-bold mb-2 ${
+                      isDarkMode ? "text-cyan-300" : "text-blue-600"
+                    }`}
+                  >
+                    Giảm giá
+                  </h4>
+                  {!appliedVoucher ? (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={voucherCode}
+                          onChange={(e) => {
+                            setVoucherCode(e.target.value.toUpperCase());
+                            if (e.target.value.trim() === "") {
+                              setVoucherError("");
+                            }
+                          }}
+                          placeholder="Nhập mã voucher"
+                          className={`flex-1 border rounded-md px-2.5 py-2 h-10 ${
+                            isDarkMode
+                              ? "bg-[#232c3b] text-white border-[#3a3d46] placeholder-gray-400"
+                              : "border-gray-300"
+                          }`}
+                        />
+                        <button
+                          onClick={handleApplyVoucher}
+                          disabled={voucherLoading || !voucherCode.trim()}
+                          className={`px-2 py-2 rounded font-semibold transition-all duration-200 h-10 whitespace-nowrap ${
+                            voucherLoading || !voucherCode.trim()
+                              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                              : isDarkMode
+                              ? "bg-cyan-600 hover:bg-cyan-500 text-white cursor-pointer"
+                              : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                          }`}
+                        >
+                          {voucherLoading ? "Check..." : "Áp dụng"}
+                        </button>
+                      </div>
+                      {voucherError && (
+                        <div className="text-red-500 text-xs mt-2 select-none">
+                          {voucherError}
                         </div>
                       )}
                     </div>
-
-                
+                  ) : (
+                    <div
+                      className={`border rounded p-3 mb-2 ${
+                        isDarkMode
+                          ? "bg-[#232c3b] border-[#3a3d46]"
+                          : "bg-green-50 border-green-300"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-semibold text-green-600">
+                            ✓ Mã voucher: {appliedVoucher.code}
+                          </div>
+                          <div className="text-sm">
+                            Bạn được giảm {appliedVoucher.discountPercent}%
+                            {typeof appliedVoucher.maxCap === "number" && (
+                              <>
+                                {" "}
+                                (tối đa {appliedVoucher.maxCap.toLocaleString()}{" "}
+                                VNĐ)
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveVoucher}
+                          className="text-red-500 hover:text-red-700 font-semibold text-sm cursor-pointer"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Thông tin thanh toán (đã chuyển sang bên phải) */}
                 <div className="mt-6">
-                  <p className={`text-lg font-bold text-center mb-4 ${isDarkMode ? "text-cyan-400" : "text-blue-700"}`}>
+                  <p
+                    className={`text-lg font-bold text-center mb-4 ${
+                      isDarkMode ? "text-cyan-400" : "text-blue-700"
+                    }`}
+                  >
                     Thông tin thanh toán
                   </p>
                   <div className="detail_movie_info space-y-2">
                     <div className="row flex justify-between text-sm">
                       <p className="label font-bold">Họ tên:</p>
-                      <p className={`value ${isDarkMode ? "text-gray-200" : ""}`}>
+                      <p
+                        className={`value ${isDarkMode ? "text-gray-200" : ""}`}
+                      >
                         {editableUserInfo.fullName}
                       </p>
                     </div>
                     <div className="row flex justify-between text-sm">
                       <p className="label font-bold">Điện thoại:</p>
-                      <p className={`value ${isDarkMode ? "text-gray-200" : ""}`}>
+                      <p
+                        className={`value ${isDarkMode ? "text-gray-200" : ""}`}
+                      >
                         {editableUserInfo.phoneNumber}
                       </p>
                     </div>
                     <div className="row flex justify-between text-sm">
                       <p className="label font-bold">Email:</p>
-                      <p className={`value ${isDarkMode ? "text-gray-200" : ""}`}>
+                      <p
+                        className={`value ${isDarkMode ? "text-gray-200" : ""}`}
+                      >
                         {editableUserInfo.email}
                       </p>
                     </div>
                     <div className="row flex justify-between text-sm">
                       <p className="label font-bold">Số tiền được giảm:</p>
                       <div className="value text-right">
-                        <div className={`font-semibold ${isDarkMode ? "text-green-400" : "text-green-600"}`}>
-                         {(voucherDiscount + amountDiscountValue).toLocaleString() === "0" ? "0" : `- ${(voucherDiscount + amountDiscountValue).toLocaleString()}`} VNĐ 
+                        <div
+                          className={`font-semibold ${
+                            isDarkMode ? "text-green-400" : "text-green-600"
+                          }`}
+                        >
+                          {(
+                            voucherDiscount + amountDiscountValue
+                          ).toLocaleString() === "0"
+                            ? "0"
+                            : `- ${(
+                                voucherDiscount + amountDiscountValue
+                              ).toLocaleString()}`}{" "}
+                          VNĐ
                         </div>
-                        {typeof appliedVoucher?.maxCap === 'number' && voucherDiscount >= (appliedVoucher?.maxCap || 0) && (
-                          <div className="text-xs italic" style={{ color: isDarkMode ? '#9ae6b4' : '#16a34a' }}>
-                            Đã đạt mức giảm tối đa
-                          </div>
-                        )}
+                        {typeof appliedVoucher?.maxCap === "number" &&
+                          voucherDiscount >= (appliedVoucher?.maxCap || 0) && (
+                            <div
+                              className="text-xs italic"
+                              style={{
+                                color: isDarkMode ? "#9ae6b4" : "#16a34a",
+                              }}
+                            >
+                              Đã đạt mức giảm tối đa
+                            </div>
+                          )}
                         {amountDiscount && (
-                          <div className="text-xs italic" style={{ color: isDarkMode ? '#9ae6b4' : '#16a34a' }}>
+                          <div
+                            className="text-xs italic"
+                            style={{
+                              color: isDarkMode ? "#9ae6b4" : "#16a34a",
+                            }}
+                          >
                             {(() => {
                               const text = amountDiscount.description;
                               const parts = text.split(/(\d+[Kk]?|\d+%)/);
-                              return parts.map((part: string, i: number) => 
+                              return parts.map((part: string, i: number) =>
                                 /^\d+[Kk]?$|^\d+%$/.test(part) ? (
                                   <strong key={i}>{part}</strong>
                                 ) : (
@@ -1208,16 +1411,34 @@ const PaymentPage = () => {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Hiển thị khuyến mãi chiết khấu */}
                     {appliedPercentPromotions.length > 0 && (
                       <div className="row flex justify-between text-sm">
-                        <p className="label font-bold">Khuyến mãi chiết khấu:</p>
+                        <p className="label font-bold">
+                          Khuyến mãi chiết khấu:
+                        </p>
                         <div className="value text-right">
                           {appliedPercentPromotions.map((promotion, index) => (
-                            <div key={index} className="text-xs italic mb-1" style={{ color: isDarkMode ? '#fbbf24' : '#ea580c' }}>
-                              {promotion.description || `Giảm ${promotion.discountPercent}% ${promotion.comboName}`}
-                              <div className="font-semibold" style={{ color: isDarkMode ? '#dc2626' : '#dc2626' }}>
+                            <div
+                              key={index}
+                              className="text-xs italic mb-1"
+                              style={{
+                                color: isDarkMode ? "#fbbf24" : "#ea580c",
+                              }}
+                            >
+                              {promotion.description ||
+                                (promotion.seatType
+                                  ? `Giảm ${promotion.discountPercent}% vé ${promotion.seatType}`
+                                  : `Giảm ${promotion.discountPercent}% ${
+                                      promotion.comboName || ""
+                                    }`)}
+                              <div
+                                className="font-semibold"
+                                style={{
+                                  color: isDarkMode ? "#dc2626" : "#dc2626",
+                                }}
+                              >
                                 -{promotion.discountAmount.toLocaleString()}₫
                               </div>
                             </div>
@@ -1228,27 +1449,38 @@ const PaymentPage = () => {
 
                     {/* Hiển thị khuyến mãi hàng */}
                     {appliedItemPromotions.length > 0 && (
-                      <div className="row flex justify-between text-sm">
+                      <div className="row flex justify-between text-sm items-center">
                         <p className="label font-bold">Khuyến mãi hàng:</p>
                         <div className="value text-right">
                           {appliedItemPromotions.map((promotion, index) => (
-                            <div key={index} className="text-xs italic mb-1" style={{ color: isDarkMode ? '#9ae6b4' : '#16a34a' }}>
-                              {promotion.detail?.description || `Mua ${promotion.detail?.buyQuantity} ${promotion.detail?.buyItem} tặng ${promotion.rewardQuantity} ${promotion.rewardItem}`}
+                            <div
+                              key={index}
+                              className="text-xs italic mb-1"
+                              style={{
+                                color: isDarkMode ? "#9ae6b4" : "#16a34a",
+                                paddingTop: "4px",
+                              }}
+                            >
+                              {promotion.detail?.description ||
+                                `Mua ${promotion.detail?.buyQuantity} ${promotion.detail?.buyItem} tặng ${promotion.rewardQuantity} ${promotion.rewardItem}`}
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="row flex items-center justify-between text-sm">
                       <p className="label font-bold">Số tiền thanh toán:</p>
-                      <p className={`value text-lg font-bold ${isDarkMode ? "text-red-400" : "text-red-600"}`}>
+                      <p
+                        className={`value text-lg font-bold ${
+                          isDarkMode ? "text-red-400" : "text-red-600"
+                        }`}
+                      >
                         {total.toLocaleString()} VNĐ
                       </p>
                     </div>
                   </div>
                 </div>
-
               </div>
               <button
                 className={`mt-6 w-full px-6 py-2 rounded font-semibold transition-all duration-200 cursor-pointer ${
@@ -1358,7 +1590,10 @@ const PaymentPage = () => {
 
           {/* Thông tin khách hàng */}
           <div className="mb-[20px]">
-              <Title level={5} style={{ textAlign: "left", margin: 0, marginBottom: 8 }}>
+            <Title
+              level={5}
+              style={{ textAlign: "left", margin: 0, marginBottom: 8 }}
+            >
               Thông tin khách hàng
             </Title>
             <Row gutter={16}>
@@ -1410,7 +1645,9 @@ const PaymentPage = () => {
                             }}
                           >
                             {combo.name} - {comboCounts[combo._id]} x{" "}
-                            {new Intl.NumberFormat("vi-VN").format(combo.price || 0)}{" "}
+                            {new Intl.NumberFormat("vi-VN").format(
+                              combo.price || 0
+                            )}{" "}
                             VNĐ
                           </Text>
                         );
@@ -1428,7 +1665,7 @@ const PaymentPage = () => {
                       Không có dịch vụ nào
                     </Text>
                   )}
-                  
+
                   {/* Hiển thị khuyến mãi chiết khấu */}
                   {appliedPercentPromotions.map((promotion, index) => (
                     <Text
@@ -1438,7 +1675,7 @@ const PaymentPage = () => {
                         fontSize: "14px",
                         marginTop: "4px",
                         color: "#16a34a",
-                        fontWeight: "500"
+                        fontWeight: "500",
                       }}
                     >
                       <span>
@@ -1447,7 +1684,7 @@ const PaymentPage = () => {
                           (() => {
                             const text = promotion.description;
                             const parts = text.split(/(\d+[Kk]?|\d+%)/);
-                            return parts.map((part: string, i: number) => 
+                            return parts.map((part: string, i: number) =>
                               /^\d+[Kk]?$|^\d+%$/.test(part) ? (
                                 <strong key={i}>{part}</strong>
                               ) : (
@@ -1455,9 +1692,17 @@ const PaymentPage = () => {
                               )
                             );
                           })()
+                        ) : // Fallback nếu không có description
+                        promotion.seatType ? (
+                          <>
+                            Giảm <strong>{promotion.discountPercent}%</strong>{" "}
+                            vé {promotion.seatType}
+                          </>
                         ) : (
-                          // Fallback nếu không có description
-                          <>Giảm <strong>{promotion.discountPercent}%</strong> {promotion.comboName}</>
+                          <>
+                            Giảm <strong>{promotion.discountPercent}%</strong>{" "}
+                            {promotion.comboName || ""}
+                          </>
                         )}
                       </span>
                       <span style={{ marginLeft: "8px", fontWeight: "bold" }}>
@@ -1465,7 +1710,7 @@ const PaymentPage = () => {
                       </span>
                     </Text>
                   ))}
-                  
+
                   {/* Hiển thị sản phẩm tặng từ khuyến mãi hàng */}
                   {appliedItemPromotions.map((promotion, index) => (
                     <Text
@@ -1475,13 +1720,13 @@ const PaymentPage = () => {
                         fontSize: "14px",
                         marginTop: "4px",
                         color: "#16a34a",
-                        fontWeight: "500"
+                        fontWeight: "500",
                       }}
                     >
                       + {promotion.rewardQuantity} {promotion.rewardItem}
                     </Text>
                   ))}
-                  
+
                   {amountDiscount && (
                     <Text
                       style={{
@@ -1503,7 +1748,10 @@ const PaymentPage = () => {
           {/* Voucher */}
           {appliedVoucher && (
             <div style={{ marginBottom: "20px" }}>
-              <Title level={5} style={{ textAlign: "left", margin: 0, marginBottom: 8 }}>
+              <Title
+                level={5}
+                style={{ textAlign: "left", margin: 0, marginBottom: 8 }}
+              >
                 Mã giảm giá
               </Title>
               <Row gutter={16}>
@@ -1526,7 +1774,6 @@ const PaymentPage = () => {
               </Row>
             </div>
           )}
-
 
           {/* Tổng thanh toán */}
           <div className="border-t border-gray-200 pt-[15px] mt-[20px] text-right">

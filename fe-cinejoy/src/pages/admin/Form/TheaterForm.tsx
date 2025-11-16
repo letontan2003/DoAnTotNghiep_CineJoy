@@ -215,7 +215,7 @@ const TheaterForm: React.FC<TheaterFormProps> = ({
           >
             <Input
               ref={nameInputRef}
-              placeholder="Ví dụ: CNJ Vincom Center, Lotte Cinema..."
+              placeholder="Ví dụ: CGV Vincom Center, Lotte Cinema..."
               size="large"
               showCount
               maxLength={100}

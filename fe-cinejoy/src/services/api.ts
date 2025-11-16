@@ -80,9 +80,7 @@ export const fetchAccountApi = async () => {
 };
 
 export const getAllUsersApi = async () => {
-  const response = await axios.get<IBackendResponse<IUser[]>>(
-    "/v1/api/user"
-  );
+  const response = await axios.get<IBackendResponse<IUser[]>>("/v1/api/user");
   return response.data;
 };
 
@@ -131,10 +129,7 @@ export const updateUserApi = async (
   return response.data;
 };
 
-export const updateUserPointsApi = async (
-  id: string,
-  points: number
-) => {
+export const updateUserPointsApi = async (id: string, points: number) => {
   const response = await axios.put<IBackendResponse<IUser>>(
     `/v1/api/user/${id}/points`,
     { point: points }
@@ -146,14 +141,13 @@ export const addBirthdayPointsApi = async (
   id: string,
   pointsToAdd: number = 100
 ) => {
-  const response = await axios.post<IBackendResponse<{
-    user: IUser;
-    pointsAdded: number;
-    newTotalPoints: number;
-  }>>(
-    `/v1/api/user/${id}/birthday-points`,
-    { pointsToAdd }
-  );
+  const response = await axios.post<
+    IBackendResponse<{
+      user: IUser;
+      pointsAdded: number;
+      newTotalPoints: number;
+    }>
+  >(`/v1/api/user/${id}/birthday-points`, { pointsToAdd });
   return response.data;
 };
 
@@ -187,7 +181,10 @@ export const getMyVouchersApi = async () => {
   return response.data;
 };
 
-export const redeemVoucherApi = async (voucherId: string, detailId?: string) => {
+export const redeemVoucherApi = async (
+  voucherId: string,
+  detailId?: string
+) => {
   const response = await axios.post<IBackendResponse<IUserVoucher>>(
     "/v1/api/vouchers/redeem",
     {
@@ -269,14 +266,18 @@ export const getActiveItemPromotionsApi = async () => {
 
 export const applyItemPromotionsApi = async (
   selectedCombos: Array<{ comboId: string; quantity: number; name: string }>,
-  appliedPromotions: any[] = []
+  appliedPromotions: any[] = [],
+  selectedSeats?: Array<{ seatId: string; type: string; price: number }>
 ) => {
-  const response = await axios.post<IBackendResponse<{
-    applicablePromotions: any[];
-    totalRewardItems: number;
-  }>>("/v1/api/vouchers/apply-item-promotions", {
+  const response = await axios.post<
+    IBackendResponse<{
+      applicablePromotions: any[];
+      totalRewardItems: number;
+    }>
+  >("/v1/api/vouchers/apply-item-promotions", {
     selectedCombos,
-    appliedPromotions
+    appliedPromotions,
+    selectedSeats,
   });
   return response.data;
 };
@@ -289,22 +290,31 @@ export const getActivePercentPromotionsApi = async () => {
 };
 
 export const applyPercentPromotionsApi = async (
-  selectedCombos: Array<{ comboId: string; quantity: number; name: string; price: number }>,
-  appliedPromotions: any[] = []
+  selectedCombos: Array<{
+    comboId: string;
+    quantity: number;
+    name: string;
+    price: number;
+  }>,
+  appliedPromotions: any[] = [],
+  selectedSeats?: Array<{ seatId: string; type: string; price: number }>
 ) => {
-  const response = await axios.post<IBackendResponse<{
-    applicablePromotions: any[];
-    totalDiscountAmount: number;
-  }>>("/v1/api/vouchers/apply-percent-promotions", {
+  const response = await axios.post<
+    IBackendResponse<{
+      applicablePromotions: any[];
+      totalDiscountAmount: number;
+    }>
+  >("/v1/api/vouchers/apply-percent-promotions", {
     selectedCombos,
-    appliedPromotions
+    appliedPromotions,
+    selectedSeats,
   });
   return response.data;
 };
 
 // Room APIs
 export const getAllRoomsApi = async () => {
-  const response = await axios.get('/rooms');
+  const response = await axios.get("/rooms");
   return response.data;
 };
 
@@ -324,7 +334,7 @@ export const getRoomByIdApi = async (roomId: string) => {
 };
 
 export const createRoomApi = async (roomData: any) => {
-  const response = await axios.post('/rooms', roomData);
+  const response = await axios.post("/rooms", roomData);
   return response.data;
 };
 
@@ -339,7 +349,7 @@ export const deleteRoomApi = async (roomId: string) => {
 
 // Seat APIs
 export const getAllSeatsApi = async () => {
-  const response = await axios.get('/seats');
+  const response = await axios.get("/seats");
   return response.data;
 };
 
@@ -359,17 +369,23 @@ export const getSeatByIdApi = async (seatId: string) => {
 };
 
 export const createSeatApi = async (seatData: any) => {
-  const response = await axios.post('/seats', seatData);
+  const response = await axios.post("/seats", seatData);
   return response.data;
 };
 
 export const createMultipleSeatsApi = async (seats: any[]) => {
-  const response = await axios.post('/seats/bulk', { seats });
+  const response = await axios.post("/seats/bulk", { seats });
   return response.data;
 };
 
-export const generateSeatLayoutApi = async (roomId: string, layoutData: any) => {
-  const response = await axios.post(`/seats/room/${roomId}/generate-layout`, layoutData);
+export const generateSeatLayoutApi = async (
+  roomId: string,
+  layoutData: any
+) => {
+  const response = await axios.post(
+    `/seats/room/${roomId}/generate-layout`,
+    layoutData
+  );
   return response.data;
 };
 
@@ -403,8 +419,9 @@ export const bookSeatsApi = async (data: {
     return response.data;
   } catch (error: any) {
     const status = error?.response?.status ?? 500;
-    const message = error?.response?.data?.message || error?.message || 'Request failed';
-    
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+
     return {
       status: false,
       error: status,
@@ -431,8 +448,14 @@ export const releaseSeatsByUserApi = async (data: {
     return response.data;
   } catch (error: any) {
     const status = error?.response?.status ?? 500;
-    const message = error?.response?.data?.message || error?.message || 'Request failed';
-    return { status: false, error: status, message, data: null } as unknown as IBackendResponse<any>;
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    } as unknown as IBackendResponse<any>;
   }
 };
 
@@ -456,7 +479,7 @@ export const createOrderApi = async (orderData: {
     price: number;
   }>;
   voucherId?: string | null;
-  paymentMethod: 'MOMO' | 'VNPAY';
+  paymentMethod: "MOMO" | "VNPAY";
   customerInfo: {
     fullName: string;
     phoneNumber: string;
@@ -472,7 +495,8 @@ export const createOrderApi = async (orderData: {
   } catch (error: any) {
     // Trả object chuẩn để UI luôn có message
     const status = error?.response?.status ?? 500;
-    const message = error?.response?.data?.message || error?.message || 'Request failed';
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
     return {
       status: false,
       error: status,
@@ -485,7 +509,7 @@ export const createOrderApi = async (orderData: {
 export const processPaymentApi = async (
   orderId: string,
   paymentData: {
-    paymentMethod: 'MOMO' | 'VNPAY';
+    paymentMethod: "MOMO" | "VNPAY";
     returnUrl: string;
     cancelUrl: string;
   }
@@ -498,7 +522,8 @@ export const processPaymentApi = async (
     return response.data;
   } catch (error: any) {
     const status = error?.response?.status ?? 500;
-    const message = error?.response?.data?.message || error?.message || 'Request failed';
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
     return {
       status: false,
       error: status,

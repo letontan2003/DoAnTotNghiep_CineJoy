@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Spin, Tag, Button, Descriptions, Table, Card, Popconfirm } from 'antd';
+import { Spin, Tag, Button, Descriptions, Table, Card, Popconfirm, Modal } from 'antd';
 import { toast } from 'react-toastify';
 import { getVoucherById, addPromotionLine, updatePromotionLine, deletePromotionLine, getAmountBudgetUsedApi, getItemBudgetUsedApi, getPercentBudgetUsedApi } from '@/apiservice/apiVoucher';
 import useAppStore from '@/store/app.store';
@@ -17,9 +17,13 @@ const VoucherDetail = ({ id: idProp }: Props) => {
   const [voucher, setVoucher] = useState<IVoucher | null>(null);
   const [showDetailForm, setShowDetailForm] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [linePage, setLinePage] = useState<number>(1);
   const [editingLine, setEditingLine] = useState<IPromotionLine | null>(null);
   const [editingLineIndex, setEditingLineIndex] = useState<number>(-1);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['movieManagement']));
+  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+  const [selectedLine, setSelectedLine] = useState<IPromotionLine | null>(null);
+  const [selectedLineIndex, setSelectedLineIndex] = useState<number>(-1);
+  const [usageStatusMap, setUsageStatusMap] = useState<Map<number, boolean>>(new Map());
 
   // Tự động cập nhật trạng thái promotion lines dựa trên ngày hiện tại
   const updatePromotionLineStatuses = (voucherData: IVoucher): IVoucher => {
@@ -73,6 +77,47 @@ const VoucherDetail = ({ id: idProp }: Props) => {
     load();
   }, [id]);
 
+  // Fetch usage status cho tất cả lines
+  useEffect(() => {
+    if (!voucher || !id || !Array.isArray(voucher.lines)) return;
+
+    const fetchUsageStatus = async () => {
+      const newUsageStatusMap = new Map<number, boolean>();
+      
+      for (let i = 0; i < voucher.lines.length; i++) {
+        const line = voucher.lines[i];
+        try {
+          if (line.promotionType === 'voucher') {
+            const detail = line.detail as VoucherDetail | undefined;
+            const totalQuantity = detail?.totalQuantity;
+            const remainingQuantity = detail?.quantity;
+            if (typeof totalQuantity === 'number' && typeof remainingQuantity === 'number') {
+              newUsageStatusMap.set(i, totalQuantity !== remainingQuantity);
+            } else {
+              newUsageStatusMap.set(i, false);
+            }
+          } else {
+            let usedBudget = 0;
+            if (line.promotionType === 'amount') {
+              usedBudget = await getAmountBudgetUsedApi(id, i);
+            } else if (line.promotionType === 'item') {
+              usedBudget = await getItemBudgetUsedApi(id, i);
+            } else if (line.promotionType === 'percent') {
+              usedBudget = await getPercentBudgetUsedApi(id, i);
+            }
+            newUsageStatusMap.set(i, usedBudget !== 0);
+          }
+        } catch {
+          newUsageStatusMap.set(i, false);
+        }
+      }
+      
+      setUsageStatusMap(newUsageStatusMap);
+    };
+
+    fetchUsageStatus();
+  }, [voucher, id]);
+
   // Periodic update để tự động cập nhật trạng thái promotion lines
   useEffect(() => {
     const interval = setInterval(() => {
@@ -125,12 +170,6 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         const fresh = await getVoucherById(id);
         const freshUpdatedData = updatePromotionLineStatuses(fresh);
         setVoucher(freshUpdatedData);
-        // Điều chỉnh trang hiện tại nếu cần
-        const totalLines = Array.isArray(freshUpdatedData?.lines) ? freshUpdatedData.lines.length : 0;
-        const maxPage = Math.max(1, Math.ceil(totalLines / 1));
-        if (linePage > maxPage) {
-          setLinePage(maxPage);
-        }
       } catch (error) {
         console.error('Error refreshing data:', error);
       }
@@ -198,7 +237,9 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         voucherDetail: values.voucherDetail,
         discountDetail: values.discountDetail,
         amountDetail: values.amountDetail,
-        itemDetail: values.itemDetail
+        itemDetail: values.itemDetail,
+        // Giữ lại code từ editingLine nếu có
+        ...(editingLine?.code && { code: editingLine.code })
       };
 
       const updatedVoucher = await updatePromotionLine(id, editingLineIndex, lineData);
@@ -303,8 +344,6 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         const fresh = await getVoucherById(id);
         const freshUpdatedData = updatePromotionLineStatuses(fresh);
         setVoucher(freshUpdatedData);
-        const total = Array.isArray(freshUpdatedData?.lines) ? freshUpdatedData.lines.length : 1;
-        setLinePage(total); // nhảy tới trang cuối để hiển thị line vừa thêm
       } catch (error) {
         console.error('Error refreshing data:', error);
       }
@@ -383,10 +422,8 @@ const VoucherDetail = ({ id: idProp }: Props) => {
       </div>
     );
   }
-  const totalLinePages = Math.max(1, Math.ceil((voucher.lines?.length || 0) / 1));
-  const safePage = Math.min(Math.max(1, linePage), totalLinePages);
-  const startIdx = (safePage - 1) * 1;
-  const paginatedLines: IPromotionLine[] = Array.isArray(voucher.lines) ? voucher.lines.slice(startIdx, startIdx + 1) : [];
+  // Hiển thị tất cả lines (không phân trang)
+  const allLines: IPromotionLine[] = Array.isArray(voucher.lines) ? voucher.lines : [];
 
   const content = (
     <div className="p-6">
@@ -397,11 +434,6 @@ const VoucherDetail = ({ id: idProp }: Props) => {
           <Button type="primary" onClick={() => setShowDetailForm(true)}>
             Thêm chi tiết khuyến mãi
           </Button>
-          <div className="flex items-center gap-2 px-2 select-none">
-            <span>Trang {safePage} / {totalLinePages}</span>
-            <Button size="small" disabled={safePage === 1} onClick={() => setLinePage(p => Math.max(1, p - 1))}>Trước</Button>
-            <Button size="small" disabled={safePage === totalLinePages} onClick={() => setLinePage(p => Math.min(totalLinePages, p + 1))}>Sau</Button>
-          </div>
           <Button onClick={() => navigate('/admin', { state: { tab: 'vouchers' } })}>Quay lại</Button>
         </div>
       </div>
@@ -437,7 +469,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
       </div>
 
       {/* Bảng hiển thị Lines */}
-      {paginatedLines.length > 0 && (
+      {allLines.length > 0 && (
         <div className="mb-8">
           <Card 
             title={<span style={{ fontWeight: 700 }}>Ưu đãi áp dụng</span>} 
@@ -447,17 +479,18 @@ const VoucherDetail = ({ id: idProp }: Props) => {
             bodyStyle={{ backgroundColor: '#ffffff', borderRadius: 12, padding: 12 }}
           >
           <Table
-            dataSource={paginatedLines}
+            dataSource={allLines}
             rowKey={(_, index) => index?.toString() || '0'}
             pagination={false}
             size="middle"
             bordered
-            tableLayout="fixed"
+            scroll={{ x: 'max-content' }}
             columns={[
               {
                 title: 'Kiểu khuyến mãi',
                 dataIndex: 'promotionType',
                 key: 'promotionType',
+                width: 180,
                 render: (type: string) => {
                   const typeMap: { [key: string]: string } = {
                     'item': 'Khuyến mãi hàng',
@@ -472,66 +505,151 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                 title: 'Ngày bắt đầu',
                 dataIndex: ['validityPeriod', 'startDate'],
                 key: 'startDate',
+                width: 120,
                 render: (date: string | Date) => new Date(date).toLocaleDateString('vi-VN')
               },
               {
                 title: 'Ngày kết thúc',
                 dataIndex: ['validityPeriod', 'endDate'], 
                 key: 'endDate',
+                width: 120,
                 render: (date: string | Date) => new Date(date).toLocaleDateString('vi-VN')
+              },
+              {
+                title: 'Mô tả',
+                key: 'description',
+                width: 200,
+                render: (_, record: IPromotionLine) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const detail = record.detail as any;
+                  if (!detail) return 'Không có mô tả';
+                  
+                  // Lấy mô tả từ detail tùy theo loại khuyến mãi
+                  if (detail.description) {
+                    return detail.description;
+                  }
+                  
+                  // Fallback: tạo mô tả ngắn gọn dựa trên loại khuyến mãi
+                  switch (record.promotionType) {
+                    case 'voucher':
+                      return `Voucher giảm ${detail.discountPercent || 0}%`;
+                    case 'amount':
+                      return `Giảm ${detail.discountValue?.toLocaleString('vi-VN') || 0} VNĐ`;
+                    case 'percent':
+                      return `Giảm ${detail.comboDiscountPercent || detail.ticketDiscountPercent || 0}%`;
+                    case 'item':
+                      return `Mua ${detail.buyQuantity || 0} tặng ${detail.rewardQuantity || 0}`;
+                    default:
+                      return 'Không có mô tả';
+                  }
+                }
               },
               {
                 title: 'Trạng thái',
                 dataIndex: 'status',
                 key: 'status',
+                width: 140,
                 render: (status: string) => (
                   <Tag color={status === 'hoạt động' ? 'green' : 'red'}>
-                    {status === 'hoạt động' ? 'Đang hoạt động' : 'Không hoạt động'}
+                    {status === 'hoạt động' ? 'Hoạt động' : 'Không hoạt động'}
                   </Tag>
                 )
               },
-              {
-                title: 'Quy tắc áp dụng',
-                dataIndex: ['rule', 'stackingPolicy'],
-                key: 'stackingPolicy',
-                render: (policy: string) => {
-                  const policyMap: { [key: string]: string } = {
-                    'STACKABLE': 'Cộng dồn',
-                    'EXCLUSIVE': 'Độc quyền',
-                    'EXCLUSIVE_WITH_GROUP': 'Loại trừ theo nhóm'
-                  };
-                  return policyMap[policy] || policy;
-                }
-              },
+
               {
                 title: 'Thao tác',
                 key: 'action',
-                render: (_, record: IPromotionLine, index: number) => (
-                  <div className="flex gap-2">
-                    <Button 
-                      type="primary" 
-                      size="small"
-                      onClick={() => handleEditLine(record, startIdx + index)}
-                    >
-                      Sửa
-                    </Button>
-                    <Popconfirm
-                      title="Xóa chi tiết khuyến mãi"
-                      description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
-                      onConfirm={() => handleDeleteLine(startIdx + index)}
-                      okText="Có"
-                      cancelText="Không"
-                    >
+                width: 240,
+                fixed: 'right',
+                render: (_, record: IPromotionLine, index: number) => {
+                  // Kiểm tra xem ngày kết thúc có quá ngày hiện tại không
+                  const endDate = record.validityPeriod?.endDate;
+                  const startDate = record.validityPeriod?.startDate;
+                  const isEndDatePassed = endDate ? dayjs(endDate).isBefore(dayjs(), 'day') : false;
+                  
+                  // Kiểm tra ngày hiện tại có nằm trong khoảng ngày bắt đầu - ngày kết thúc không
+                  const today = dayjs();
+                  const isWithinDateRange = startDate && endDate 
+                    ? (today.isAfter(dayjs(startDate).startOf('day')) || today.isSame(dayjs(startDate), 'day')) 
+                      && (today.isBefore(dayjs(endDate).endOf('day')) || today.isSame(dayjs(endDate), 'day'))
+                    : false;
+                  
+                  const isUsed = usageStatusMap.has(index) ? (usageStatusMap.get(index) || false) : false;
+                  
+                  // Logic hiển thị nút Sửa:
+                  // - Nếu ngày chưa quá: hiển thị bình thường (bao gồm cả khi ngày hiện tại trong khoảng)
+                  // - Nếu ngày đã quá VÀ trạng thái là "không hoạt động":
+                  //   + Nếu chưa sử dụng: hiển thị nút Sửa
+                  //   + Nếu đã sử dụng: ẩn nút Sửa
+                  let shouldShowEdit = false;
+                  
+                  if (!isEndDatePassed || isWithinDateRange) {
+                    // Ngày chưa quá hoặc ngày hiện tại trong khoảng: hiển thị bình thường
+                    shouldShowEdit = true;
+                  } else if (isEndDatePassed && record.status === 'không hoạt động') {
+                    // Ngày đã quá VÀ trạng thái là "không hoạt động": kiểm tra usage status
+                    // Chỉ hiển thị nếu chưa sử dụng
+                    shouldShowEdit = !isUsed;
+                  }
+                  
+                  // Logic hiển thị nút Xóa:
+                  // - Nếu trạng thái là "hoạt động": ẩn nút Xóa
+                  // - Nếu đã sử dụng + không hoạt động + ngày hiện tại trong khoảng: ẩn nút Xóa
+                  // - Các trường hợp khác: hiển thị nút Xóa (nếu có quyền sửa)
+                  let shouldShowDelete = false;
+                  
+                  if (record.status === 'hoạt động') {
+                    // Trạng thái hoạt động: không hiển thị nút Xóa
+                    shouldShowDelete = false;
+                  } else if (isUsed && record.status === 'không hoạt động' && isWithinDateRange) {
+                    // Đã sử dụng + không hoạt động + ngày hiện tại trong khoảng: ẩn nút Xóa
+                    shouldShowDelete = false;
+                  } else if (shouldShowEdit) {
+                    // Các trường hợp khác: hiển thị nút Xóa nếu có quyền sửa
+                    shouldShowDelete = true;
+                  }
+                  
+                  return (
+                    <div className="flex gap-2">
                       <Button 
-                        type="primary" 
-                        danger
                         size="small"
+                        onClick={() => {
+                          setSelectedLine(record);
+                          setSelectedLineIndex(index);
+                          setShowDetailModal(true);
+                        }}
                       >
-                        Xóa
+                        Xem chi tiết
                       </Button>
-                    </Popconfirm>
-                  </div>
-                )
+                      {shouldShowEdit && (
+                        <Button 
+                          type="primary" 
+                          size="small"
+                          onClick={() => handleEditLine(record, index)}
+                        >
+                          Sửa
+                        </Button>
+                      )}
+                      {shouldShowDelete && (
+                        <Popconfirm
+                          title="Xóa chi tiết khuyến mãi"
+                          description="Bạn có chắc chắn muốn xóa chi tiết khuyến mãi này?"
+                          onConfirm={() => handleDeleteLine(index)}
+                          okText="Có"
+                          cancelText="Không"
+                        >
+                          <Button 
+                            type="primary" 
+                            danger
+                            size="small"
+                          >
+                            Xóa
+                          </Button>
+                        </Popconfirm>
+                      )}
+                    </div>
+                  );
+                }
               }
             ]}
           />
@@ -539,36 +657,102 @@ const VoucherDetail = ({ id: idProp }: Props) => {
         </div>
       )}
 
-      {/* Bảng hiển thị Details */}
-      {paginatedLines.length > 0 && (
-        <div className="mb-8">
-          <Card 
-            title={<span style={{ fontWeight: 700 }}>Thông tin chi tiết</span>}  
-            className="bg-gray-50" 
-            style={{ backgroundColor: '#f7f8fa', borderRadius: 12, border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }} 
-            headStyle={{ backgroundColor: '#f7f8fa', borderRadius: 12, borderBottom: '1px solid #e5e7eb' }} 
-            bodyStyle={{ backgroundColor: '#ffffff', borderRadius: 12, padding: 12 }}
-          >
-          {paginatedLines.map((line: IPromotionLine, index: number) => (
-            <div key={index} className="mb-6 p-4 border rounded-lg" style={{ borderColor: '#e5e7eb', backgroundColor: '#fafafa' }}>
-              <h4 className="font-semibold mb-2">
-                {
-                  line.promotionType === 'voucher' ? 'Voucher' : 
-                  line.promotionType === 'percent' ? 'Khuyến mãi chiết khấu' :
-                  line.promotionType === 'amount' ? 'Khuyến mãi tiền' :
-                  line.promotionType === 'item' ? 'Khuyến mãi hàng' :
-                  line.promotionType
-                }
-              </h4>
-              {line.promotionType === 'voucher' && line.detail && (
-                <Table
-                  // Ép kiểu hẹp cho render để truy cập quantity/totalQuantity an toàn
-                  dataSource={[line.detail as unknown as { quantity?: number; totalQuantity?: number; pointToRedeem?: number; discountPercent?: number; maxDiscountValue?: number; description?: string }]}
-                  rowKey={() => 'detail'}
-                  pagination={false}
-                  size="middle"
-                  bordered
-                  columns={[
+      {/* Modal hiển thị chi tiết */}
+      <Modal
+        title={
+          <div className="flex justify-between items-center">
+            <div className="text-xl font-semibold">Thông tin chi tiết</div>
+            <Button 
+              onClick={() => {
+                setShowDetailModal(false);
+                setSelectedLine(null);
+                setSelectedLineIndex(-1);
+              }}
+            >
+              Đóng
+            </Button>
+          </div>
+        }
+        open={showDetailModal}
+        onCancel={() => {
+          setShowDetailModal(false);
+          setSelectedLine(null);
+          setSelectedLineIndex(-1);
+        }}
+        footer={null}
+        width={900}
+        centered
+        destroyOnClose
+        closable={false}
+        bodyStyle={{
+          maxHeight: '70vh',
+          overflowY: 'auto',
+        }}
+      >
+        {selectedLine && (
+          <div>
+            {/* Header với thông tin line */}
+            <div className="bg-gray-100 p-4 rounded-lg border border-gray-300 mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="font-medium text-gray-600">Kiểu khuyến mãi</span>
+                  <div className="mt-1">
+                    <Tag color="blue">
+                      {
+                        selectedLine.promotionType === 'voucher' ? 'Voucher' : 
+                        selectedLine.promotionType === 'percent' ? 'Khuyến mãi chiết khấu' :
+                        selectedLine.promotionType === 'amount' ? 'Khuyến mãi tiền' :
+                        selectedLine.promotionType === 'item' ? 'Khuyến mãi hàng' :
+                        selectedLine.promotionType
+                      }
+                    </Tag>
+                  </div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Ngày bắt đầu</span>
+                  <div className="mt-1 text-gray-800">{dayjs(selectedLine.validityPeriod.startDate).format('DD/MM/YYYY')}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Ngày kết thúc</span>
+                  <div className="mt-1 text-gray-800">{dayjs(selectedLine.validityPeriod.endDate).format('DD/MM/YYYY')}</div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Mô tả</span>
+                  <div className="mt-1 text-gray-800">{(selectedLine.detail as VoucherDetail | DiscountDetail | AmountDetail | ItemDetail)?.description || 'Không có mô tả'}</div>
+                </div>
+                <div className="col-span-2 flex items-center gap-65 mt-4">
+                  <div>
+                    <span className="font-medium text-gray-600">Trạng thái: </span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium inline-block ${
+                      selectedLine.status === 'hoạt động' ? 'bg-green-100 text-green-700' :
+                      selectedLine.status === 'không hoạt động' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {selectedLine.status === 'hoạt động' ? 'Hoạt động' : selectedLine.status === 'không hoạt động' ? 'Không hoạt động' : 'Đang chờ'}
+                    </span>
+                  </div>
+                  <div>
+                    <AsyncUsageStatus 
+                      promotionType={selectedLine.promotionType} 
+                      detail={selectedLine.detail} 
+                      voucherId={id as string} 
+                      lineIndex={selectedLineIndex} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chi tiết ưu đãi áp dụng */}
+            <div className="bg-white">
+            {selectedLine.promotionType === 'voucher' && selectedLine.detail && (
+              <Table
+                dataSource={[selectedLine.detail as unknown as { quantity?: number; totalQuantity?: number; pointToRedeem?: number; discountPercent?: number; maxDiscountValue?: number; description?: string }]}
+                rowKey={() => 'detail'}
+                pagination={false}
+                size="middle"
+                bordered
+                columns={[
                     {
                       title: 'Điểm đổi',
                       dataIndex: 'pointToRedeem',
@@ -602,29 +786,23 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                       dataIndex: 'maxDiscountValue',
                       key: 'maxDiscountValue',
                       render: (value: number) => value ? `${value.toLocaleString('vi-VN')} VNĐ` : 'Không có'
-                    },
-                    {
-                      title: 'Mô tả',
-                      dataIndex: 'description',
-                      key: 'description',
-                      render: (text: string) => text || 'Không có'
                     }
                   ]}
                 />
               )}
-              {line.promotionType === 'percent' && line.detail && (
-                <Table
-                  dataSource={[line.detail]}
+            {selectedLine.promotionType === 'percent' && selectedLine.detail && (
+              <Table
+                dataSource={[selectedLine.detail]}
                   rowKey={() => 'detail'}
                   pagination={false}
                   size="middle"
                   bordered
-                  columns={(() => {
-                      const detail = line.detail as unknown as {
-                        applyType?: string;
-                        rewardType?: string;
-                      };
-                    const applyType = detail?.applyType;
+                columns={(() => {
+                  const detail = selectedLine.detail as unknown as {
+                    applyType?: string;
+                    rewardType?: string;
+                  };
+                  const applyType = detail?.applyType;
                     
                     if (applyType === 'combo') {
                       return [
@@ -656,15 +834,9 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           title: 'Ngân sách đã dùng',
                           key: 'usedBudget',
                           render: () => (
-                            <AsyncPercentBudget voucherId={id as string} lineIndex={startIdx + index} />
+                            <AsyncPercentBudget voucherId={id as string} lineIndex={selectedLineIndex} />
                           )
                         },
-                        {
-                          title: 'Mô tả',
-                          dataIndex: 'description',
-                          key: 'description',
-                          render: (text: string) => text || 'Không có'
-                        }
                       ];
                     } else if (applyType === 'ticket') {
                       return [
@@ -704,26 +876,14 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           title: 'Ngân sách đã dùng',
                           key: 'usedBudget',
                           render: () => (
-                            <AsyncPercentBudget voucherId={id as string} lineIndex={startIdx + index} />
+                            <AsyncPercentBudget voucherId={id as string} lineIndex={selectedLineIndex} />
                           )
                         },
-                        {
-                          title: 'Mô tả',
-                          dataIndex: 'description',
-                          key: 'description',
-                          render: (text: string) => text || 'Không có'
-                        }
                       ];
                     }
                     
                     // Fallback nếu không xác định được applyType
                     return [
-                      {
-                        title: 'Mô tả',
-                        dataIndex: 'description',
-                        key: 'description',
-                        render: (text: string) => text || 'Không có'
-                      },
                       {
                         title: 'Loại áp dụng',
                         dataIndex: 'applyType',
@@ -734,9 +894,9 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                   })()}
                 />
               )}
-              {line.promotionType === 'amount' && line.detail && (
-                <Table
-                  dataSource={[line.detail]}
+            {selectedLine.promotionType === 'amount' && selectedLine.detail && (
+              <Table
+                dataSource={[selectedLine.detail]}
                   rowKey={() => 'detail'}
                   pagination={false}
                   size="middle"
@@ -764,29 +924,23 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                       title: 'Ngân sách đã dùng',
                       key: 'usedBudget',
                       render: () => (
-                        <AsyncUsedBudget voucherId={id as string} lineIndex={startIdx + index} />
+                        <AsyncUsedBudget voucherId={id as string} lineIndex={selectedLineIndex} />
                       )
                     },
-                    {
-                      title: 'Mô tả',
-                      dataIndex: 'description',
-                      key: 'description',
-                      render: (text: string) => text || 'Không có'
-                    }
                   ]}
                 />
               )}
-              {line.promotionType === 'item' && line.detail && (
-                <Table
-                  dataSource={[line.detail]}
-                  rowKey={() => 'detail'}
-                  pagination={false}
-                  size="middle"
-                  bordered
-                  columns={(() => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const detail = line.detail as any;
-                    const applyType = detail?.applyType;
+            {selectedLine.promotionType === 'item' && selectedLine.detail && (
+              <Table
+                dataSource={[selectedLine.detail]}
+                rowKey={() => 'detail'}
+                pagination={false}
+                size="middle"
+                bordered
+                columns={(() => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const detail = selectedLine.detail as any;
+                  const applyType = detail?.applyType;
                     
                     if (applyType === 'combo') {
                       const columns = [
@@ -836,7 +990,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           title: 'Ngân sách đã dùng',
                           key: 'usedBudget',
                           render: () => (
-                            <AsyncItemBudget voucherId={id as string} lineIndex={startIdx + index} />
+                            <AsyncItemBudget voucherId={id as string} lineIndex={selectedLineIndex} />
                           )
                         }
                       ];
@@ -853,13 +1007,6 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           }
                         });
                       }
-
-                      columns.push({
-                        title: 'Mô tả',
-                        dataIndex: 'description',
-                        key: 'description',
-                        render: (text: string) => text || 'Không có'
-                      });
 
                       return columns;
                     } else if (applyType === 'ticket') {
@@ -912,7 +1059,7 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                           title: 'Ngân sách đã dùng',
                           key: 'usedBudget',
                           render: () => (
-                            <AsyncItemBudget voucherId={id as string} lineIndex={startIdx + index} />
+                            <AsyncItemBudget voucherId={id as string} lineIndex={selectedLineIndex} />
                           )
                         },
                         {
@@ -936,13 +1083,6 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                         });
                       }
 
-                      columns.push({
-                        title: 'Mô tả',
-                        dataIndex: 'description',
-                        key: 'description',
-                        render: (text: string) => text || 'Không có'
-                      });
-
                       return columns;
                     }
                     
@@ -958,16 +1098,15 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                   })()}
                 />
               )}
-              {line.promotionType !== 'voucher' && line.promotionType !== 'percent' && line.promotionType !== 'amount' && line.promotionType !== 'item' && (
-                <div className="text-gray-500 italic">
-                  Chi tiết cho loại {line.promotionType} sẽ được hiển thị khi có dữ liệu
-                </div>
-              )}
+            {selectedLine.promotionType !== 'voucher' && selectedLine.promotionType !== 'percent' && selectedLine.promotionType !== 'amount' && selectedLine.promotionType !== 'item' && (
+              <div className="text-gray-500 italic">
+                Chi tiết cho loại {selectedLine.promotionType} sẽ được hiển thị khi có dữ liệu
+              </div>
+            )}
             </div>
-          ))}
-          </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 
@@ -995,11 +1134,30 @@ const VoucherDetail = ({ id: idProp }: Props) => {
           <ul>
             {/* Quản lý Phim */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🎬</span>
-                <span>Quản lý Phim</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('movieManagement')) {
+                    newExpandedMenus.delete('movieManagement');
+                  } else {
+                    newExpandedMenus.add('movieManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🎬</span>
+                  <span>Quản lý Phim</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('movieManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('movieManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Phim", value: "movies", icon: "🎬" },
                   { label: "Ca chiếu", value: "showSessions", icon: "🎭" },
@@ -1015,16 +1173,36 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Quản lý Rạp */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🏢</span>
-                <span>Quản lý Rạp</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('theaterManagement')) {
+                    newExpandedMenus.delete('theaterManagement');
+                  } else {
+                    newExpandedMenus.add('theaterManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🏢</span>
+                  <span>Quản lý Rạp</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('theaterManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('theaterManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Khu vực", value: "regions", icon: "🌏" },
                   { label: "Rạp & Phòng chiếu", value: "theaters", icon: "🏢" },
@@ -1038,20 +1216,41 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Quản lý Bán hàng */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">🛒</span>
-                <span>Quản lý Bán hàng</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('salesManagement')) {
+                    newExpandedMenus.delete('salesManagement');
+                  } else {
+                    newExpandedMenus.add('salesManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">🛒</span>
+                  <span>Quản lý Bán hàng</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('salesManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('salesManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Sản phẩm & Combo", value: "foodCombos", icon: "🍿" },
-                  { label: "Khuyến mãi", value: "vouchers", icon: "🎟️" },
+                  { label: "Khuyến mãi", value: "vouchers", icon: "🎫" },
                   { label: "Thống Kê", value: "statistics", icon: "📊" },
+                  { label: "Hóa đơn", value: "orders", icon: "🧾" },
                 ].map((subItem) => (
                   <li
                     key={subItem.value}
@@ -1066,16 +1265,36 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
 
             {/* Hệ thống & Người dùng */}
             <li className="mb-2">
-              <div className="px-4 py-3 flex items-center gap-3 text-gray-200">
-                <span className="text-lg">⚙️</span>
-                <span>Hệ thống & Người dùng</span>
+              <div 
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => {
+                  const newExpandedMenus = new Set(expandedMenus);
+                  if (expandedMenus.has('systemManagement')) {
+                    newExpandedMenus.delete('systemManagement');
+                  } else {
+                    newExpandedMenus.add('systemManagement');
+                  }
+                  setExpandedMenus(newExpandedMenus);
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">⚙️</span>
+                  <span>Hệ thống & Người dùng</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${expandedMenus.has('systemManagement') ? 'rotate-180' : ''}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </span>
               </div>
-              <ul className="ml-4 border-l border-gray-700">
+              {expandedMenus.has('systemManagement') && (
+                <ul className="ml-4 border-l border-gray-700">
                 {[
                   { label: "Người dùng", value: "users", icon: "👥" },
                   { label: "Blog", value: "blogs", icon: "📰" },
@@ -1089,7 +1308,8 @@ const VoucherDetail = ({ id: idProp }: Props) => {
                     {subItem.label}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              )}
             </li>
           </ul>
         </nav>
@@ -1126,10 +1346,67 @@ const VoucherDetail = ({ id: idProp }: Props) => {
   );
 };
 
+// Component để hiển thị trạng thái sử dụng
+const AsyncUsageStatus: React.FC<{ 
+  promotionType: string; 
+  detail: VoucherDetail | DiscountDetail | AmountDetail | ItemDetail | null | undefined; 
+  voucherId: string; 
+  lineIndex: number 
+}> = ({ promotionType, detail, voucherId, lineIndex }) => {
+  const [isUsed, setIsUsed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (promotionType === 'voucher') {
+          // Với voucher: kiểm tra số lượng còn lại khác tổng số lượng
+          // totalQuantity: tổng số lượng ban đầu
+          // quantity: số lượng còn lại
+          const voucherDetail = detail as VoucherDetail | undefined;
+          const totalQuantity = voucherDetail?.totalQuantity;
+          const remainingQuantity = voucherDetail?.quantity;
+          
+          // Chỉ so sánh nếu cả hai đều có giá trị hợp lệ
+          if (typeof totalQuantity === 'number' && typeof remainingQuantity === 'number') {
+            if (mounted) setIsUsed(totalQuantity !== remainingQuantity);
+          } else {
+            // Nếu không có đủ dữ liệu, mặc định là chưa sử dụng
+            if (mounted) setIsUsed(false);
+          }
+        } else {
+          // Với các loại khác: kiểm tra ngân sách đã dùng khác 0
+          let usedBudget = 0;
+          if (promotionType === 'amount') {
+            usedBudget = await getAmountBudgetUsedApi(voucherId, lineIndex);
+          } else if (promotionType === 'item') {
+            usedBudget = await getItemBudgetUsedApi(voucherId, lineIndex);
+          } else if (promotionType === 'percent') {
+            usedBudget = await getPercentBudgetUsedApi(voucherId, lineIndex);
+          }
+          if (mounted) setIsUsed(usedBudget !== 0);
+        }
+      } catch {
+        if (mounted) setIsUsed(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [promotionType, detail, voucherId, lineIndex]);
+
+  if (isUsed === null) return <span className="text-gray-400">...</span>;
+  
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${
+      isUsed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+    }`}>
+      {isUsed ? 'Đã sử dụng' : 'Chưa sử dụng'}
+    </span>
+  );
+};
+
 export default VoucherDetail;
 
 // Component nhỏ để fetch và hiển thị ngân sách đã dùng cho amount line
-import React from 'react';
 const AsyncUsedBudget: React.FC<{ voucherId: string; lineIndex: number }> = ({ voucherId, lineIndex }) => {
   const [value, setValue] = useState<number | null>(null);
 

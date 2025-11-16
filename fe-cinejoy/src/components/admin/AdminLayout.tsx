@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import useAppStore from '@/store/app.store';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import useAppStore from "@/store/app.store";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -8,7 +8,9 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { user } = useAppStore();
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['movieManagement']));
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(
+    new Set(["movieManagement"])
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex font-roboto">
@@ -33,14 +35,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <ul>
             {/* Quản lý Phim */}
             <li className="mb-2">
-              <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
-                  if (expandedMenus.has('movieManagement')) {
-                    newExpandedMenus.delete('movieManagement');
+                  if (expandedMenus.has("movieManagement")) {
+                    newExpandedMenus.delete("movieManagement");
                   } else {
-                    newExpandedMenus.add('movieManagement');
+                    newExpandedMenus.add("movieManagement");
                   }
                   setExpandedMenus(newExpandedMenus);
                 }}
@@ -49,11 +51,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🎬</span>
                   <span>Quản lý Phim</span>
                 </div>
+                <span
+                  className={`transform transition-transform duration-200 ${
+                    expandedMenus.has("movieManagement") ? "rotate-180" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </span>
               </div>
-              {expandedMenus.has('movieManagement') && (
+              {expandedMenus.has("movieManagement") && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "movies" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎬</span>
                         <span>Phim</span>
@@ -61,7 +86,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "showSessions" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎭</span>
                         <span>Ca chiếu</span>
@@ -69,7 +98,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "showtimes" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">⏰</span>
                         <span>Suất chiếu</span>
@@ -77,7 +110,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "priceLists" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">💰</span>
                         <span>Bảng giá</span>
@@ -90,14 +127,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
             {/* Quản lý Rạp */}
             <li className="mb-2">
-              <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
-                  if (expandedMenus.has('theaterManagement')) {
-                    newExpandedMenus.delete('theaterManagement');
+                  if (expandedMenus.has("theaterManagement")) {
+                    newExpandedMenus.delete("theaterManagement");
                   } else {
-                    newExpandedMenus.add('theaterManagement');
+                    newExpandedMenus.add("theaterManagement");
                   }
                   setExpandedMenus(newExpandedMenus);
                 }}
@@ -106,11 +143,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🏢</span>
                   <span>Quản lý Rạp</span>
                 </div>
+                <span
+                  className={`transform transition-transform duration-200 ${
+                    expandedMenus.has("theaterManagement") ? "rotate-180" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </span>
               </div>
-              {expandedMenus.has('theaterManagement') && (
+              {expandedMenus.has("theaterManagement") && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "regions" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🌍</span>
                         <span>Khu vực</span>
@@ -118,7 +178,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "theaters" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🏢</span>
                         <span>Rạp & Phòng chiếu</span>
@@ -131,14 +195,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
             {/* Quản lý Bán hàng */}
             <li className="mb-2">
-              <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
-                  if (expandedMenus.has('salesManagement')) {
-                    newExpandedMenus.delete('salesManagement');
+                  if (expandedMenus.has("salesManagement")) {
+                    newExpandedMenus.delete("salesManagement");
                   } else {
-                    newExpandedMenus.add('salesManagement');
+                    newExpandedMenus.add("salesManagement");
                   }
                   setExpandedMenus(newExpandedMenus);
                 }}
@@ -147,11 +211,34 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">🛒</span>
                   <span>Quản lý Bán hàng</span>
                 </div>
+                <span
+                  className={`transform transition-transform duration-200 ${
+                    expandedMenus.has("salesManagement") ? "rotate-180" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </span>
               </div>
-              {expandedMenus.has('salesManagement') && (
+              {expandedMenus.has("salesManagement") && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "foodCombos" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🍿</span>
                         <span>Sản phẩm & Combo</span>
@@ -159,7 +246,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "vouchers" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">🎫</span>
                         <span>Khuyến mãi</span>
@@ -167,10 +258,26 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "statistics" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">📊</span>
                         <span>Thống Kê</span>
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to={{ pathname: "/admin" }}
+                      state={{ tab: "orders" }}
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm">🧾</span>
+                        <span>Hóa đơn</span>
                       </div>
                     </Link>
                   </li>
@@ -180,14 +287,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
             {/* Hệ thống & Người dùng */}
             <li className="mb-2">
-              <div 
-                className="px-4 py-3 cursor-pointer flex items-center gap-3 text-gray-200 hover:bg-gray-800 transition-colors duration-200"
+              <div
+                className="px-4 py-3 cursor-pointer flex items-center justify-between text-gray-200 hover:bg-gray-800 transition-colors duration-200"
                 onClick={() => {
                   const newExpandedMenus = new Set(expandedMenus);
-                  if (expandedMenus.has('systemManagement')) {
-                    newExpandedMenus.delete('systemManagement');
+                  if (expandedMenus.has("systemManagement")) {
+                    newExpandedMenus.delete("systemManagement");
                   } else {
-                    newExpandedMenus.add('systemManagement');
+                    newExpandedMenus.add("systemManagement");
                   }
                   setExpandedMenus(newExpandedMenus);
                 }}
@@ -196,11 +303,33 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <span className="text-lg">⚙️</span>
                   <span>Hệ thống & Người dùng</span>
                 </div>
+                <span
+                  className={`transform transition-transform duration-200 ${
+                    expandedMenus.has("systemManagement") ? "rotate-180" : ""
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </span>
               </div>
-              {expandedMenus.has('systemManagement') && (
+              {expandedMenus.has("systemManagement") && (
                 <ul className="ml-4 border-l border-gray-700">
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to="/admin"
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">👥</span>
                         <span>Người dùng</span>
@@ -208,7 +337,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/admin" className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200">
+                    <Link
+                      to="/admin"
+                      className="px-4 py-2 block text-sm text-gray-300 hover:bg-gray-800 transition-colors duration-200"
+                    >
                       <div className="flex items-center gap-3">
                         <span className="text-sm">📄</span>
                         <span>Blog</span>
@@ -238,9 +370,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </header>
 
         {/* Content */}
-        <main className="pt-20 p-6">
-          {children}
-        </main>
+        <main className="pt-20 p-6">{children}</main>
       </div>
     </div>
   );

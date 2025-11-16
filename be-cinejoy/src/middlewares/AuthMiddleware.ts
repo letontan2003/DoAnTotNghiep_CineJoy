@@ -24,7 +24,9 @@ export const verifyToken = async (
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: string;
+    };
 
     const user: IUser | null = await User.findById(decoded.id);
     if (!user) {
@@ -57,5 +59,44 @@ export const verifyToken = async (
       data: null,
     });
     return;
+  }
+};
+
+// Middleware optional - không block nếu không có token
+export const optionalVerifyToken = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+          id: string;
+        };
+
+        const user: IUser | null = await User.findById(decoded.id);
+        if (user && user.isActive) {
+          req.user = user;
+        } else {
+          console.log("⚠️ User not found or inactive:", decoded.id);
+        }
+      } catch (tokenError) {
+        console.log(
+          "⚠️ Token verification failed:",
+          (tokenError as Error).message
+        );
+      }
+    } else {
+      console.log("⚠️ No Authorization header found in chatbot request");
+    }
+    // Tiếp tục dù có token hay không
+    next();
+  } catch (error) {
+    // Nếu token không hợp lệ, vẫn tiếp tục nhưng không set user
+    console.log("⚠️ Error in optionalVerifyToken:", (error as Error).message);
+    next();
   }
 };
