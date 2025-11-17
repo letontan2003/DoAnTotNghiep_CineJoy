@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ImageBackground,
   Alert,
+  Modal,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -89,6 +90,23 @@ const resolveRoomTypeFromParam = (
   return "2D";
 };
 
+const parseMinAgeFromAgeRating = (ageRating?: string): number => {
+  if (!ageRating) {
+    return 13;
+  }
+  const digits = ageRating.match(/\d+/);
+  if (digits && digits[0]) {
+    const parsed = parseInt(digits[0], 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  if (ageRating.trim().toUpperCase().startsWith("P")) {
+    return 0;
+  }
+  return 13;
+};
+
 interface SeatData {
   seatId: string;
   status: SeatStatus;
@@ -130,10 +148,14 @@ const SelectSeatScreen = () => {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [ticketPrices, setTicketPrices] = useState<Record<string, number>>({});
   const [totalTicketPrice, setTotalTicketPrice] = useState<number>(0);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const roomId = typeof room === "object" ? room._id : room;
   const roomName = typeof room === "object" ? room.name : room || "Rạp";
   const roomTypeLabel = resolveRoomTypeFromParam(room);
+  const minAge = parseMinAgeFromAgeRating(movie?.ageRating);
+  const showUnder16Notice = minAge < 16;
 
   // Side menu handlers
   const toggleSideMenu = () => {
@@ -660,29 +682,49 @@ const SelectSeatScreen = () => {
     return true;
   };
 
-  // Handle continue button
-  const handleContinue = async () => {
+  const canProceedToBooking = useCallback((): boolean => {
     if (selectedSeats.length === 0) {
       Alert.alert("Thông báo", "Vui lòng chọn ít nhất một ghế.");
-      return;
+      return false;
     }
 
     if (!isAuthenticated || !user?._id) {
       Alert.alert("Thông báo", "Vui lòng đăng nhập để tiếp tục.");
-      return;
+      return false;
     }
 
-    // Kiểm tra không chừa ghế trống
     if (!validateNoGapSeats()) {
       Alert.alert(
         "Cảnh báo",
         "Vui lòng không chừa 1 ghế trống bên trái hoặc bên phải của các ghế bạn đã chọn."
       );
+      return false;
+    }
+
+    return true;
+  }, [isAuthenticated, selectedSeats, user, validateNoGapSeats]);
+
+  const handleOpenConfirmModal = useCallback(() => {
+    if (canProceedToBooking()) {
+      setConfirmVisible(true);
+    }
+  }, [canProceedToBooking]);
+
+  const handleCancelConfirm = useCallback(() => {
+    if (!confirmLoading) {
+      setConfirmVisible(false);
+    }
+  }, [confirmLoading]);
+
+  // Handle continue button
+  const handleContinue = async () => {
+    if (!canProceedToBooking()) {
+      setConfirmVisible(false);
       return;
     }
 
     try {
-      // Reserve seats - backend cần room name, không phải room id
+      setConfirmLoading(true);
       await reserveSeatsApi(
         showtimeId,
         date,
@@ -691,6 +733,7 @@ const SelectSeatScreen = () => {
         selectedSeats
       );
 
+      setConfirmVisible(false);
       // Navigate to payment screen (you can add this later)
       Alert.alert("Thành công", "Đã tạm giữ ghế thành công!");
       // navigation.navigate("PaymentScreen", { ... });
@@ -700,6 +743,8 @@ const SelectSeatScreen = () => {
         "Lỗi",
         error.message || "Không thể tạm giữ ghế. Vui lòng thử lại."
       );
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -873,15 +918,67 @@ const SelectSeatScreen = () => {
           <TouchableOpacity
             style={[
               styles.continueButton,
-              selectedSeats.length === 0 && styles.continueButtonDisabled,
+              (selectedSeats.length === 0 || confirmLoading) &&
+                styles.continueButtonDisabled,
             ]}
-            onPress={handleContinue}
-            disabled={selectedSeats.length === 0}
+            onPress={handleOpenConfirmModal}
+            disabled={selectedSeats.length === 0 || confirmLoading}
           >
             <Text style={styles.continueButtonText}>Đặt Vé</Text>
           </TouchableOpacity>
         </View>
       </ImageBackground>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={confirmVisible}
+        onRequestClose={handleCancelConfirm}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.confirmTitle}>Xác nhận</Text>
+            <Text style={styles.confirmMessage}>
+              Tôi xác nhận mua vé cho người xem từ đủ {minAge} tuổi trở lên và
+              đồng ý cung cấp giấy tờ tùy thân để xác thực độ tuổi người xem.
+              CGV sẽ không hoàn tiền nếu người xem không đáp ứng đủ điều kiện.
+            </Text>
+            <Text style={styles.confirmMessage}>
+              Tham khảo <Text style={styles.confirmLink}>quy định</Text> của Bộ
+              Văn Hóa, Thể Thao và Du Lịch.
+            </Text>
+            {showUnder16Notice && (
+              <Text style={styles.confirmNote}>
+                CNJ không được phép phục vụ khách hàng dưới 16 tuổi cho các suất
+                chiếu kết thúc sau 23:00.
+              </Text>
+            )}
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmButtonCancel]}
+                onPress={handleCancelConfirm}
+                disabled={confirmLoading}
+              >
+                <Text style={styles.confirmButtonText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  styles.confirmButtonPrimary,
+                  confirmLoading && styles.confirmButtonDisabled,
+                ]}
+                onPress={handleContinue}
+                disabled={confirmLoading}
+              >
+                {confirmLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonPrimaryText}>Đồng ý</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
     </View>
   );
@@ -1138,6 +1235,76 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  confirmModal: {
+    width: "90%",
+    maxWidth: 340,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 8,
+    color: "#111",
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "justify",
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  confirmLink: {
+    color: "#b91c1c",
+    fontWeight: "600",
+  },
+  confirmNote: {
+    fontSize: 13,
+    color: "#b91c1c",
+    marginBottom: 12,
+    textAlign: "justify",
+  },
+  confirmButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmButtonCancel: {
+    backgroundColor: "#e5e7eb",
+  },
+  confirmButtonPrimary: {
+    backgroundColor: "#E50914",
+  },
+  confirmButtonText: {
+    color: "#111",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButtonPrimaryText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButtonDisabled: {
+    opacity: 0.7,
   },
 });
 
