@@ -21,6 +21,7 @@ import {
   getTheatersApi,
   getShowtimesByTheaterMovieApi,
 } from "services/api";
+import { useAppSelector } from "@/store/hooks";
 
 const { width, height } = Dimensions.get("window");
 
@@ -29,6 +30,17 @@ type RootStackParamList = {
   MovieDetailScreen: { movie: IMovie };
   BookTicketScreen: { movie: IMovie };
   MemberScreen: undefined;
+  LoginScreen: undefined;
+  SelectSeatScreen: {
+    movie: IMovie;
+    showtimeId: string;
+    theaterId: string;
+    date: string;
+    startTime: string;
+    endTime?: string;
+    room: string | { _id: string; name: string };
+    theaterName: string;
+  };
 };
 
 type BookTicketScreenNavigationProp = StackNavigationProp<
@@ -46,6 +58,9 @@ const BookTicketScreen = () => {
   const navigation = useNavigation<BookTicketScreenNavigationProp>();
   const route = useRoute<BookTicketScreenRouteProp>();
   const { movie } = route.params;
+
+  // Lấy thông tin authentication từ Redux store
+  const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
 
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -153,8 +168,21 @@ const BookTicketScreen = () => {
           getRegionsApi(),
           getTheatersApi(),
         ]);
-        setRegions(Array.isArray(regionsData) ? regionsData : []);
-        setTheaters(Array.isArray(theatersData) ? theatersData : []);
+        const regionsArray = Array.isArray(regionsData) ? regionsData : [];
+        const theatersArray = Array.isArray(theatersData) ? theatersData : [];
+
+        setRegions(regionsArray);
+        setTheaters(theatersArray);
+
+        if (regionsArray.length > 0) {
+          const hoChiMinhRegion = regionsArray.find(
+            (region) =>
+              region.name === "Hồ Chí Minh" || region.name === "Ho Chi Minh"
+          );
+          if (hoChiMinhRegion) {
+            setSelectedRegion(hoChiMinhRegion);
+          }
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         setRegions([]);
@@ -224,7 +252,15 @@ const BookTicketScreen = () => {
     }
   };
 
-  // Lọc showtimes theo ngày đã chọn
+  // Helper function để format date theo local time (không phải UTC)
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Lọc showtimes theo ngày đã chọn và ẩn các suất chiếu quá 5 phút
   const getShowtimesForDate = (showtime: IShowtime, date: Date) => {
     if (
       !showtime ||
@@ -233,12 +269,40 @@ const BookTicketScreen = () => {
     ) {
       return [];
     }
-    const dateStr = date.toISOString().split("T")[0];
+    // Sử dụng local date thay vì UTC để tránh lệch timezone
+    const dateStr = formatLocalDate(date);
+    const now = new Date();
+
+    // Lấy ngày hôm nay (local time) để so sánh
+    const today = new Date();
+    const todayStr = formatLocalDate(today);
+
     return showtime.showTimes.filter((st) => {
       if (!st || !st.date) return false;
       const stDate = new Date(st.date);
-      const stDateStr = stDate.toISOString().split("T")[0];
-      return stDateStr === dateStr && st.status === "active";
+      // Sử dụng local date thay vì UTC để so sánh đúng
+      const stDateStr = formatLocalDate(stDate);
+
+      // Kiểm tra ngày
+      if (stDateStr !== dateStr || st.status !== "active") {
+        return false;
+      }
+
+      // Chỉ kiểm tra "quá 5 phút" nếu suất chiếu là ngày hôm nay
+      // Nếu là ngày mai hoặc sau đó, luôn hiển thị
+      if (stDateStr === todayStr) {
+        // Kiểm tra thời gian: ẩn nếu đã quá 5 phút kể từ lúc phim chiếu
+        const showtimeStart = new Date(st.start);
+        const timeDiff = now.getTime() - showtimeStart.getTime();
+        const minutesDiff = timeDiff / (1000 * 60);
+
+        // Nếu quá 5 phút thì ẩn
+        if (minutesDiff > 5) {
+          return false;
+        }
+      }
+
+      return true;
     });
   };
 
@@ -417,7 +481,7 @@ const BookTicketScreen = () => {
                 onPress={() => fetchShowtimesForTheater(theater._id)}
               >
                 <View style={styles.theaterHeaderLeft}>
-                  <Text style={styles.theaterName}>CGV {theater.name}</Text>
+                  <Text style={styles.theaterName}>{theater.name}</Text>
                 </View>
                 <View style={styles.theaterHeaderRight}>
                   {loadingShowtimes[theater._id] ? (
@@ -451,16 +515,59 @@ const BookTicketScreen = () => {
                             {sessions &&
                             Array.isArray(sessions) &&
                             sessions.length > 0
-                              ? sessions.map((session, idx) => (
-                                  <TouchableOpacity
-                                    key={idx}
-                                    style={styles.showtimeButton}
-                                  >
-                                    <Text style={styles.showtimeButtonText}>
-                                      {formatTime(new Date(session.start))}
-                                    </Text>
-                                  </TouchableOpacity>
-                                ))
+                              ? sessions.map((session, idx) => {
+                                  const showtimeId = theaterShowtime?._id || "";
+                                  const theaterId = theater._id;
+                                  const sessionDate = new Date(session.date);
+                                  // Format date theo YYYY-MM-DD để backend parse đúng
+                                  const year = sessionDate.getFullYear();
+                                  const month = String(
+                                    sessionDate.getMonth() + 1
+                                  ).padStart(2, "0");
+                                  const day = String(
+                                    sessionDate.getDate()
+                                  ).padStart(2, "0");
+                                  const dateStr = `${year}-${month}-${day}`;
+                                  const startTimeStr = formatTime(
+                                    new Date(session.start)
+                                  );
+                                  const endTimeStr = session.end
+                                    ? formatTime(new Date(session.end))
+                                    : undefined;
+                                  const roomObj = session.room;
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={styles.showtimeButton}
+                                      onPress={() => {
+                                        // Kiểm tra nếu chưa đăng nhập thì chuyển đến LoginScreen
+                                        if (!isAuthenticated) {
+                                          navigation.navigate("LoginScreen");
+                                          return;
+                                        }
+                                        // Nếu đã đăng nhập thì chuyển đến SelectSeatScreen
+                                        navigation.navigate(
+                                          "SelectSeatScreen",
+                                          {
+                                            movie,
+                                            showtimeId,
+                                            theaterId,
+                                            date: dateStr,
+                                            startTime: startTimeStr,
+                                            endTime: endTimeStr,
+                                            room: roomObj,
+                                            theaterName: theater.name,
+                                          }
+                                        );
+                                      }}
+                                    >
+                                      <Text style={styles.showtimeButtonText}>
+                                        {startTimeStr}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })
                               : null}
                           </View>
                         </View>

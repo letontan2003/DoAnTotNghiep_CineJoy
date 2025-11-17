@@ -147,4 +147,95 @@ export const getShowtimesByTheaterMovieApi = async (
   return response.data;
 };
 
+// Seat APIs
+export const getSeatsForShowtimeApi = async (
+  showtimeId: string,
+  date: string,
+  startTime: string,
+  room?: string
+) => {
+  const params: any = {
+    date,
+    startTime,
+    _t: Date.now().toString(),
+  };
+  if (room) {
+    params.room = room;
+  }
+  const response = await axios.get<
+    IBackendResponse<{
+      showtimeInfo: any;
+      seats: Array<{
+        seatId: string;
+        status:
+          | "available"
+          | "occupied"
+          | "reserved"
+          | "selected"
+          | "maintenance";
+        type: "normal" | "vip" | "couple" | "4dx";
+        price?: number;
+      }>;
+      seatLayout: {
+        rows: number;
+        cols: number;
+      };
+    }>
+  >(`/showtimes/${showtimeId}/seats`, { params });
+  return response.data;
+};
+
+export const getSeatsWithReservationStatusApi = async (
+  showtimeId: string,
+  date: string,
+  startTime: string,
+  room: string,
+  isFromPaymentReturn: boolean = false
+) => {
+  const params: any = {
+    showtimeId,
+    date,
+    startTime,
+    room,
+    fromPaymentReturn: isFromPaymentReturn.toString(),
+  };
+  if (isFromPaymentReturn) {
+    params._t = Date.now().toString();
+  }
+  const response = await axios.get<
+    IBackendResponse<
+      Array<{
+        seatId: string;
+        status: string;
+        reservedBy?: string;
+        reservedUntil?: string;
+        isReservedByMe: boolean;
+      }>
+    >
+  >(`/v1/api/showtimes/seats-with-reservation`, { params });
+  return response.data;
+};
+
+export const reserveSeatsApi = async (
+  showtimeId: string,
+  date: string,
+  startTime: string,
+  room: string,
+  seatIds: string[]
+) => {
+  const response = await axios.post<
+    IBackendResponse<{
+      seatIds: string[];
+      reservedUntil: string;
+    }>
+  >(`/v1/api/showtimes/reserve-seats`, {
+    showtimeId,
+    date,
+    startTime,
+    room,
+    seatIds,
+  });
+  return response.data;
+};
+
 export default axios;

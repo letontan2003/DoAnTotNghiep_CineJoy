@@ -110,7 +110,7 @@ const LoginScreen = () => {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.navigate("HomeScreen")}
+              onPress={() => navigation.goBack()}
             >
               <Fontisto name="arrow-left" size={24} color="#fff" />
             </TouchableOpacity>
