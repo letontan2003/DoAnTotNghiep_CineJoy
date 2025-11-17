@@ -41,6 +41,20 @@ type RootStackParamList = {
     theaterName: string;
   };
   BookTicketScreen: { movie: IMovie };
+  ComboSelectionScreen: {
+    movie: IMovie;
+    showtimeId: string;
+    theaterId: string;
+    date: string;
+    startTime: string;
+    endTime?: string;
+    room: string | { _id: string; name: string; roomType?: string };
+    roomName: string;
+    theaterName: string;
+    selectedSeats: string[];
+    totalTicketPrice: number;
+    seatTypeCounts: SeatTypeCounts;
+  };
 };
 
 type SelectSeatScreenNavigationProp = StackNavigationProp<
@@ -70,6 +84,8 @@ type SeatStatus =
   | "occupied"
   | "selected"
   | "reserved";
+
+type SeatTypeCounts = Record<SeatType, number>;
 
 const resolveRoomTypeFromParam = (
   roomData: string | { _id: string; name: string; roomType?: string }
@@ -716,6 +732,14 @@ const SelectSeatScreen = () => {
     }
   }, [confirmLoading]);
 
+  const buildSeatTypeCounts = useCallback((): SeatTypeCounts => {
+    return selectedSeats.reduce((acc, seatId) => {
+      const seatType = seatTypeMap[seatId] || "normal";
+      acc[seatType] = (acc[seatType] || 0) + 1;
+      return acc;
+    }, {} as SeatTypeCounts);
+  }, [seatTypeMap, selectedSeats]);
+
   // Handle continue button
   const handleContinue = async () => {
     if (!canProceedToBooking()) {
@@ -734,9 +758,21 @@ const SelectSeatScreen = () => {
       );
 
       setConfirmVisible(false);
-      // Navigate to payment screen (you can add this later)
-      Alert.alert("Thành công", "Đã tạm giữ ghế thành công!");
-      // navigation.navigate("PaymentScreen", { ... });
+      const seatTypeCounts = buildSeatTypeCounts();
+      navigation.navigate("ComboSelectionScreen", {
+        movie,
+        showtimeId,
+        theaterId,
+        date,
+        startTime,
+        endTime,
+        room,
+        roomName,
+        theaterName,
+        selectedSeats,
+        totalTicketPrice,
+        seatTypeCounts,
+      });
     } catch (error: any) {
       console.error("Error reserving seats:", error);
       Alert.alert(

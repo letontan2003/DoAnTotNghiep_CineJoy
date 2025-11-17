@@ -10,6 +10,7 @@ import {
   IRegion,
   ITheater,
   IShowtime,
+  IFoodCombo,
 } from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
@@ -270,6 +271,17 @@ export const getCurrentPriceListApi = async (): Promise<IPriceList | null> => {
   } catch (error: any) {
     console.error("Error fetching current price list:", error);
     return null;
+  }
+};
+
+// Food combo APIs
+export const getFoodCombosApi = async (): Promise<IFoodCombo[]> => {
+  try {
+    const response = await axios.get<IFoodCombo[]>("/foodcombos");
+    return response.data || [];
+  } catch (error) {
+    console.error("Error fetching food combos:", error);
+    return [];
   }
 };
 

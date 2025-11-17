@@ -81,6 +81,22 @@ export interface IMovie {
   movieCode: string;
 }
 
+export interface IComboItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface IFoodCombo {
+  _id: string;
+  code: string;
+  name: string;
+  type: "single" | "combo";
+  description?: string;
+  items?: IComboItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // Region types
 export interface IRegion {
   _id: string;
