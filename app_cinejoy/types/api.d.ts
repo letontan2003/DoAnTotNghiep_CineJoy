@@ -112,7 +112,13 @@ export interface IShowtimeSession {
   date: Date;
   start: Date;
   end: Date;
-  room: string | { _id: string; name: string };
+  room:
+    | string
+    | {
+        _id: string;
+        name: string;
+        roomType?: string;
+      };
   showSessionId?:
     | string
     | { _id: string; name: string; startTime: string; endTime: string };

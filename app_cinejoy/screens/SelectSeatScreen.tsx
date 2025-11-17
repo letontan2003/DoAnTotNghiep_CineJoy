@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import {
   getSeatsForShowtimeApi,
   getSeatsWithReservationStatusApi,
   reserveSeatsApi,
+  getCurrentPriceListApi,
+  IPriceList,
 } from "services/api";
 import { useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
@@ -34,7 +36,7 @@ type RootStackParamList = {
     date: string;
     startTime: string;
     endTime?: string;
-    room: string | { _id: string; name: string };
+    room: string | { _id: string; name: string; roomType?: string };
     theaterName: string;
   };
   BookTicketScreen: { movie: IMovie };
@@ -55,7 +57,7 @@ type SelectSeatScreenRouteProp = {
     date: string;
     startTime: string;
     endTime?: string;
-    room: string | { _id: string; name: string };
+    room: string | { _id: string; name: string; roomType?: string };
     theaterName: string;
   };
 };
@@ -67,6 +69,25 @@ type SeatStatus =
   | "occupied"
   | "selected"
   | "reserved";
+
+const resolveRoomTypeFromParam = (
+  roomData: string | { _id: string; name: string; roomType?: string }
+): string => {
+  if (typeof roomData === "object") {
+    if (roomData?.roomType) {
+      return roomData.roomType;
+    }
+    if (roomData?.name && roomData.name.toLowerCase().includes("4dx")) {
+      return "4DX";
+    }
+  } else if (
+    typeof roomData === "string" &&
+    roomData.toLowerCase().includes("4dx")
+  ) {
+    return "4DX";
+  }
+  return "2D";
+};
 
 interface SeatData {
   seatId: string;
@@ -107,9 +128,12 @@ const SelectSeatScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [ticketPrices, setTicketPrices] = useState<Record<string, number>>({});
+  const [totalTicketPrice, setTotalTicketPrice] = useState<number>(0);
 
   const roomId = typeof room === "object" ? room._id : room;
   const roomName = typeof room === "object" ? room.name : room || "Rạp";
+  const roomTypeLabel = resolveRoomTypeFromParam(room);
 
   // Side menu handlers
   const toggleSideMenu = () => {
@@ -129,6 +153,57 @@ const SelectSeatScreen = () => {
     }
     return dateStr;
   };
+
+  // Load giá vé từ bảng giá đang hoạt động
+  useEffect(() => {
+    const loadTicketPrices = async () => {
+      try {
+        const priceList: IPriceList | null = await getCurrentPriceListApi();
+
+        if (!priceList) {
+          setTicketPrices({});
+          return;
+        }
+
+        if (!priceList.lines || !Array.isArray(priceList.lines)) {
+          setTicketPrices({});
+          return;
+        }
+
+        const map: Record<string, number> = {};
+        priceList.lines.forEach((line) => {
+          if (line.type === "ticket" && line.seatType) {
+            map[line.seatType] = line.price || 0;
+          }
+        });
+
+        setTicketPrices(map);
+      } catch (error) {
+        console.error("❌ Error loading ticket prices:", error);
+        setTicketPrices({});
+      }
+    };
+    loadTicketPrices();
+  }, []);
+
+  // Tính tổng tiền vé theo loại ghế và giá từ bảng giá
+  useEffect(() => {
+    if (!selectedSeats || selectedSeats.length === 0) {
+      setTotalTicketPrice(0);
+      return;
+    }
+
+    const total = selectedSeats.reduce((sum, seatId) => {
+      const st = seatTypeMap[seatId];
+      const price = ticketPrices[st];
+      if (price === undefined || price === null) {
+        return sum;
+      }
+      return sum + price;
+    }, 0);
+
+    setTotalTicketPrice(total);
+  }, [selectedSeats, seatTypeMap, ticketPrices]);
 
   // Load seats from API
   useEffect(() => {
@@ -777,13 +852,23 @@ const SelectSeatScreen = () => {
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
           <View style={styles.bottomInfo}>
-            <Text style={styles.movieTitle}>{movie.title}</Text>
-            <Text style={styles.movieFormat}>2D Phụ Đề Anh</Text>
-            <Text style={styles.selectedSeatsText}>
-              {selectedSeats.length > 0
-                ? `Đã chọn: ${selectedSeats.length} ghế`
-                : "Chưa chọn ghế"}
-            </Text>
+            <View style={styles.movieTitleRow}>
+              <Text style={styles.movieTitle}>{movie.title}</Text>
+              {movie.ageRating && (
+                <View style={styles.ageRatingBadge}>
+                  <Text style={styles.ageRatingText}>{movie.ageRating}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.movieFormat}>{roomTypeLabel} Phụ Đề Anh</Text>
+            <View style={styles.priceAndSeatsRow}>
+              <Text style={styles.totalPriceText}>
+                {totalTicketPrice.toLocaleString("vi-VN")} ₫
+              </Text>
+              <Text style={styles.selectedSeatsText}>
+                {selectedSeats.length} ghế
+              </Text>
+            </View>
           </View>
           <TouchableOpacity
             style={[
@@ -997,20 +1082,47 @@ const styles = StyleSheet.create({
   bottomInfo: {
     flex: 1,
   },
+  movieTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
   movieTitle: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#fff",
+  },
+  ageRatingBadge: {
+    backgroundColor: "#FFA500",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  ageRatingText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#000",
   },
   movieFormat: {
     fontSize: 12,
     color: "#ccc",
     marginTop: 4,
   },
+  priceAndSeatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
   selectedSeatsText: {
     fontSize: 12,
-    color: "#E50914",
-    marginTop: 4,
+    color: "#999",
+  },
+  totalPriceText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
   continueButton: {
     backgroundColor: "#E50914",

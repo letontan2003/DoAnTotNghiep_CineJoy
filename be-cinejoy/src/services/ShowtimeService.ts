@@ -19,7 +19,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -49,7 +49,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -405,7 +405,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -485,7 +485,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -554,7 +554,7 @@ class ShowtimeService {
         .populate("theaterId", "name location")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -913,7 +913,7 @@ class ShowtimeService {
       const showtime = await Showtime.findById(showtimeId)
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.seats.seat",
@@ -1197,7 +1197,7 @@ class ShowtimeService {
     reservedByUserId?: string
   ): Promise<void> {
     const showtime = await Showtime.findById(showtimeId)
-      .populate({ path: "showTimes.room", select: "name" })
+      .populate({ path: "showTimes.room", select: "name roomType" })
       .populate({ path: "showTimes.seats.seat", select: "seatId" });
 
     if (!showtime) throw new Error("Không tìm thấy suất chiếu");
@@ -1361,7 +1361,7 @@ class ShowtimeService {
     }[]
   > {
     const showtime = await Showtime.findById(showtimeId)
-      .populate({ path: "showTimes.room", select: "name" })
+      .populate({ path: "showTimes.room", select: "name roomType" })
       .populate({ path: "showTimes.seats.seat", select: "seatId" });
 
     if (!showtime) throw new Error("Không tìm thấy suất chiếu");
@@ -1651,7 +1651,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",
@@ -1683,7 +1683,7 @@ class ShowtimeService {
         .populate("theaterId", "name")
         .populate({
           path: "showTimes.room",
-          select: "name",
+          select: "name roomType",
         })
         .populate({
           path: "showTimes.showSessionId",

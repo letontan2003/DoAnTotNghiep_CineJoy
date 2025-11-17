@@ -238,4 +238,39 @@ export const reserveSeatsApi = async (
   return response.data;
 };
 
+// Price List APIs
+export interface IPriceListLine {
+  type: "ticket" | "combo" | "single";
+  seatType?: "normal" | "vip" | "couple" | "4dx";
+  productId?: string;
+  productName?: string;
+  price: number;
+}
+
+export interface IPriceList {
+  _id: string;
+  code: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  status: "active" | "scheduled" | "expired";
+  lines: IPriceListLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getCurrentPriceListApi = async (): Promise<IPriceList | null> => {
+  try {
+    const response = await axios.get<IPriceList>("/price-lists/current");
+    if (response.data && response.data.lines) {
+      return response.data;
+    }
+    return null;
+  } catch (error: any) {
+    console.error("Error fetching current price list:", error);
+    return null;
+  }
+};
+
 export default axios;

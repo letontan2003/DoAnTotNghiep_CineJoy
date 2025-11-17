@@ -38,7 +38,7 @@ type RootStackParamList = {
     date: string;
     startTime: string;
     endTime?: string;
-    room: string | { _id: string; name: string };
+    room: string | { _id: string; name: string; roomType?: string };
     theaterName: string;
   };
 };
@@ -78,6 +78,21 @@ const BookTicketScreen = () => {
   const [loadingShowtimes, setLoadingShowtimes] = useState<{
     [theaterId: string]: boolean;
   }>({});
+
+  // Render tên rạp với phần "CNJ" màu đỏ, phần còn lại màu đen
+  const renderTheaterName = (name: string) => {
+    if (name?.startsWith("CNJ")) {
+      const restName = name.slice(3); // Cắt bỏ "CNJ"
+      return (
+        <Text style={styles.theaterName}>
+          <Text style={styles.theaterNamePrefix}>CNJ</Text>
+          <Text style={styles.theaterNameRest}>{restName}</Text>
+        </Text>
+      );
+    }
+    // Nếu không bắt đầu bằng "CNJ" thì hiển thị bình thường
+    return <Text style={styles.theaterName}>{name}</Text>;
+  };
 
   // Hàm mở/đóng side menu
   const toggleSideMenu = () => {
@@ -314,6 +329,35 @@ const BookTicketScreen = () => {
     return "Rạp";
   };
 
+  const resolveRoomType = (roomData: any): string => {
+    if (!roomData) return "2D";
+    if (typeof roomData === "object") {
+      if (roomData.roomType) {
+        return roomData.roomType;
+      }
+      if (
+        typeof roomData.name === "string" &&
+        roomData.name.toLowerCase().includes("4dx")
+      ) {
+        return "4DX";
+      }
+    } else if (
+      typeof roomData === "string" &&
+      roomData.toLowerCase().includes("4dx")
+    ) {
+      return "4DX";
+    }
+    return "2D";
+  };
+
+  const getSessionRoomType = (session: any): string => {
+    if (!session) return "2D";
+    if (session.roomType) {
+      return session.roomType;
+    }
+    return resolveRoomType(session.room);
+  };
+
   // Group showtimes theo format và room
   const groupShowtimesByFormat = (showtimes: any[]) => {
     if (!Array.isArray(showtimes)) return {};
@@ -481,7 +525,7 @@ const BookTicketScreen = () => {
                 onPress={() => fetchShowtimesForTheater(theater._id)}
               >
                 <View style={styles.theaterHeaderLeft}>
-                  <Text style={styles.theaterName}>{theater.name}</Text>
+                  {renderTheaterName(theater.name)}
                 </View>
                 <View style={styles.theaterHeaderRight}>
                   {loadingShowtimes[theater._id] ? (
@@ -508,8 +552,8 @@ const BookTicketScreen = () => {
                       ([format, sessions]) => (
                         <View key={format} style={styles.formatGroup}>
                           <Text style={styles.formatText}>
-                            • 2D Phụ Đề Anh | Rạp{" "}
-                            {getRoomName(sessions?.[0]?.room)}
+                            • {getSessionRoomType(sessions?.[0])} Phụ Đề Anh |
+                            Rạp {getRoomName(sessions?.[0]?.room)}
                           </Text>
                           <View style={styles.showtimesRow}>
                             {sessions &&
@@ -535,6 +579,16 @@ const BookTicketScreen = () => {
                                     ? formatTime(new Date(session.end))
                                     : undefined;
                                   const roomObj = session.room;
+                                  const sessionRoomType =
+                                    getSessionRoomType(session);
+                                  const roomParam =
+                                    typeof roomObj === "object"
+                                      ? {
+                                          ...roomObj,
+                                          roomType:
+                                            roomObj.roomType || sessionRoomType,
+                                        }
+                                      : roomObj;
 
                                   return (
                                     <TouchableOpacity
@@ -556,7 +610,7 @@ const BookTicketScreen = () => {
                                             date: dateStr,
                                             startTime: startTimeStr,
                                             endTime: endTimeStr,
-                                            room: roomObj,
+                                            room: roomParam,
                                             theaterName: theater.name,
                                           }
                                         );
@@ -850,7 +904,13 @@ const styles = StyleSheet.create({
   theaterName: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#000",
+  },
+  theaterNamePrefix: {
     color: "#E50914",
+  },
+  theaterNameRest: {
+    color: "#555",
   },
   theaterHeaderRight: {
     width: 30,
