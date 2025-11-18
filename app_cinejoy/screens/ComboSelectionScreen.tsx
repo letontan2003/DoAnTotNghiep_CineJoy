@@ -36,10 +36,37 @@ type ComboSelectionParams = {
   selectedSeats: string[];
   totalTicketPrice: number;
   seatTypeCounts: Record<string, number>;
+  seatTypeMap: Record<string, string>;
+};
+
+type SelectedComboSummary = {
+  comboId: string;
+  name: string;
+  price: number;
+  quantity: number;
+};
+
+type PaymentScreenParams = {
+  movie: IMovie;
+  showtimeId: string;
+  theaterId: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  room: RoomParam;
+  roomName: string;
+  theaterName: string;
+  selectedSeats: string[];
+  totalTicketPrice: number;
+  seatTypeCounts: Record<string, number>;
+  seatTypeMap: Record<string, string>;
+  selectedCombos: SelectedComboSummary[];
+  comboTotal: number;
 };
 
 type RootStackParamList = {
   ComboSelectionScreen: ComboSelectionParams;
+  PaymentScreen: PaymentScreenParams;
 };
 
 type ComboSelectionNavigationProp = StackNavigationProp<
@@ -78,6 +105,8 @@ const ComboSelectionScreen = () => {
   const route = useRoute<ComboSelectionRouteProp>();
   const {
     movie,
+    showtimeId,
+    theaterId,
     theaterName,
     roomName,
     date,
@@ -86,6 +115,8 @@ const ComboSelectionScreen = () => {
     selectedSeats,
     totalTicketPrice,
     room,
+    seatTypeCounts,
+    seatTypeMap,
   } = route.params;
 
   const [comboItems, setComboItems] = useState<UIComboItem[]>([]);
@@ -165,12 +196,28 @@ const ComboSelectionScreen = () => {
     loadCombos();
   }, [loadCombos]);
 
+  const selectedComboSummaries = useMemo<SelectedComboSummary[]>(() => {
+    return Object.entries(comboCounts)
+      .filter(([, count]) => (count || 0) > 0)
+      .map(([comboId, count]) => {
+        const combo = comboItems.find((item) => item._id === comboId);
+        if (!combo) return null;
+        return {
+          comboId,
+          name: combo.name,
+          price: combo.price || 0,
+          quantity: count || 0,
+        };
+      })
+      .filter(Boolean) as SelectedComboSummary[];
+  }, [comboCounts, comboItems]);
+
   const comboTotal = useMemo(() => {
-    return comboItems.reduce((sum, combo) => {
-      const count = comboCounts[combo._id] || 0;
-      return sum + count * (combo.price || 0);
-    }, 0);
-  }, [comboItems, comboCounts]);
+    return selectedComboSummaries.reduce(
+      (sum, combo) => sum + combo.price * combo.quantity,
+      0
+    );
+  }, [selectedComboSummaries]);
 
   const totalPayment = totalTicketPrice + comboTotal;
 
@@ -189,17 +236,35 @@ const ComboSelectionScreen = () => {
   };
 
   const handleProceedPayment = () => {
-    Alert.alert(
-      "Thông báo",
-      "Tính năng thanh toán đang được phát triển trên ứng dụng mobile."
-    );
+    if (!selectedSeats.length) {
+      Alert.alert("Thông báo", "Vui lòng chọn ghế trước khi thanh toán.");
+      return;
+    }
+
+    navigation.navigate("PaymentScreen", {
+      movie,
+      showtimeId,
+      theaterId,
+      date,
+      startTime,
+      endTime,
+      room,
+      roomName,
+      theaterName,
+      selectedSeats,
+      totalTicketPrice,
+      seatTypeCounts,
+      seatTypeMap,
+      selectedCombos: selectedComboSummaries,
+      comboTotal,
+    });
   };
 
   const roomTypeLabel = resolveRoomTypeFromParam(room);
   const seatsLabel = `${selectedSeats.length} ghế`;
-  const comboDetailParts = comboItems
-    .filter((combo) => (comboCounts[combo._id] || 0) > 0)
-    .map((combo) => `${combo.name} x${comboCounts[combo._id]}`);
+  const comboDetailParts = selectedComboSummaries.map(
+    (combo) => `${combo.name} x${combo.quantity}`
+  );
   const fullDetail = [seatsLabel, ...comboDetailParts].join(" + ");
   const detailText =
     fullDetail.length > 50 ? `${fullDetail.slice(0, 50)}...` : fullDetail;

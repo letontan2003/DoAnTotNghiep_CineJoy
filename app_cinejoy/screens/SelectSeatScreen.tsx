@@ -54,6 +54,7 @@ type RootStackParamList = {
     selectedSeats: string[];
     totalTicketPrice: number;
     seatTypeCounts: SeatTypeCounts;
+    seatTypeMap: Record<string, SeatType>;
   };
 };
 
@@ -772,6 +773,7 @@ const SelectSeatScreen = () => {
         selectedSeats,
         totalTicketPrice,
         seatTypeCounts,
+        seatTypeMap,
       });
     } catch (error: any) {
       console.error("Error reserving seats:", error);
