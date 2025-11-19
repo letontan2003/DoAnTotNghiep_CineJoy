@@ -1454,16 +1454,18 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   promotionalCarouselContent: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
   promotionalItem: {
     alignItems: "center",
+    justifyContent: "center",
     width: width / 3,
     paddingHorizontal: 8,
-    minHeight: 100,
-    justifyContent: "flex-start",
-    paddingTop: 10,
+    paddingVertical: 8,
+    minHeight: 110,
   },
   promotionalCircle: {
     width: 70,
@@ -1480,10 +1482,11 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   promotionalTextContainer: {
-    height: 28,
+    minHeight: 32,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
+    marginTop: 6,
   },
   promotionalText: {
     fontSize: 12,
