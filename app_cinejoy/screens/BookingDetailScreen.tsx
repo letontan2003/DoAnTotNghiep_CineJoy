@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   ScrollView,
   StatusBar,
@@ -13,6 +12,7 @@ import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import dayjs from "dayjs";
 import { getUserOrderDetailsApi } from "@/services/api";
+import BookingDetailSkeleton from "@/components/Skeleton/BookingDetailSkeleton";
 
 type RootStackParamList = {
   BookingDetailScreen: { orderId: string };
@@ -154,31 +154,9 @@ const BookingDetailScreen = () => {
   const finalAmount = Number(order?.finalAmount || 0);
   const discountAmount = Math.max(totalAmount - finalAmount, 0);
 
-  const statusDisplay = useMemo(() => {
-    if (!order?.orderStatus) {
-      return {
-        label: "Không xác định",
-        color: "#374151",
-        background: "#e5e7eb",
-      };
-    }
-    return (
-      statusMap[order.orderStatus] || {
-        label: order.orderStatus,
-        color: "#374151",
-        background: "#e5e7eb",
-      }
-    );
-  }, [order?.orderStatus]);
-
   const renderState = () => {
     if (loading) {
-      return (
-        <View style={styles.stateContainer}>
-          <ActivityIndicator size="large" color="#E50914" />
-          <Text style={styles.stateText}>Đang tải chi tiết vé...</Text>
-        </View>
-      );
+      return <BookingDetailSkeleton />;
     }
 
     if (error || !order) {

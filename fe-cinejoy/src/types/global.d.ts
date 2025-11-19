@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export {};
 
 declare global {
@@ -61,7 +62,11 @@ declare global {
     language: string[];
     description: string;
     trailer: string;
-    status: 'Phim đang chiếu' | 'Phim sắp chiếu' | 'Suất chiếu đặc biệt' | 'Đã kết thúc';
+    status:
+      | "Phim đang chiếu"
+      | "Phim sắp chiếu"
+      | "Suất chiếu đặc biệt"
+      | "Đã kết thúc";
     image: string;
     posterImage: string;
     ageRating: string;
@@ -102,8 +107,8 @@ declare global {
     name: string;
     theater: ITheater;
     capacity: number;
-    roomType: '2D' | '4DX';
-    status: 'active' | 'maintenance' | 'inactive';
+    roomType: "2D" | "4DX";
+    status: "active" | "maintenance" | "inactive";
     description?: string;
     seatLayout: {
       rows: number;
@@ -134,7 +139,7 @@ declare global {
       end: string;
       room: string;
       showSessionId?: string;
-      status?: 'active' | 'inactive'; // Trạng thái suất chiếu
+      status?: "active" | "inactive"; // Trạng thái suất chiếu
       seats: Array<{
         seatId: string;
         status: string;
@@ -159,7 +164,7 @@ declare global {
     description?: string;
     startDate: Date | string;
     endDate: Date | string;
-    status: 'hoạt động' | 'không hoạt động';
+    status: "hoạt động" | "không hoạt động";
     lines: IPromotionLine[];
     // Legacy fields for backward compatibility
     quantity?: number;
@@ -169,7 +174,7 @@ declare global {
       startDate: Date | string;
       endDate: Date | string;
     };
-    applyType?: 'voucher' | 'combo' | 'ticket';
+    applyType?: "voucher" | "combo" | "ticket";
   }
 
   interface IUserVoucher {
@@ -179,7 +184,8 @@ declare global {
       _id: string;
       name: string;
       validityPeriod: {
-        startDate: string;api
+        startDate: string;
+        api;
         endDate: string;
       };
       quantity: number;
@@ -207,11 +213,11 @@ declare global {
   }
 
   interface DiscountDetail {
-    applyType?: 'combo' | 'ticket';
+    applyType?: "combo" | "ticket";
     comboName?: string;
     comboId?: string; // ID của combo được chọn
     comboDiscountPercent?: number;
-    seatType?: 'normal' | 'vip' | 'couple' | '4dx';
+    seatType?: "normal" | "vip" | "couple" | "4dx";
     ticketDiscountPercent?: number;
     totalBudget?: number; // Ngân sách tổng (VNĐ)
     description?: string; // Mô tả cho khuyến mãi chiết khấu
@@ -225,7 +231,7 @@ declare global {
   }
 
   interface ItemDetail {
-    applyType?: 'combo' | 'ticket';
+    applyType?: "combo" | "ticket";
     // Cho combo: buyItem lấy từ combo, có comboId
     buyItem: string;
     comboId?: string; // ID của combo được chọn khi applyType = 'combo'
@@ -235,24 +241,28 @@ declare global {
     rewardItem: string;
     rewardItemId?: string; // ID của sản phẩm/combo được chọn làm phần thưởng
     rewardQuantity: number;
-    rewardType: 'free' | 'discount';
+    rewardType: "free" | "discount";
     rewardDiscountPercent?: number;
     totalBudget?: number; // Ngân sách tổng cho sản phẩm tặng
     description?: string; // Mô tả cho khuyến mãi hàng
   }
 
-  type PromotionDetail = VoucherDetail | DiscountDetail | AmountDetail | ItemDetail;
+  type PromotionDetail =
+    | VoucherDetail
+    | DiscountDetail
+    | AmountDetail
+    | ItemDetail;
 
   interface IPromotionLine {
-    promotionType: 'item' | 'amount' | 'percent' | 'voucher';
+    promotionType: "item" | "amount" | "percent" | "voucher";
     validityPeriod: {
       startDate: Date | string;
       endDate: Date | string;
     };
-    status: 'hoạt động' | 'không hoạt động';
+    status: "hoạt động" | "không hoạt động";
     detail: PromotionDetail;
     rule?: {
-      stackingPolicy: 'STACKABLE' | 'EXCLUSIVE' | 'EXCLUSIVE_WITH_GROUP';
+      stackingPolicy: "STACKABLE" | "EXCLUSIVE" | "EXCLUSIVE_WITH_GROUP";
       exclusionGroup?: string; // chỉ dùng khi stackingPolicy = EXCLUSIVE_WITH_GROUP
     };
     code?: string; // Mã 10 số ngẫu nhiên tự động tạo
@@ -268,7 +278,7 @@ declare global {
     content: string;
     posterImage: string; // Ảnh poster
     backgroundImage: string; // Ảnh background
-    status: 'Hiển thị' | 'Ẩn'; // Trạng thái hiển thị
+    status: "Hiển thị" | "Ẩn"; // Trạng thái hiển thị
   }
   // FoodCombo - Sản phẩm đơn lẻ hoặc combo
   interface IComboItem {
@@ -340,7 +350,12 @@ declare global {
     finalAmount: number;
     paymentMethod: "MOMO" | "VNPAY";
     paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
-    orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+    orderStatus:
+      | "PENDING"
+      | "CONFIRMED"
+      | "CANCELLED"
+      | "COMPLETED"
+      | "RETURNED";
     customerInfo: {
       fullName: string;
       phoneNumber: string;
@@ -408,8 +423,8 @@ declare global {
   }
 
   interface IPriceListLine {
-    type: 'ticket' | 'combo' | 'single';
-    seatType?: 'normal' | 'vip' | 'couple' | '4dx';
+    type: "ticket" | "combo" | "single";
+    seatType?: "normal" | "vip" | "couple" | "4dx";
     productId?: string;
     productName?: string;
     price: number;
@@ -422,7 +437,7 @@ declare global {
     description?: string;
     startDate: string;
     endDate: string;
-    status: 'active' | 'scheduled' | 'expired';
+    status: "active" | "scheduled" | "expired";
     lines: IPriceListLine[];
     createdAt: string;
     updatedAt: string;

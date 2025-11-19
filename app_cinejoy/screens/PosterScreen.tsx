@@ -8,7 +8,7 @@ import {
   Text,
   Image,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import posterBackground from "assets/posterBackground.jpg";
 import logo from "assets/logoCNJ.png";
 
@@ -17,19 +17,23 @@ const { width, height } = Dimensions.get("window");
 const POSTER_IMAGE = posterBackground;
 
 // Component tạo hiệu ứng vignette mềm ở góc
-const SoftCornerVignette = ({ position }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' }) => {
+const SoftCornerVignette = ({
+  position,
+}: {
+  position: "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+}) => {
   const cornerSize = Math.min(width, height) * 0.8;
   const layers = [0.2, 0.15, 0.1, 0.06, 0.03]; // Opacity giảm dần từ trong ra ngoài
-  
+
   const getPosition = () => {
     switch (position) {
-      case 'topLeft':
+      case "topLeft":
         return { top: -cornerSize * 0.4, left: -cornerSize * 0.4 };
-      case 'topRight':
+      case "topRight":
         return { top: -cornerSize * 0.4, right: -cornerSize * 0.4 };
-      case 'bottomLeft':
+      case "bottomLeft":
         return { bottom: -cornerSize * 0.4, left: -cornerSize * 0.4 };
-      case 'bottomRight':
+      case "bottomRight":
         return { bottom: -cornerSize * 0.4, right: -cornerSize * 0.4 };
     }
   };
@@ -72,7 +76,12 @@ const PosterScreen = () => {
 
     // Sau 2 giây, tự động chuyển sang HomeScreen
     const timer = setTimeout(() => {
-      navigation.navigate("HomeScreen" as never);
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "HomeScreen" as never }],
+        })
+      );
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -181,4 +190,3 @@ const styles = StyleSheet.create({
 });
 
 export default PosterScreen;
-

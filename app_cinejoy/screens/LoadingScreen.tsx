@@ -8,7 +8,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import logo from "assets/logoCNJ.png";
 
 const { width, height } = Dimensions.get("window");
@@ -36,18 +36,17 @@ const LoadingSpinner = () => {
   });
 
   return (
-    <Animated.View style={[styles.spinnerContainer, { transform: [{ rotate: spin }] }]}>
+    <Animated.View
+      style={[styles.spinnerContainer, { transform: [{ rotate: spin }] }]}
+    >
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <View
           key={index}
           style={[
             styles.spinnerPetal,
             {
-              transform: [
-                { rotate: `${index * 60}deg` },
-                { translateY: -15 },
-              ],
-              opacity: 0.3 + (index * 0.12),
+              transform: [{ rotate: `${index * 60}deg` }, { translateY: -15 }],
+              opacity: 0.3 + index * 0.12,
             },
           ]}
         />
@@ -111,7 +110,12 @@ const LoadingScreen = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate("PosterScreen" as never);
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "PosterScreen" as never }],
+        })
+      );
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -229,4 +233,3 @@ const styles = StyleSheet.create({
 });
 
 export default LoadingScreen;
-

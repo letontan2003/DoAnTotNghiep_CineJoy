@@ -14,7 +14,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { loginApi } from "@/services/api";
@@ -66,8 +66,13 @@ const LoginScreen = () => {
         dispatch(setIsAuthenticated(true));
         dispatch(setIsDarkMode(response.data.user.settings.darkMode));
 
-        // Navigate về HomeScreen
-        navigation.navigate("HomeScreen");
+        // Reset stack để không quay lại LoginScreen bằng gesture
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "HomeScreen" }],
+          })
+        );
       } else {
         Alert.alert(
           "Lỗi đăng nhập",
