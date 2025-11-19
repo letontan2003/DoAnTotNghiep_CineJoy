@@ -16,6 +16,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { IMovie, IRegion, ITheater, IShowtime } from "@/types/api";
 import SideMenu from "@/components/SideMenu";
+import ShowtimeListSkeleton from "@/components/Skeleton/ShowtimeListSkeleton";
 import {
   getRegionsApi,
   getTheatersApi,
@@ -245,6 +246,10 @@ const BookTicketScreen = () => {
 
     // Chưa có data, fetch và mở
     try {
+      setExpandedTheaters((prev) => ({
+        ...prev,
+        [theaterId]: true,
+      }));
       setLoadingShowtimes((prev) => ({ ...prev, [theaterId]: true }));
       const showtimesData = await getShowtimesByTheaterMovieApi(
         theaterId,
@@ -528,21 +533,19 @@ const BookTicketScreen = () => {
                   {renderTheaterName(theater.name)}
                 </View>
                 <View style={styles.theaterHeaderRight}>
-                  {loadingShowtimes[theater._id] ? (
-                    <ActivityIndicator size="small" color="#E50914" />
-                  ) : (
-                    <Fontisto
-                      name={isExpanded ? "angle-up" : "angle-down"}
-                      size={20}
-                      color="#E50914"
-                    />
-                  )}
+                  <Fontisto
+                    name={isExpanded ? "angle-up" : "angle-down"}
+                    size={20}
+                    color="#E50914"
+                  />
                 </View>
               </TouchableOpacity>
 
               {isExpanded && (
                 <View style={styles.showtimesContainer}>
-                  {!showtimesForDate || showtimesForDate.length === 0 ? (
+                  {loadingShowtimes[theater._id] ? (
+                    <ShowtimeListSkeleton rows={2} />
+                  ) : !showtimesForDate || showtimesForDate.length === 0 ? (
                     <Text style={styles.noShowtimeText}>
                       Không có suất chiếu cho ngày này
                     </Text>
