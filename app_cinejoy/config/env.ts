@@ -2,12 +2,21 @@
 const ENV = {
   development: {
     API_URL: "http://192.168.17.238:5000",
+    WEB_PAYMENT_SUCCESS_URL: "http://192.168.17.238:3000/payment/success",
+    WEB_PAYMENT_CANCEL_URL: "http://192.168.17.238:3000/payment/cancel",
+    WEB_BOOKING_HISTORY_URL: "http://192.168.17.238:3000/booking-history",
   },
   staging: {
     API_URL: "https://staging-api.cinejoy.com",
+    WEB_PAYMENT_SUCCESS_URL: "https://staging.cinejoy.com/payment/success",
+    WEB_PAYMENT_CANCEL_URL: "https://staging.cinejoy.com/payment/cancel",
+    WEB_BOOKING_HISTORY_URL: "https://staging.cinejoy.com/booking-history",
   },
   production: {
     API_URL: "https://api.cinejoy.com",
+    WEB_PAYMENT_SUCCESS_URL: "https://cinejoy.vn/payment/success",
+    WEB_PAYMENT_CANCEL_URL: "https://cinejoy.vn/payment/cancel",
+    WEB_BOOKING_HISTORY_URL: "https://cinejoy.vn/booking-history",
   },
 };
 

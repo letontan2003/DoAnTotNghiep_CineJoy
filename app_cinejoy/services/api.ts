@@ -285,6 +285,54 @@ export const getFoodCombosApi = async (): Promise<IFoodCombo[]> => {
   }
 };
 
+export const getActiveItemPromotionsApi = async () => {
+  const response = await axios.get<IBackendResponse<any[]>>(
+    "/v1/api/vouchers/item-promotions"
+  );
+  return response.data;
+};
+
+export const applyItemPromotionsApi = async (
+  selectedCombos: Array<{ comboId: string; quantity: number; name: string }>,
+  appliedPromotions: any[] = [],
+  selectedSeats?: Array<{ seatId: string; type: string; price: number }>
+) => {
+  const response = await axios.post<
+    IBackendResponse<{
+      applicablePromotions: any[];
+      totalRewardItems: number;
+    }>
+  >("/v1/api/vouchers/apply-item-promotions", {
+    selectedCombos,
+    appliedPromotions,
+    selectedSeats,
+  });
+  return response.data;
+};
+
+export const applyPercentPromotionsApi = async (
+  selectedCombos: Array<{
+    comboId: string;
+    quantity: number;
+    name: string;
+    price: number;
+  }>,
+  appliedPromotions: any[] = [],
+  selectedSeats?: Array<{ seatId: string; type: string; price: number }>
+) => {
+  const response = await axios.post<
+    IBackendResponse<{
+      applicablePromotions: any[];
+      totalDiscountAmount: number;
+    }>
+  >("/v1/api/vouchers/apply-percent-promotions", {
+    selectedCombos,
+    appliedPromotions,
+    selectedSeats,
+  });
+  return response.data;
+};
+
 export const validateVoucherApi = async (code: string, userId?: string) => {
   const response = await axios.post<IBackendResponse<any>>(
     "/v1/user-vouchers/validate",
@@ -305,6 +353,20 @@ export const applyVoucherApi = async (
       userVoucherId: string;
     }>
   >("/v1/user-vouchers/apply", { code, orderTotal, userId });
+  return response.data;
+};
+
+export const getAmountDiscountApi = async (orderTotal: number) => {
+  const response = await axios.post<
+    IBackendResponse<{
+      discountAmount: number;
+      description: string;
+      minOrderValue: number;
+      discountValue: number;
+    } | null>
+  >("/v1/api/vouchers/amount-discount", {
+    orderTotal,
+  });
   return response.data;
 };
 
@@ -365,6 +427,44 @@ export const processPaymentApi = async (
       message,
       data: null,
     } as IBackendResponse<any>;
+  }
+};
+
+export const getOrderByIdApi = async (orderId: string) => {
+  try {
+    const response = await axios.get<IBackendResponse<any>>(
+      `/v1/api/orders/${orderId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    } as IBackendResponse<any>;
+  }
+};
+
+export const getUserBookingHistoryApi = async () => {
+  try {
+    const response = await axios.get<IBackendResponse<any[]>>(
+      "/v1/api/orders/history"
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    } as IBackendResponse<any[]>;
   }
 };
 

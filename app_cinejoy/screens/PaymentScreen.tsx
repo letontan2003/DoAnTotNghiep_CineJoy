@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,20 @@ import {
   Alert,
   Image,
   Linking,
+  BackHandler,
+  Modal,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  AppState,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+  CommonActions,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { IMovie } from "@/types/api";
 import {
@@ -20,6 +32,12 @@ import {
   applyVoucherApi,
   createOrderApi,
   processPaymentApi,
+  getActiveItemPromotionsApi,
+  applyItemPromotionsApi,
+  applyPercentPromotionsApi,
+  getAmountDiscountApi,
+  getFoodCombosApi,
+  getOrderByIdApi,
 } from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
 import comboPlaceholder from "assets/Combo.png";
@@ -96,11 +114,24 @@ type PaymentScreenParams = {
   seatTypeCounts: Record<string, number>;
   seatTypeMap: Record<string, string>;
   selectedCombos: SelectedComboSummary[];
-  comboTotal: number;
+  comboTotal?: number;
 };
 
 type RootStackParamList = {
   PaymentScreen: PaymentScreenParams;
+  BookTicketScreen: { movie: IMovie };
+  PaymentResultScreen: {
+    status: "success" | "failed";
+    orderId?: string;
+    orderCode?: string;
+    amount?: number;
+    message?: string;
+    transId?: string;
+    theaterName?: string;
+    movieTitle?: string;
+    seats?: string[];
+    orderData?: any;
+  };
 };
 
 type PaymentNavigationProp = StackNavigationProp<
@@ -127,12 +158,19 @@ const PaymentScreen = () => {
     totalTicketPrice,
     seatTypeCounts,
     seatTypeMap,
-    selectedCombos,
-    comboTotal,
+    selectedCombos: initialSelectedCombos = [],
   } = route.params;
 
   const user = useAppSelector((state) => state.app.user);
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
+  const normalizedApiBase = (config.API_URL || "https://cinejoy.vn").replace(
+    /\/$/,
+    ""
+  );
+  const paymentSuccessUrl =
+    config.WEB_PAYMENT_SUCCESS_URL || `${normalizedApiBase}/payment/success`;
+  const paymentCancelUrl =
+    config.WEB_PAYMENT_CANCEL_URL || `${normalizedApiBase}/payment/cancel`;
 
   const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>(
     {}
@@ -149,9 +187,483 @@ const PaymentScreen = () => {
   const [paymentMethod, setPaymentMethod] = useState<"MOMO" | "VNPAY">("MOMO");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [appliedItemPromotions, setAppliedItemPromotions] = useState<any[]>([]);
+  const [appliedPercentPromotions, setAppliedPercentPromotions] = useState<
+    any[]
+  >([]);
+  const [amountDiscount, setAmountDiscount] = useState<{
+    description: string;
+    discountAmount: number;
+  } | null>(null);
+  const [selectedCombos, setSelectedCombos] = useState<SelectedComboSummary[]>(
+    initialSelectedCombos || []
+  );
+  const comboTotal = useMemo(
+    () =>
+      selectedCombos.reduce(
+        (sum, combo) => sum + (combo.price || 0) * (combo.quantity || 0),
+        0
+      ),
+    [selectedCombos]
+  );
+  const [comboItems, setComboItems] = useState<any[]>([]);
+  const [comboLoading, setComboLoading] = useState(false);
+  const [comboModalVisible, setComboModalVisible] = useState(false);
+  const [comboModalMode, setComboModalMode] = useState<"edit" | "add">("edit");
+  const [comboModalData, setComboModalData] = useState<{
+    _id: string;
+    name: string;
+    price: number;
+    description?: string;
+    image?: string;
+  } | null>(null);
+  const [comboModalQuantity, setComboModalQuantity] = useState(1);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [checkingOrderStatus, setCheckingOrderStatus] = useState(false);
+  const handledOrderIdRef = useRef<string | null>(null);
+  const appStateRef = useRef(AppState.currentState);
+
+  const loadCombos = useCallback(async () => {
+    try {
+      setComboLoading(true);
+      const [priceList, foodCombos] = await Promise.all([
+        getCurrentPriceListApi(),
+        getFoodCombosApi(),
+      ]);
+
+      if (!priceList?.lines || priceList.lines.length === 0) {
+        setComboItems([]);
+        return;
+      }
+
+      const productMap = new Map(
+        (foodCombos || []).map((item) => [item._id, item])
+      );
+
+      const merged = priceList.lines
+        .filter(
+          (line): line is typeof line & { productId: string } =>
+            !!line &&
+            !!line.productId &&
+            (line.type === "combo" || line.type === "single")
+        )
+        .map((line) => {
+          const product = productMap.get(line.productId);
+          return {
+            _id: line.productId,
+            name: line.productName || product?.name || "Sản phẩm",
+            description: product?.description || "",
+            price: line.price || (product as any)?.price || 0,
+            image: (product as any)?.image,
+          };
+        });
+
+      setComboItems(merged);
+    } catch (error) {
+      console.error("Error loading combos:", error);
+      setComboItems([]);
+    } finally {
+      setComboLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCombos();
+  }, [loadCombos]);
+
+  const amountDiscountValue = amountDiscount?.discountAmount || 0;
+  const percentDiscountTotal = appliedPercentPromotions.reduce(
+    (sum, promo) => sum + (promo.discountAmount || 0),
+    0
+  );
+  const promotionDiscountTotal = percentDiscountTotal + amountDiscountValue;
+  const voucherDiscount = appliedVoucher?.discountAmount || 0;
+  const grandTotal = Math.max(
+    ticketTotal + comboTotal - voucherDiscount - promotionDiscountTotal,
+    0
+  );
+
+  const navigateBackToBooking = useCallback(() => {
+    setPendingOrderId(null);
+    handledOrderIdRef.current = null;
+    navigation.dispatch((state) => {
+      const targetIndex = state.routes.findIndex(
+        (route) => route.name === "BookTicketScreen"
+      );
+      if (targetIndex >= 0) {
+        const routes = state.routes.slice(0, targetIndex + 1);
+        return CommonActions.reset({
+          ...state,
+          routes,
+          index: routes.length - 1,
+        });
+      }
+      return CommonActions.navigate({
+        name: "BookTicketScreen",
+        params: { movie },
+      });
+    });
+  }, [navigation, movie]);
+
+  const handleOrderPaid = useCallback(
+    (orderData?: any) => {
+      if (!pendingOrderId) return;
+      const resolvedOrderId = orderData?._id || pendingOrderId;
+      handledOrderIdRef.current = pendingOrderId;
+      setPendingOrderId(null);
+      navigation.navigate("PaymentResultScreen", {
+        status: "success",
+        orderId: resolvedOrderId,
+        orderCode: orderData?.orderCode,
+        amount: orderData?.finalAmount ?? grandTotal,
+        movieTitle:
+          (orderData?.movieId as any)?.title || movie.title || undefined,
+        theaterName:
+          (orderData?.theaterId as any)?.name || theaterName || undefined,
+        seats:
+          orderData?.seats?.map((seat: any) => seat.seatId) || selectedSeats,
+        transId: orderData?.paymentInfo?.transactionId,
+        orderData,
+      });
+    },
+    [
+      pendingOrderId,
+      navigation,
+      grandTotal,
+      movie.title,
+      theaterName,
+      selectedSeats,
+    ]
+  );
+
+  const handleOrderFailed = useCallback(
+    (message?: string, orderData?: any) => {
+      if (!pendingOrderId) return;
+      const resolvedOrderId = orderData?._id || pendingOrderId;
+      handledOrderIdRef.current = pendingOrderId;
+      setPendingOrderId(null);
+      navigation.navigate("PaymentResultScreen", {
+        status: "failed",
+        orderId: resolvedOrderId,
+        amount: orderData?.finalAmount ?? grandTotal,
+        movieTitle:
+          (orderData?.movieId as any)?.title || movie.title || undefined,
+        theaterName:
+          (orderData?.theaterId as any)?.name || theaterName || undefined,
+        seats:
+          orderData?.seats?.map((seat: any) => seat.seatId) || selectedSeats,
+        message:
+          message ||
+          "Giao dịch chưa được ghi nhận. Vui lòng thử lại trong giây lát.",
+        orderData,
+      });
+    },
+    [
+      pendingOrderId,
+      navigation,
+      grandTotal,
+      movie.title,
+      theaterName,
+      selectedSeats,
+    ]
+  );
+
+  const showExitConfirmation = useCallback(() => {
+    Alert.alert("Thông báo", "Bạn có muốn thoát khỏi?", [
+      {
+        text: "Hủy",
+        style: "cancel",
+      },
+      {
+        text: "Đồng ý",
+        onPress: navigateBackToBooking,
+      },
+    ]);
+  }, [navigateBackToBooking]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        showExitConfirmation();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+      return () => subscription.remove();
+    }, [showExitConfirmation])
+  );
+
+  const checkPendingOrderStatus = useCallback(async () => {
+    if (
+      !pendingOrderId ||
+      handledOrderIdRef.current === pendingOrderId ||
+      checkingOrderStatus
+    ) {
+      return;
+    }
+    try {
+      setCheckingOrderStatus(true);
+      const response = await getOrderByIdApi(pendingOrderId);
+      if (response?.status && response.data) {
+        const { paymentStatus, orderStatus } = response.data;
+        if (
+          paymentStatus === "PAID" ||
+          orderStatus === "CONFIRMED" ||
+          orderStatus === "COMPLETED"
+        ) {
+          handleOrderPaid(response.data);
+          return;
+        }
+        if (
+          paymentStatus === "FAILED" ||
+          orderStatus === "CANCELLED" ||
+          orderStatus === "EXPIRED"
+        ) {
+          handleOrderFailed(
+            "Đơn hàng đã bị hủy hoặc chưa thanh toán thành công.",
+            response.data
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error checking order status:", error);
+    } finally {
+      setCheckingOrderStatus(false);
+    }
+  }, [pendingOrderId, checkingOrderStatus, handleOrderFailed, handleOrderPaid]);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkPendingOrderStatus();
+    }, [checkPendingOrderStatus])
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (appStateRef.current !== "active" && nextState === "active") {
+        checkPendingOrderStatus();
+      }
+      appStateRef.current = nextState;
+    });
+    return () => subscription.remove();
+  }, [checkPendingOrderStatus]);
+
+  const openComboModal = useCallback(
+    (
+      combo: {
+        _id: string;
+        name: string;
+        price: number;
+        description?: string;
+        image?: string;
+      },
+      mode: "edit" | "add",
+      quantity: number
+    ) => {
+      setComboModalData(combo);
+      setComboModalMode(mode);
+      setComboModalQuantity(quantity > 0 ? quantity : 1);
+      setComboModalVisible(true);
+    },
+    []
+  );
+
+  const handleEditCombo = useCallback(
+    (combo: SelectedComboSummary) => {
+      const meta =
+        comboItems.find((item) => item._id === combo.comboId) || null;
+      openComboModal(
+        {
+          _id: combo.comboId,
+          name: meta?.name || combo.name,
+          price:
+            typeof meta?.price === "number" && meta.price > 0
+              ? meta.price
+              : combo.price,
+          description: meta?.description,
+          image: meta?.image,
+        },
+        "edit",
+        combo.quantity
+      );
+    },
+    [comboItems, openComboModal]
+  );
+
+  const handleAddComboPress = useCallback(
+    (comboItem: any) => {
+      if (!comboItem?._id) return;
+      openComboModal(
+        {
+          _id: comboItem._id,
+          name: comboItem.name,
+          price: comboItem.price || 0,
+          description: comboItem.description,
+          image: comboItem.image,
+        },
+        "add",
+        1
+      );
+    },
+    [openComboModal]
+  );
+
+  const handleConfirmComboModal = useCallback(() => {
+    if (!comboModalData) return;
+    setSelectedCombos((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) => item.comboId === comboModalData._id
+      );
+      const next = [...prev];
+      if (existingIndex >= 0) {
+        if (comboModalMode === "add") {
+          // Thêm mới từ section "Thêm combo": cộng dồn số lượng
+          if (comboModalQuantity > 0) {
+            const current = next[existingIndex];
+            next[existingIndex] = {
+              ...current,
+              comboId: comboModalData._id,
+              name: comboModalData.name,
+              price: comboModalData.price,
+              quantity: (current.quantity || 0) + comboModalQuantity,
+            };
+          }
+        } else {
+          // Chỉnh sửa từ section "Bắp nước (Tùy chọn)"
+          if (comboModalQuantity <= 0) {
+            next.splice(existingIndex, 1);
+          } else {
+            next[existingIndex] = {
+              ...next[existingIndex],
+              comboId: comboModalData._id,
+              name: comboModalData.name,
+              price: comboModalData.price,
+              quantity: comboModalQuantity,
+            };
+          }
+        }
+      } else if (comboModalQuantity > 0) {
+        next.push({
+          comboId: comboModalData._id,
+          name: comboModalData.name,
+          price: comboModalData.price,
+          quantity: comboModalQuantity,
+        });
+      }
+      return next;
+    });
+    setComboModalVisible(false);
+  }, [comboModalData, comboModalQuantity, comboModalMode]);
+
+  const handleCloseComboModal = () => {
+    setComboModalVisible(false);
+  };
+
+  const decreaseComboQuantity = () => {
+    setComboModalQuantity((prev) => Math.max(0, prev - 1));
+  };
+
+  const increaseComboQuantity = () => {
+    setComboModalQuantity((prev) => prev + 1);
+  };
 
   const formatCurrency = (value: number) =>
     `${value.toLocaleString("vi-VN")} ₫`;
+  const applyItemPromotionsAuto = useCallback(async () => {
+    if (
+      selectedCombos.length === 0 &&
+      (!selectedSeats || selectedSeats.length === 0)
+    ) {
+      setAppliedItemPromotions([]);
+      return;
+    }
+    try {
+      const seatPayload = selectedSeats.map((seatId) => {
+        const seatType = (seatTypeMap[seatId] || "normal").toLowerCase();
+        return {
+          seatId,
+          type: seatType,
+          price: 0,
+        };
+      });
+      const comboPayload = selectedCombos.map((combo) => ({
+        comboId: combo.comboId,
+        quantity: combo.quantity,
+        name: combo.name,
+      }));
+      const response = await applyItemPromotionsApi(
+        comboPayload,
+        [],
+        seatPayload
+      );
+      if (response.status && response.data) {
+        setAppliedItemPromotions(response.data.applicablePromotions || []);
+      } else {
+        setAppliedItemPromotions([]);
+      }
+    } catch (error) {
+      console.error("Error applying item promotions:", error);
+      setAppliedItemPromotions([]);
+    }
+  }, [selectedCombos, selectedSeats, seatTypeMap]);
+
+  const applyPercentPromotionsAuto = useCallback(async () => {
+    if (
+      selectedCombos.length === 0 &&
+      (!selectedSeats || selectedSeats.length === 0)
+    ) {
+      setAppliedPercentPromotions([]);
+      return;
+    }
+    try {
+      const seatPayload = selectedSeats.map((seatId) => {
+        const seatType = (seatTypeMap[seatId] || "normal").toLowerCase();
+        const price = ticketPriceMap[seatType] || 0;
+        return {
+          seatId,
+          type: seatType,
+          price,
+        };
+      });
+      const comboPayload = selectedCombos.map((combo) => ({
+        comboId: combo.comboId,
+        quantity: combo.quantity,
+        name: combo.name,
+        price: combo.price,
+      }));
+      const response = await applyPercentPromotionsApi(
+        comboPayload,
+        [],
+        seatPayload
+      );
+      if (response.status && response.data) {
+        setAppliedPercentPromotions(response.data.applicablePromotions || []);
+      } else {
+        setAppliedPercentPromotions([]);
+      }
+    } catch (error) {
+      console.error("Error applying percent promotions:", error);
+      setAppliedPercentPromotions([]);
+    }
+  }, [selectedCombos, selectedSeats, seatTypeMap, ticketPriceMap]);
+
+  useEffect(() => {
+    const loadActive = async () => {
+      try {
+        await getActiveItemPromotionsApi();
+      } catch (error) {
+        console.error("Error loading active promotions:", error);
+      }
+    };
+    loadActive();
+  }, []);
+
+  useEffect(() => {
+    applyItemPromotionsAuto();
+    applyPercentPromotionsAuto();
+  }, [applyItemPromotionsAuto, applyPercentPromotionsAuto]);
 
   useEffect(() => {
     const fetchTicketPrices = async () => {
@@ -185,8 +697,30 @@ const PaymentScreen = () => {
     fetchTicketPrices();
   }, [seatTypeCounts, totalTicketPrice]);
 
-  const voucherDiscount = appliedVoucher?.discountAmount || 0;
-  const grandTotal = Math.max(ticketTotal + comboTotal - voucherDiscount, 0);
+  useEffect(() => {
+    const fetchAmountDiscount = async () => {
+      const subTotal = ticketTotal + comboTotal;
+      if (subTotal <= 0) {
+        setAmountDiscount(null);
+        return;
+      }
+      try {
+        const response = await getAmountDiscountApi(subTotal);
+        if (response?.status && response.data) {
+          setAmountDiscount({
+            description: response.data.description,
+            discountAmount: response.data.discountAmount,
+          });
+        } else {
+          setAmountDiscount(null);
+        }
+      } catch (error) {
+        console.error("Error fetching amount discount:", error);
+        setAmountDiscount(null);
+      }
+    };
+    fetchAmountDiscount();
+  }, [ticketTotal, comboTotal]);
 
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) {
@@ -308,10 +842,12 @@ const PaymentScreen = () => {
         return;
       }
 
+      setPendingOrderId(orderId);
+
       const paymentResult = await processPaymentApi(orderId, {
         paymentMethod,
-        returnUrl: config.API_URL || "https://cinejoy.vn/",
-        cancelUrl: config.API_URL || "https://cinejoy.vn/",
+        returnUrl: paymentSuccessUrl,
+        cancelUrl: paymentCancelUrl,
       });
 
       const paymentUrl =
@@ -325,8 +861,10 @@ const PaymentScreen = () => {
           "Thông báo",
           paymentResult?.message || "Không thể tạo đường dẫn thanh toán."
         );
+        setPendingOrderId(null);
       }
     } catch (error: any) {
+      setPendingOrderId(null);
       Alert.alert(
         "Thông báo",
         error?.message || "Có lỗi xảy ra trong quá trình thanh toán."
@@ -350,223 +888,428 @@ const PaymentScreen = () => {
   })();
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán</Text>
-        <View style={{ width: 24 }} />
-      </View>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        stickyHeaderIndices={[0]}
-      >
-        <View style={styles.summarySticky}>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              {movie.posterImage || (movie as any)?.poster || movie.image ? (
-                <Image
-                  source={{
-                    uri:
-                      movie.posterImage ||
-                      (movie as any)?.poster ||
-                      movie.image,
-                  }}
-                  style={styles.poster}
-                />
-              ) : (
-                <View style={[styles.poster, styles.posterPlaceholder]} />
-              )}
-              <View style={styles.summaryHeaderInfo}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.movieTitle}>{movie.title}</Text>
-                  {movie.ageRating && (
-                    <View style={styles.ageBadge}>
-                      <Text style={styles.ageBadgeText}>{movie.ageRating}</Text>
-                    </View>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 140}
+    >
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={showExitConfirmation}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Thanh toán</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          stickyHeaderIndices={[0]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.summarySticky}>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryHeader}>
+                {movie.posterImage || (movie as any)?.poster || movie.image ? (
+                  <Image
+                    source={{
+                      uri:
+                        movie.posterImage ||
+                        (movie as any)?.poster ||
+                        movie.image,
+                    }}
+                    style={styles.poster}
+                  />
+                ) : (
+                  <View style={[styles.poster, styles.posterPlaceholder]} />
+                )}
+                <View style={styles.summaryHeaderInfo}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.movieTitle}>{movie.title}</Text>
+                    {movie.ageRating && (
+                      <View style={styles.ageBadge}>
+                        <Text style={styles.ageBadgeText}>
+                          {movie.ageRating}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.ageNotice}>{ageNotice}</Text>
+                  <Text style={styles.summaryLabel}>
+                    {formatDateWithWeekday(date)} | {startTime}
+                    {endTime ? ` ~ ${endTime}` : ""}
+                  </Text>
+                  <Text style={styles.summaryLabel}>{theaterName}</Text>
+                  <Text style={styles.summaryLabel}>
+                    Phòng: {roomName} | Ghế: {selectedSeats.join(", ")}
+                  </Text>
+                  {selectedCombos.length > 0 && (
+                    <Text style={styles.summaryLabel}>
+                      Combo:{" "}
+                      {selectedCombos
+                        .map((combo) => `${combo.name} x${combo.quantity}`)
+                        .join(", ")}
+                    </Text>
                   )}
                 </View>
-                <Text style={styles.ageNotice}>{ageNotice}</Text>
-                <Text style={styles.summaryLabel}>
-                  {formatDateWithWeekday(date)} | {startTime}
-                  {endTime ? ` ~ ${endTime}` : ""}
+              </View>
+              <Text style={styles.totalAmountLabel}>
+                Tổng Thanh Toán:{" "}
+                <Text style={styles.totalAmount}>
+                  {formatCurrency(grandTotal)}
                 </Text>
-                <Text style={styles.summaryLabel}>{theaterName}</Text>
-                <Text style={styles.summaryLabel}>
-                  Phòng: {roomName} | Ghế: {selectedSeats.join(", ")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thông tin vé</Text>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Số lượng</Text>
+              <Text style={styles.rowValue}>{selectedSeats.length}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Tổng</Text>
+              <Text style={styles.rowValue}>{formatCurrency(ticketTotal)}</Text>
+            </View>
+          </View>
+
+          {selectedCombos.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Bắp nước (Tùy chọn)</Text>
+              {selectedCombos.map((combo) => {
+                const comboMeta = comboItems.find(
+                  (item) => item._id === combo.comboId
+                );
+                return (
+                  <TouchableOpacity
+                    key={combo.comboId}
+                    style={styles.comboRow}
+                    onPress={() => handleEditCombo(combo)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={
+                        comboMeta?.image
+                          ? { uri: comboMeta.image }
+                          : comboPlaceholder
+                      }
+                      style={styles.comboIcon}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.comboName}>{combo.name}</Text>
+                      <Text style={styles.comboDesc}>
+                        Số lượng: {combo.quantity}
+                      </Text>
+                    </View>
+                    <Text style={styles.rowValue}>
+                      {formatCurrency((combo.price || 0) * combo.quantity)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <View style={[styles.row, styles.rowDivider]}>
+                <Text style={[styles.rowLabel, styles.boldText]}>Tổng</Text>
+                <Text style={[styles.rowValue, styles.boldText]}>
+                  {formatCurrency(comboTotal)}
                 </Text>
-                {selectedCombos.length > 0 && (
-                  <Text style={styles.summaryLabel}>
-                    Combo:{" "}
-                    {selectedCombos
-                      .map((combo) => `${combo.name} x${combo.quantity}`)
-                      .join(", ")}
-                  </Text>
-                )}
               </View>
             </View>
-            <Text style={styles.totalAmountLabel}>
-              Tổng Thanh Toán:{" "}
-              <Text style={styles.totalAmount}>
-                {formatCurrency(grandTotal)}
-              </Text>
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin vé</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Số lượng</Text>
-            <Text style={styles.rowValue}>{selectedSeats.length}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Tổng</Text>
-            <Text style={styles.rowValue}>{formatCurrency(ticketTotal)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bắp nước (Tùy chọn)</Text>
-          {selectedCombos.length === 0 ? (
-            <Text style={styles.emptyText}>Không chọn combo</Text>
-          ) : (
-            selectedCombos.map((combo) => (
-              <View key={combo.comboId} style={styles.comboRow}>
-                <Image source={comboPlaceholder} style={styles.comboIcon} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.comboName}>{combo.name}</Text>
-                  <Text style={styles.comboDesc}>
-                    Số lượng: {combo.quantity}
-                  </Text>
-                </View>
-                <Text style={styles.rowValue}>
-                  {formatCurrency(combo.price * combo.quantity)}
-                </Text>
-              </View>
-            ))
           )}
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={[styles.rowLabel, styles.boldText]}>Tổng</Text>
-            <Text style={[styles.rowValue, styles.boldText]}>
-              {formatCurrency(comboTotal)}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Giảm giá</Text>
-          <View style={styles.voucherRow}>
-            <TextInput
-              style={styles.voucherInput}
-              placeholder="Nhập mã CNJ Voucher"
-              value={voucherCode}
-              onChangeText={(text) => {
-                setVoucherCode(text.toUpperCase());
-                if (!text) setVoucherError("");
-              }}
-              placeholderTextColor="#aaa"
-            />
-            {appliedVoucher ? (
-              <TouchableOpacity
-                style={styles.voucherRemoveButton}
-                onPress={handleRemoveVoucher}
-              >
-                <Text style={styles.voucherRemoveText}>Hủy</Text>
-              </TouchableOpacity>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thêm combo/ bắp nước</Text>
+            {comboLoading ? (
+              <ActivityIndicator
+                color="#E50914"
+                style={{ marginVertical: 16 }}
+              />
+            ) : comboItems.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có combo khả dụng.</Text>
             ) : (
-              <TouchableOpacity
-                style={[
-                  styles.voucherButton,
-                  (!voucherCode.trim() || voucherLoading) &&
-                    styles.voucherButtonDisabled,
-                ]}
-                disabled={!voucherCode.trim() || voucherLoading}
-                onPress={handleApplyVoucher}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.extraComboScroll}
               >
-                <Text style={styles.voucherButtonText}>
-                  {voucherLoading ? "Đang kiểm tra..." : "Áp dụng"}
-                </Text>
-              </TouchableOpacity>
+                {comboItems.map((combo) => (
+                  <View key={combo._id} style={styles.extraComboCard}>
+                    <Image
+                      source={
+                        combo.image ? { uri: combo.image } : comboPlaceholder
+                      }
+                      style={styles.extraComboImage}
+                    />
+                    <Text style={styles.extraComboName} numberOfLines={2}>
+                      {combo.name}
+                    </Text>
+                    <Text style={styles.extraComboPrice}>
+                      {formatCurrency(combo.price || 0)}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.extraAddButton}
+                      onPress={() => handleAddComboPress(combo)}
+                    >
+                      <Text style={styles.extraAddButtonText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             )}
           </View>
-          {voucherError ? (
-            <Text style={styles.voucherError}>{voucherError}</Text>
-          ) : null}
-          {appliedVoucher && (
-            <Text style={styles.appliedVoucherText}>
-              Đã áp dụng - Giảm {formatCurrency(appliedVoucher.discountAmount)}
-            </Text>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Giảm giá</Text>
+            <View style={styles.voucherRow}>
+              <TextInput
+                style={styles.voucherInput}
+                placeholder="Nhập mã CNJ Voucher"
+                value={voucherCode}
+                onChangeText={(text) => {
+                  setVoucherCode(text.toUpperCase());
+                  if (!text) setVoucherError("");
+                }}
+                placeholderTextColor="#aaa"
+              />
+              {appliedVoucher ? (
+                <TouchableOpacity
+                  style={styles.voucherRemoveButton}
+                  onPress={handleRemoveVoucher}
+                >
+                  <Text style={styles.voucherRemoveText}>Hủy</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.voucherButton,
+                    (!voucherCode.trim() || voucherLoading) &&
+                      styles.voucherButtonDisabled,
+                  ]}
+                  disabled={!voucherCode.trim() || voucherLoading}
+                  onPress={handleApplyVoucher}
+                >
+                  <Text style={styles.voucherButtonText}>
+                    {voucherLoading ? "Đang kiểm tra..." : "Áp dụng"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {voucherError ? (
+              <Text style={styles.voucherError}>{voucherError}</Text>
+            ) : null}
+            {appliedVoucher && (
+              <Text style={styles.appliedVoucherText}>
+                Đã áp dụng - Giảm{" "}
+                {formatCurrency(appliedVoucher.discountAmount)}
+              </Text>
+            )}
+          </View>
+
+          {(amountDiscount ||
+            appliedPercentPromotions.length > 0 ||
+            appliedItemPromotions.length > 0) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Khuyến mãi</Text>
+              {amountDiscount && (
+                <View style={styles.promotionBlock}>
+                  <Text style={styles.promoText}>
+                    {amountDiscount.description}
+                  </Text>
+                </View>
+              )}
+              {appliedPercentPromotions.length > 0 && (
+                <View style={styles.promotionBlock}>
+                  {appliedPercentPromotions.map((promo, index) => (
+                    <Text key={`percent-${index}`} style={styles.promoText}>
+                      {promo.description ||
+                        (promo.seatType
+                          ? `Giảm ${promo.discountPercent}% vé ${promo.seatType}`
+                          : `Giảm ${promo.discountPercent}% ${
+                              promo.comboName || ""
+                            }`)}{" "}
+                      -{formatCurrency(promo.discountAmount || 0)}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              {appliedItemPromotions.length > 0 && (
+                <View style={styles.promotionBlock}>
+                  {appliedItemPromotions.map((promo, index) => (
+                    <Text key={`item-${index}`} style={styles.freebieText}>
+                      {promo.detail?.description ||
+                        `Mua ${promo.detail?.buyQuantity} ${promo.detail?.buyItem} tặng ${promo.rewardQuantity} ${promo.rewardItem}`}{" "}
+                      (miễn phí)
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
           )}
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tổng kết</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Tổng cộng</Text>
-            <Text style={styles.rowValue}>
-              {formatCurrency(ticketTotal + comboTotal)}
-            </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tổng kết</Text>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Tổng cộng</Text>
+              <Text style={styles.rowValue}>
+                {formatCurrency(ticketTotal + comboTotal)}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Voucher</Text>
+              <Text style={styles.rowValue}>
+                -{formatCurrency(voucherDiscount)}
+              </Text>
+            </View>
+            {promotionDiscountTotal > 0 && (
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Khuyến mãi</Text>
+                <Text style={styles.rowValue}>
+                  -{formatCurrency(promotionDiscountTotal)}
+                </Text>
+              </View>
+            )}
+            {appliedItemPromotions.length > 0 && (
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Ưu đãi kèm</Text>
+                <Text style={styles.rowValue}>Miễn phí</Text>
+              </View>
+            )}
+            <View style={[styles.row, styles.rowDivider]}>
+              <Text style={[styles.rowLabel, styles.boldText]}>Còn lại</Text>
+              <Text style={[styles.rowValue, styles.boldText]}>
+                {formatCurrency(grandTotal)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Giảm giá</Text>
-            <Text style={styles.rowValue}>
-              -{formatCurrency(voucherDiscount)}
-            </Text>
-          </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={[styles.rowLabel, styles.boldText]}>Còn lại</Text>
-            <Text style={[styles.rowValue, styles.boldText]}>
-              {formatCurrency(grandTotal)}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thanh toán</Text>
-          <PaymentOption
-            label="MOMO"
-            description="Thanh toán ví MOMO"
-            selected={paymentMethod === "MOMO"}
-            onPress={() => setPaymentMethod("MOMO")}
-          />
-          <PaymentOption
-            label="VNPAY"
-            description="Thanh toán qua VNPAY"
-            selected={paymentMethod === "VNPAY"}
-            onPress={() => setPaymentMethod("VNPAY")}
-          />
-        </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Thanh toán</Text>
+            <PaymentOption
+              label="MOMO"
+              description="Thanh toán ví MOMO"
+              selected={paymentMethod === "MOMO"}
+              onPress={() => setPaymentMethod("MOMO")}
+            />
+            <PaymentOption
+              label="VNPAY"
+              description="Thanh toán qua VNPAY"
+              selected={paymentMethod === "VNPAY"}
+              onPress={() => setPaymentMethod("VNPAY")}
+            />
+          </View>
 
-        <TouchableOpacity
-          style={styles.termsRow}
-          onPress={() => setAgreeTerms((prev) => !prev)}
+          <TouchableOpacity
+            style={styles.termsRow}
+            onPress={() => setAgreeTerms((prev) => !prev)}
+          >
+            <View
+              style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}
+            >
+              {agreeTerms && <Text style={styles.checkboxMark}>✓</Text>}
+            </View>
+            <Text style={styles.termsText}>
+              Tôi đồng ý với điều khoản sử dụng và đang mua vé cho người có độ
+              tuổi phù hợp với loại vé.
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.payButton,
+              (!agreeTerms || paying) && styles.payButtonDisabled,
+            ]}
+            disabled={!agreeTerms || paying}
+            onPress={handlePay}
+          >
+            <Text style={styles.payButtonText}>
+              {paying ? "Đang xử lý..." : "Tôi đồng ý và Tiếp tục"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+        <Modal
+          visible={comboModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseComboModal}
         >
-          <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
-            {agreeTerms && <Text style={styles.checkboxMark}>✓</Text>}
+          <View style={styles.comboModalOverlay}>
+            <View style={styles.comboModalCard}>
+              <View style={styles.comboModalHeader}>
+                <Text style={styles.comboModalTitle}>
+                  {comboModalMode === "edit" ? "Chỉnh sửa món" : "Thêm món"}
+                </Text>
+                <TouchableOpacity onPress={handleCloseComboModal}>
+                  <Text style={styles.comboModalClose}>×</Text>
+                </TouchableOpacity>
+              </View>
+              {comboModalData && (
+                <>
+                  <View style={styles.comboModalBody}>
+                    <Image
+                      source={
+                        comboModalData.image
+                          ? { uri: comboModalData.image }
+                          : comboPlaceholder
+                      }
+                      style={styles.comboModalImage}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.comboModalName}>
+                        {comboModalData.name}
+                      </Text>
+                      <Text style={styles.comboModalPrice}>
+                        {formatCurrency(comboModalData.price || 0)}
+                      </Text>
+                      {comboModalData.description ? (
+                        <Text style={styles.comboModalDesc}>
+                          {comboModalData.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={styles.modalQuantityRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.modalQuantityButton,
+                        comboModalQuantity === 0 &&
+                          styles.modalQuantityButtonDisabled,
+                      ]}
+                      onPress={decreaseComboQuantity}
+                      disabled={comboModalQuantity === 0}
+                    >
+                      <Text style={styles.modalQuantityButtonText}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.modalQuantityValue}>
+                      {comboModalQuantity}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.modalQuantityButton}
+                      onPress={increaseComboQuantity}
+                    >
+                      <Text style={styles.modalQuantityButtonText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.comboModalFooter}>
+                    <Text style={styles.comboModalTotalLabel}>Tổng cộng:</Text>
+                    <Text style={styles.comboModalTotal}>
+                      {formatCurrency(
+                        (comboModalData.price || 0) * comboModalQuantity
+                      )}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.modalConfirmButton}
+                    onPress={handleConfirmComboModal}
+                  >
+                    <Text style={styles.modalConfirmText}>OK</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
-          <Text style={styles.termsText}>
-            Tôi đồng ý với điều khoản sử dụng và đang mua vé cho người có độ
-            tuổi phù hợp với loại vé.
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.payButton,
-            (!agreeTerms || paying) && styles.payButtonDisabled,
-          ]}
-          disabled={!agreeTerms || paying}
-          onPress={handlePay}
-        >
-          <Text style={styles.payButtonText}>
-            {paying ? "Đang xử lý..." : "Tôi đồng ý và Tiếp tục"}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+        </Modal>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -596,6 +1339,9 @@ const PaymentOption = ({
 );
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -757,6 +1503,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#777",
   },
+  extraComboScroll: {
+    paddingVertical: 4,
+    paddingRight: 16,
+  },
+  extraComboCard: {
+    width: 150,
+    backgroundColor: "#fafafa",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    alignItems: "center",
+    gap: 8,
+    marginRight: 12,
+  },
+  extraComboImage: {
+    width: 80,
+    height: 80,
+    resizeMode: "contain",
+  },
+  extraComboName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111",
+    textAlign: "center",
+  },
+  extraComboPrice: {
+    fontSize: 13,
+    color: "#c53030",
+    fontWeight: "600",
+  },
+  extraAddButton: {
+    marginTop: 4,
+    width: "100%",
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E50914",
+    alignItems: "center",
+  },
+  extraAddButtonText: {
+    color: "#E50914",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   voucherRow: {
     flexDirection: "row",
     gap: 12,
@@ -806,6 +1597,22 @@ const styles = StyleSheet.create({
     color: "#16a34a",
     fontSize: 12,
     marginTop: 8,
+  },
+  promotionBlock: {
+    marginTop: 8,
+    backgroundColor: "#fefce8",
+    borderRadius: 8,
+    padding: 10,
+  },
+  promoText: {
+    fontSize: 12,
+    color: "#ca8a04",
+    marginBottom: 4,
+  },
+  freebieText: {
+    fontSize: 12,
+    color: "#16a34a",
+    marginBottom: 4,
   },
   paymentOption: {
     flexDirection: "row",
@@ -890,6 +1697,121 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 15,
+  },
+  comboModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  comboModalCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  comboModalHeader: {
+    backgroundColor: "#c53030",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  comboModalTitle: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  comboModalClose: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  comboModalBody: {
+    flexDirection: "row",
+    padding: 16,
+    gap: 12,
+  },
+  comboModalImage: {
+    width: 90,
+    height: 90,
+    resizeMode: "contain",
+  },
+  comboModalName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111",
+  },
+  comboModalPrice: {
+    marginTop: 4,
+    fontSize: 14,
+    color: "#c53030",
+    fontWeight: "600",
+  },
+  comboModalDesc: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#555",
+  },
+  modalQuantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    paddingVertical: 12,
+  },
+  modalQuantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#c53030",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalQuantityButtonDisabled: {
+    opacity: 0.4,
+  },
+  modalQuantityButtonText: {
+    fontSize: 24,
+    color: "#c53030",
+    fontWeight: "600",
+  },
+  modalQuantityValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111",
+    minWidth: 30,
+    textAlign: "center",
+  },
+  comboModalFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+  },
+  comboModalTotalLabel: {
+    fontSize: 13,
+    color: "#555",
+  },
+  comboModalTotal: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111",
+  },
+  modalConfirmButton: {
+    margin: 16,
+    backgroundColor: "#c53030",
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  modalConfirmText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });
 

@@ -16,6 +16,8 @@ import BookTicketScreen from "@/screens/BookTicketScreen";
 import SelectSeatScreen from "@/screens/SelectSeatScreen";
 import ComboSelectionScreen from "@/screens/ComboSelectionScreen";
 import PaymentScreen from "@/screens/PaymentScreen";
+import PaymentResultScreen from "@/screens/PaymentResultScreen";
+import BookingHistoryScreen from "@/screens/BookingHistoryScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -66,6 +68,14 @@ export default function App() {
                   component={ComboSelectionScreen}
                 />
                 <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
+                <Stack.Screen
+                  name="PaymentResultScreen"
+                  component={PaymentResultScreen}
+                />
+                <Stack.Screen
+                  name="BookingHistoryScreen"
+                  component={BookingHistoryScreen}
+                />
               </Stack.Navigator>
             </NavigationContainer>
           </AppProvider>

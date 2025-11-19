@@ -17,6 +17,7 @@
     "@reduxjs/toolkit": "^2.9.2",
     "async-mutex": "^0.5.0",
     "axios": "^1.12.2",
+    "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "expo": "~54.0.13",
     "expo-linear-gradient": "~15.0.7",

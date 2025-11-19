@@ -29,6 +29,7 @@ type RootStackParamList = {
   LoginScreen: undefined;
   MovieDetailScreen: undefined;
   MemberScreen: undefined;
+  BookingHistoryScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -94,6 +95,22 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
         navigation.navigate("MemberScreen");
       } else {
         navigation.navigate("LoginScreen");
+      }
+    } else if (item.id === 6) {
+      onClose();
+      if (isAuthenticated) {
+        navigation.navigate("BookingHistoryScreen");
+      } else {
+        Alert.alert("Thông báo", "Vui lòng đăng nhập để xem vé của tôi.", [
+          {
+            text: "Huỷ",
+            style: "cancel",
+          },
+          {
+            text: "Đăng nhập",
+            onPress: () => navigation.navigate("LoginScreen"),
+          },
+        ]);
       }
     }
     // Có thể thêm logic cho các menu items khác ở đây
