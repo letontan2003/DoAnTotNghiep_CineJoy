@@ -4,9 +4,15 @@ import { User } from "../models/User";
 import { Movie } from "../models/Movies";
 import ShowtimeService from "./ShowtimeService";
 import { removeAccents } from "../utils/removeAccents";
+import priceListService from "./PriceListService";
+import VoucherService from "./VoucherService";
+import UserVoucherService from "./UserVoucherService";
+import OrderService from "./OrderService";
 
 const { model, cache, conversationCache, PROMPT_CONFIG } = chatbotConfig;
 const showtimeService = new ShowtimeService();
+const voucherService = new VoucherService();
+const userVoucherService = new UserVoucherService();
 
 const ChatbotService = {
   // Lưu tin nhắn vào lịch sử trò chuyện
@@ -156,6 +162,472 @@ ${timesDetails}
     }
   },
 
+  // Lấy thông tin giá vé và combo từ bảng giá đang hoạt động
+  getPriceInfo: async () => {
+    try {
+      const priceList = await priceListService.getCurrentPriceList();
+      
+      if (!priceList) {
+        return "Hiện không có bảng giá đang hoạt động.";
+      }
+
+      if (!priceList.lines || priceList.lines.length === 0) {
+        return "Bảng giá hiện tại chưa có thông tin giá.";
+      }
+
+      // Phân loại các loại giá
+      const ticketPrices: { seatType: string; price: number }[] = [];
+      const comboPrices: { name: string; price: number }[] = [];
+      const singleProductPrices: { name: string; price: number }[] = [];
+
+      priceList.lines.forEach((line) => {
+        if (line.type === 'ticket' && line.seatType) {
+          const seatTypeName = 
+            line.seatType === 'normal' ? 'Ghế thường' :
+            line.seatType === 'vip' ? 'Ghế VIP' :
+            line.seatType === 'couple' ? 'Ghế đôi' :
+            line.seatType === '4dx' ? 'Ghế 4DX' :
+            line.seatType;
+          ticketPrices.push({
+            seatType: seatTypeName,
+            price: line.price
+          });
+        } else if (line.type === 'combo' && line.productName) {
+          comboPrices.push({
+            name: line.productName,
+            price: line.price
+          });
+        } else if (line.type === 'single' && line.productName) {
+          singleProductPrices.push({
+            name: line.productName,
+            price: line.price
+          });
+        }
+      });
+
+      let priceInfo = `Bảng giá hiện tại: ${priceList.name || 'Chưa có tên'}\n`;
+      
+      if (priceList.description) {
+        priceInfo += `Mô tả: ${priceList.description}\n`;
+      }
+
+      priceInfo += `\nGiá vé theo loại ghế:\n`;
+      if (ticketPrices.length > 0) {
+        ticketPrices.forEach((ticket) => {
+          priceInfo += `- ${ticket.seatType}: ${ticket.price.toLocaleString('vi-VN')}đ\n`;
+        });
+      } else {
+        priceInfo += `- Chưa có thông tin giá vé\n`;
+      }
+
+      if (comboPrices.length > 0) {
+        priceInfo += `\nCombo đồ ăn/nước uống:\n`;
+        comboPrices.forEach((combo) => {
+          priceInfo += `- ${combo.name}: ${combo.price.toLocaleString('vi-VN')}đ\n`;
+        });
+      }
+
+      if (singleProductPrices.length > 0) {
+        priceInfo += `\nSản phẩm đơn lẻ:\n`;
+        singleProductPrices.forEach((product) => {
+          priceInfo += `- ${product.name}: ${product.price.toLocaleString('vi-VN')}đ\n`;
+        });
+      }
+
+      return priceInfo;
+    } catch (error) {
+      console.error("Error fetching price info:", error);
+      return "Không thể lấy thông tin giá do lỗi hệ thống.";
+    }
+  },
+
+  // Lấy thông tin các chương trình khuyến mãi đang hoạt động
+  getPromotionInfo: async () => {
+    try {
+      const vouchers = await voucherService.getVouchers();
+      const now = new Date();
+      
+      // Lọc các voucher đang hoạt động
+      const activeVouchers = vouchers.filter(voucher => {
+        const startDate = new Date(voucher.startDate);
+        const endDate = new Date(voucher.endDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        now.setHours(0, 0, 0, 0);
+        
+        return voucher.status === 'hoạt động' && 
+               now >= startDate && 
+               now <= endDate;
+      });
+
+      if (activeVouchers.length === 0) {
+        return "Hiện không có chương trình khuyến mãi đang hoạt động.";
+      }
+
+      let promotionInfo = `Các chương trình khuyến mãi đang hoạt động:\n\n`;
+      let promotionIndex = 1;
+
+      activeVouchers.forEach((voucher) => {
+        // Lọc các promotion lines đang hoạt động
+        if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+          const activeLines = voucher.lines.filter(line => {
+            if (line.status !== 'hoạt động') return false;
+            
+            const lineStart = new Date(line.validityPeriod.startDate);
+            const lineEnd = new Date(line.validityPeriod.endDate);
+            lineStart.setHours(0, 0, 0, 0);
+            lineEnd.setHours(23, 59, 59, 999);
+            
+            return now >= lineStart && now <= lineEnd;
+          });
+
+          if (activeLines.length > 0) {
+            activeLines.forEach((line) => {
+              const detail = line.detail as any;
+              
+              // Xác định loại khuyến mãi
+              let promotionType = '';
+              if (line.promotionType === 'voucher') {
+                promotionType = 'Voucher đổi điểm';
+              } else if (line.promotionType === 'percent') {
+                promotionType = 'Giảm giá theo phần trăm';
+              } else if (line.promotionType === 'amount') {
+                promotionType = 'Giảm giá cố định';
+              } else if (line.promotionType === 'item') {
+                promotionType = 'Mua tặng';
+              }
+              
+              // Lấy mô tả
+              let description = '';
+              if (detail.description) {
+                description = detail.description;
+              } else if (voucher.description) {
+                description = voucher.description;
+              }
+              
+              if (promotionType) {
+                promotionInfo += `${promotionIndex}. Loại: ${promotionType}\n`;
+                if (description) {
+                  promotionInfo += `   Mô tả: ${description}\n`;
+                }
+                promotionInfo += `\n`;
+                promotionIndex++;
+              }
+            });
+          }
+        }
+      });
+
+      if (promotionInfo === `Các chương trình khuyến mãi đang hoạt động:\n\n`) {
+        return "Hiện không có chương trình khuyến mãi đang hoạt động.";
+      }
+
+      return promotionInfo;
+    } catch (error) {
+      console.error("Error fetching promotion info:", error);
+      return "Không thể lấy thông tin khuyến mãi do lỗi hệ thống.";
+    }
+  },
+
+  // Lấy thông tin điểm và voucher của người dùng
+  getUserPointsAndVouchers: async (userId?: string) => {
+    try {
+      if (!userId) {
+        return "Bạn cần đăng nhập để xem điểm và voucher của mình.";
+      }
+
+      // Lấy thông tin user để lấy điểm
+      const user = await User.findById(userId).select('point');
+      if (!user) {
+        return "Không tìm thấy thông tin người dùng.";
+      }
+
+      const userPoints = user.point || 0;
+
+      // Lấy voucher chưa sử dụng của user
+      const vouchersResult = await userVoucherService.getUnusedUserVouchers(userId);
+      let vouchersInfo = '';
+
+      if (vouchersResult.status && vouchersResult.data && Array.isArray(vouchersResult.data)) {
+        const vouchers = vouchersResult.data;
+        console.log(`🔍 getUserPointsAndVouchers: Found ${vouchers.length} unused user vouchers`);
+        
+        // Lọc voucher chưa hết hạn
+        const now = new Date();
+        const activeVouchers = vouchers.filter((uv: any) => {
+          const voucher = uv.voucherId as any;
+          if (!voucher) {
+            console.log(`⚠️ Voucher ${uv._id} has no voucherId (skipped)`);
+            return false;
+          }
+          
+          console.log(`✅ Checking voucher ${uv._id}, voucherId: ${voucher._id || 'N/A'}`);
+          
+          // Kiểm tra thời gian hiệu lực từ voucher hoặc lines
+          let endDate: Date | null = null;
+          
+          // Ưu tiên kiểm tra validityPeriod từ lines (nếu có)
+          if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+            // Lấy line đầu tiên có validityPeriod
+            const lineWithPeriod = voucher.lines.find((l: any) => l.validityPeriod?.endDate);
+            if (lineWithPeriod?.validityPeriod?.endDate) {
+              endDate = new Date(lineWithPeriod.validityPeriod.endDate);
+              console.log(`   Found endDate from line: ${endDate.toLocaleDateString('vi-VN')}`);
+            }
+          }
+          
+          // Fallback: kiểm tra validityPeriod của voucher
+          if (!endDate && voucher.validityPeriod?.endDate) {
+            endDate = new Date(voucher.validityPeriod.endDate);
+            console.log(`   Found endDate from voucher.validityPeriod: ${endDate.toLocaleDateString('vi-VN')}`);
+          }
+          
+          // Fallback: kiểm tra endDate của voucher
+          if (!endDate && voucher.endDate) {
+            endDate = new Date(voucher.endDate);
+            console.log(`   Found endDate from voucher.endDate: ${endDate.toLocaleDateString('vi-VN')}`);
+          }
+          
+          // Nếu có endDate, kiểm tra còn hạn không
+          if (endDate) {
+            // Reset giờ về cuối ngày để so sánh chính xác
+            const endDateEndOfDay = new Date(endDate);
+            endDateEndOfDay.setHours(23, 59, 59, 999);
+            const isValid = now <= endDateEndOfDay;
+            console.log(`   Voucher ${isValid ? 'VALID' : 'EXPIRED'} (now: ${now.toLocaleDateString('vi-VN')} ${now.toLocaleTimeString('vi-VN')}, endDate: ${endDate.toLocaleDateString('vi-VN')})`);
+            return isValid;
+          }
+          
+          // Nếu không có thông tin thời gian, giả sử còn hạn (để tránh lọc nhầm)
+          console.log(`   No endDate found, assuming valid`);
+          return true;
+        });
+        
+        console.log(`✅ Found ${activeVouchers.length} active vouchers`);
+
+        if (activeVouchers.length > 0) {
+          vouchersInfo = `Voucher của bạn (${activeVouchers.length} voucher):\n`;
+          
+          activeVouchers.forEach((uv: any, index: number) => {
+            const voucher = uv.voucherId as any;
+            if (!voucher) {
+              console.log(`⚠️ Skipping voucher ${uv._id} - no voucherId`);
+              return;
+            }
+            
+            console.log(`📝 Processing voucher ${index + 1}:`, {
+              voucherId: voucher._id,
+              hasLines: !!voucher.lines,
+              linesCount: voucher.lines?.length || 0
+            });
+            
+            // Lấy thông tin giảm giá từ voucher
+            let discountInfo = '';
+            if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+              // Tìm line có promotionType = 'voucher'
+              const voucherLine = voucher.lines.find((l: any) => l.promotionType === 'voucher');
+              if (voucherLine) {
+                const detail = voucherLine.detail as any;
+                console.log(`   Found voucher line, detail:`, JSON.stringify(detail, null, 2));
+                if (detail && detail.discountPercent) {
+                  discountInfo = `Giảm ${detail.discountPercent}%`;
+                  if (detail.maxDiscountValue) {
+                    discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+                  }
+                }
+              }
+              
+              // Nếu không tìm thấy line 'voucher' hoặc không có discountPercent, thử lấy từ line đầu tiên
+              if (!discountInfo) {
+                const firstLine = voucher.lines[0];
+                if (firstLine) {
+                  const detail = firstLine.detail as any;
+                  console.log(`   Using first line, detail:`, JSON.stringify(detail, null, 2));
+                  if (detail && detail.discountPercent) {
+                    discountInfo = `Giảm ${detail.discountPercent}%`;
+                    if (detail.maxDiscountValue) {
+                      discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Fallback: kiểm tra discountPercent trực tiếp từ voucher (legacy)
+            if (!discountInfo && voucher.discountPercent) {
+              discountInfo = `Giảm ${voucher.discountPercent}%`;
+              if (voucher.maxDiscountValue) {
+                discountInfo += ` tối đa ${voucher.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+              }
+            }
+            
+            // Nếu vẫn không có thông tin, dùng mặc định
+            if (!discountInfo) {
+              discountInfo = 'Voucher giảm giá';
+            }
+            
+            // Lấy hạn sử dụng
+            let expiryDate = '';
+            if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+              // Lấy line đầu tiên có validityPeriod
+              const lineWithPeriod = voucher.lines.find((l: any) => l.validityPeriod?.endDate);
+              if (lineWithPeriod?.validityPeriod?.endDate) {
+                expiryDate = new Date(lineWithPeriod.validityPeriod.endDate).toLocaleDateString('vi-VN');
+              }
+            } else if (voucher.validityPeriod?.endDate) {
+              expiryDate = new Date(voucher.validityPeriod.endDate).toLocaleDateString('vi-VN');
+            } else if (voucher.endDate) {
+              expiryDate = new Date(voucher.endDate).toLocaleDateString('vi-VN');
+            }
+            
+            vouchersInfo += `${index + 1}. ${discountInfo || 'Voucher giảm giá'}`;
+            if (expiryDate) {
+              vouchersInfo += ` - Hạn dùng: ${expiryDate}`;
+            }
+            vouchersInfo += `\n`;
+          });
+        } else {
+          vouchersInfo = 'Bạn chưa có voucher nào.';
+          console.log(`⚠️ No active vouchers found. Total vouchers: ${vouchers.length}`);
+        }
+      } else {
+        vouchersInfo = 'Bạn chưa có voucher nào.';
+      }
+
+      return `Điểm CNJ hiện có: ${userPoints.toLocaleString('vi-VN')} điểm\n\n${vouchersInfo}`;
+    } catch (error) {
+      console.error("Error fetching user points and vouchers:", error);
+      return "Không thể lấy thông tin điểm và voucher do lỗi hệ thống.";
+    }
+  },
+
+  // Lấy lịch sử giao dịch của người dùng
+  getOrderHistory: async (userId?: string, filterDate?: string) => {
+    try {
+      if (!userId) {
+        return "Bạn cần đăng nhập để xem lịch sử giao dịch.";
+      }
+
+      // Lấy tất cả orders của user (lấy nhiều để có đủ dữ liệu)
+      const result = await OrderService.getOrdersByUserId(userId, 1, 1000);
+      const orders = result.orders || [];
+
+      if (orders.length === 0) {
+        return "Bạn chưa có đơn hàng nào.";
+      }
+
+      // Lọc theo ngày nếu có
+      let filteredOrders = orders;
+      if (filterDate) {
+        // Parse filterDate (có thể là "18/11", "18/11/2024", "2024-11-18", v.v.)
+        const dateParts = filterDate.split(/[\/\-]/);
+        let targetDate: Date | null = null;
+        
+        if (dateParts.length >= 2) {
+          const day = parseInt(dateParts[0]);
+          const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
+          const year = dateParts.length === 3 ? parseInt(dateParts[2]) : new Date().getFullYear();
+          
+          targetDate = new Date(year, month, day);
+          targetDate.setHours(0, 0, 0, 0);
+          const nextDay = new Date(targetDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          
+          filteredOrders = orders.filter((order: any) => {
+            const orderDate = new Date(order.createdAt);
+            orderDate.setHours(0, 0, 0, 0);
+            return orderDate >= targetDate! && orderDate < nextDay;
+          });
+        }
+      }
+
+      if (filteredOrders.length === 0) {
+        return filterDate 
+          ? `Bạn không có đơn hàng nào vào ngày ${filterDate}.`
+          : "Bạn chưa có đơn hàng nào.";
+      }
+
+      // Tính toán thống kê
+      const totalOrders = filteredOrders.length;
+      const completedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'COMPLETED').length;
+      const returnedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'RETURNED').length;
+      const confirmedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'CONFIRMED').length;
+      const cancelledOrders = filteredOrders.filter((o: any) => o.orderStatus === 'CANCELLED').length;
+      
+      // Tính tổng số vé (tổng số ghế trong tất cả orders)
+      const totalTickets = filteredOrders.reduce((sum: number, order: any) => {
+        return sum + (order.seats?.length || 0);
+      }, 0);
+
+      // Format thông tin
+      let historyInfo = '';
+      
+      if (filterDate) {
+        historyInfo = `Lịch sử giao dịch ngày ${filterDate}:\n\n`;
+      } else {
+        historyInfo = `Lịch sử giao dịch của bạn:\n\n`;
+      }
+
+      historyInfo += `Tổng số đơn hàng: ${totalOrders}\n`;
+      historyInfo += `Tổng số vé đã mua: ${totalTickets} vé\n`;
+      historyInfo += `- Đơn hàng đã hoàn tất: ${completedOrders}\n`;
+      historyInfo += `- Đơn hàng đã xác nhận: ${confirmedOrders}\n`;
+      historyInfo += `- Đơn hàng đã trả: ${returnedOrders}\n`;
+      historyInfo += `- Đơn hàng đã hủy: ${cancelledOrders}\n\n`;
+
+      // Chi tiết từng đơn hàng
+      historyInfo += `Chi tiết đơn hàng:\n`;
+      filteredOrders.forEach((order: any, index: number) => {
+        const orderDate = new Date(order.createdAt).toLocaleDateString('vi-VN');
+        const orderTime = new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const movie = order.movieId as any;
+        const theater = order.theaterId as any;
+        const movieTitle = movie?.title || 'Không rõ';
+        const theaterName = theater?.name || 'Không rõ';
+        const seatCount = order.seats?.length || 0;
+        const seatIds = order.seats?.map((s: any) => s.seatId).join(', ') || '';
+        
+        // Trạng thái đơn hàng
+        let statusText = '';
+        switch (order.orderStatus) {
+          case 'COMPLETED':
+            statusText = 'Đã hoàn tất';
+            break;
+          case 'CONFIRMED':
+            statusText = 'Đã xác nhận';
+            break;
+          case 'RETURNED':
+            statusText = 'Đã trả vé';
+            break;
+          case 'CANCELLED':
+            statusText = 'Đã hủy';
+            break;
+          case 'PENDING':
+            statusText = 'Đang chờ';
+            break;
+          default:
+            statusText = order.orderStatus || 'Không rõ';
+        }
+
+        historyInfo += `${index + 1}. Mã đơn: ${order.orderCode}\n`;
+        historyInfo += `   Phim: ${movieTitle}\n`;
+        historyInfo += `   Rạp: ${theaterName}\n`;
+        historyInfo += `   Ngày chiếu: ${order.showDate} lúc ${order.showTime}\n`;
+        historyInfo += `   Phòng: ${order.room}\n`;
+        historyInfo += `   Ghế: ${seatIds} (${seatCount} vé)\n`;
+        historyInfo += `   Trạng thái: ${statusText}\n`;
+        historyInfo += `   Tổng tiền: ${order.finalAmount.toLocaleString('vi-VN')}đ\n`;
+        historyInfo += `   Ngày đặt: ${orderDate} ${orderTime}\n`;
+        historyInfo += `\n`;
+      });
+
+      return historyInfo;
+    } catch (error) {
+      console.error("Error fetching order history:", error);
+      return "Không thể lấy lịch sử giao dịch do lỗi hệ thống.";
+    }
+  },
+
   // Kiểm tra câu hỏi có phải ngoài lề (off-topic) không
   isOffTopicQuestion: async (userMessage: string): Promise<boolean> => {
     try {
@@ -171,7 +643,8 @@ CÁC CHỦ ĐỀ ĐƯỢC CHẤP NHẬN (ON-TOPIC):
 - Đặt vé: cách đặt vé, giá vé, combo, khuyến mãi
 - Dịch vụ: combo đồ ăn, nước uống, dịch vụ của rạp
 - Câu hỏi chào hỏi thông thường: xin chào, cảm ơn, tạm biệt
-- Câu hỏi về tài khoản: điểm tích lũy, thông tin cá nhân (nếu có trong hệ thống)
+- Câu hỏi về tài khoản: điểm tích lũy, thông tin cá nhân, lịch sử giao dịch, đơn hàng, vé đã mua (nếu có trong hệ thống)
+- Câu hỏi về thông tin liên hệ: email, hotline, số điện thoại, cách liên hệ với CineJoy
 
 CÁC CHỦ ĐỀ KHÔNG ĐƯỢC CHẤP NHẬN (OFF-TOPIC):
 - Toán học: phép tính, giải bài tập toán
@@ -230,7 +703,18 @@ Trả lời:`;
       'diễn viên', 'actor', 'đạo diễn', 'director', 'thể loại', 'genre',
       'đánh giá', 'rating', 'review', 'nội dung', 'mô tả', 'description',
       'cinejoy', 'chào', 'hello', 'hi', 'xin chào', 'cảm ơn', 'thank',
-      'tạm biệt', 'goodbye', 'bye', 'điểm', 'point', 'tích lũy'
+      'tạm biệt', 'goodbye', 'bye', 'điểm', 'point', 'tích lũy',
+      'giá', 'price', 'bảng giá', 'pricing', 'giá vé', 'ticket price',
+      'sản phẩm', 'product', 'đồ ăn', 'food', 'nước uống', 'drink',
+      'khuyến mãi', 'promotion', 'voucher', 'giảm giá', 'discount', 'ưu đãi',
+      'mã giảm giá', 'coupon', 'chương trình', 'campaign',
+      'voucher của tôi', 'điểm của tôi', 'điểm hiện có', 'voucher hiện có',
+      'tôi có bao nhiêu điểm', 'tôi có voucher gì', 'điểm tích lũy',
+      'lịch sử', 'giao dịch', 'vé đã mua', 'đơn hàng', 'lịch sử giao dịch',
+      'số vé đã mua', 'số lượng vé hoàn tất', 'số lượng vé trả', 'vé của tôi',
+      'đơn hàng của tôi', 'tôi đã mua vé nào', 'ngày', 'mua vé',
+      'liên hệ', 'thông tin liên hệ', 'email', 'hotline', 'số điện thoại',
+      'cách liên hệ', 'email của cinejoy', 'hotline của cinejoy', 'contact'
     ];
     
     // Từ khóa từ chối (off-topic)
@@ -391,8 +875,25 @@ Trả lời:`;
       const theaterInfo = await ChatbotService.getTheaterInfo();
       // Lấy thông tin suất chiếu
       const showtimeInfo = await ChatbotService.getShowtimeInfo();
+      // Lấy thông tin giá vé và combo
+      const priceInfo = await ChatbotService.getPriceInfo();
+      // Lấy thông tin khuyến mãi đang hoạt động
+      const promotionInfo = await ChatbotService.getPromotionInfo();
       // Lấy thông tin người dùng (nếu có)
       const userInfo = await ChatbotService.getUserInfo(userId);
+      // Lấy thông tin điểm và voucher của người dùng (nếu có userId)
+      const userPointsAndVouchers = userId ? await ChatbotService.getUserPointsAndVouchers(userId) : null;
+      
+      // Kiểm tra xem user có hỏi về ngày cụ thể không
+      let filterDate: string | undefined = undefined;
+      const datePattern = /(?:ngày|vào ngày|hôm|ngày)\s*(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i;
+      const dateMatch = userMessage.match(datePattern);
+      if (dateMatch && dateMatch[1]) {
+        filterDate = dateMatch[1];
+      }
+      
+      // Lấy lịch sử giao dịch của người dùng (nếu có userId)
+      const orderHistory = userId ? await ChatbotService.getOrderHistory(userId, filterDate) : null;
       // Lấy lịch sử trò chuyện
       const pastMessages: any[] = ChatbotService.getConversation(sessionId);
       
@@ -447,6 +948,10 @@ Trả lời:`;
             - Có dịch vụ combo đồ ăn và nước uống
             - Có các suất chiếu sớm và đêm muộn
             - Hỗ trợ đặt vé nhóm và tổ chức sự kiện
+            
+            Thông tin liên hệ của CineJoy:
+            - Email: cinejoy@gmail.com
+            - Hotline: 1900 1999
 
             Danh sách phim hiện có:
             ${movieInfo}
@@ -454,6 +959,48 @@ Trả lời:`;
             ${theaterInfo}
             Danh sách suất chiếu hiện có:
             ${showtimeInfo}
+            Thông tin giá vé và combo hiện tại:
+            ${priceInfo}
+            Thông tin các chương trình khuyến mãi đang hoạt động:
+            ${promotionInfo}
+            ${userPointsAndVouchers ? `Thông tin điểm và voucher của người dùng:\n${userPointsAndVouchers}` : ''}
+            ${orderHistory ? `Lịch sử giao dịch của người dùng:\n${orderHistory}` : ''}
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về lịch sử giao dịch:
+            - Khi người dùng hỏi về "lịch sử giao dịch", "vé đã mua", "đơn hàng của tôi", "số vé đã mua", "số lượng vé hoàn tất", "số lượng vé trả", "vào ngày X tôi đã mua vé nào", "ngày X tôi mua gì", v.v., bạn PHẢI sử dụng thông tin từ "Lịch sử giao dịch của người dùng" ở trên (chỉ có khi người dùng đã đăng nhập)
+            - Trả lời chính xác số vé đã mua, số đơn hàng đã hoàn tất (COMPLETED), số đơn hàng đã trả (RETURNED) từ thông tin lịch sử
+            - Khi người dùng hỏi về một ngày cụ thể (ví dụ: "vào ngày 18/11 tôi đã mua vé nào"), hãy tìm trong lịch sử và liệt kê các đơn hàng trong ngày đó, bao gồm: tên phim, rạp, giờ chiếu, ghế, trạng thái đơn hàng
+            - Nếu người dùng hỏi về trạng thái vé, hãy giải thích: "Đã hoàn tất" (COMPLETED), "Đã xác nhận" (CONFIRMED), "Đã trả vé" (RETURNED), "Đã hủy" (CANCELLED), "Đang chờ" (PENDING)
+            - Nếu người dùng chưa đăng nhập, hãy nhắc họ cần đăng nhập để xem lịch sử giao dịch
+            - Nếu người dùng không có đơn hàng nào, hãy thông báo rõ ràng
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về giá vé và combo:
+            - Khi người dùng hỏi về giá vé, giá combo, bảng giá, hoặc sản phẩm, bạn PHẢI sử dụng thông tin từ "Thông tin giá vé và combo hiện tại" ở trên
+            - Trả lời chính xác giá vé theo từng loại ghế (Ghế thường, Ghế VIP, Ghế đôi, Ghế 4DX) như đã được liệt kê trong thông tin giá
+            - Trả lời chính xác giá của các combo và sản phẩm đơn lẻ như đã được liệt kê trong thông tin giá
+            - Nếu người dùng hỏi "giá vé bao nhiêu", "combo giá bao nhiêu", "bảng giá", "giá ghế VIP", "giá combo", v.v., hãy trả lời dựa trên thông tin giá đã được cung cấp ở trên
+            - Hiển thị giá theo định dạng đã có trong thông tin (ví dụ: 50.000đ, 100.000đ) - KHÔNG tự ý thay đổi định dạng
+            - Nếu người dùng hỏi về một combo hoặc sản phẩm cụ thể, hãy tìm trong danh sách combo/sản phẩm và trả lời giá tương ứng
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về khuyến mãi:
+            - Khi người dùng hỏi về khuyến mãi, giảm giá, voucher, mã giảm giá, chương trình khuyến mãi, hoặc ưu đãi, bạn PHẢI sử dụng thông tin từ "Thông tin các chương trình khuyến mãi đang hoạt động" ở trên
+            - Trả lời đầy đủ thông tin về các chương trình khuyến mãi đang hoạt động, bao gồm: tên chương trình, mã khuyến mãi, mô tả, thời gian hiệu lực, và chi tiết khuyến mãi (giảm giá bao nhiêu %, giảm bao nhiêu tiền, mua tặng gì, v.v.)
+            - Nếu người dùng hỏi "có khuyến mãi gì không", "chương trình khuyến mãi", "mã giảm giá", v.v., hãy liệt kê tất cả các chương trình khuyến mãi đang hoạt động
+            - Nếu người dùng hỏi về một loại khuyến mãi cụ thể (ví dụ: "giảm giá combo", "giảm giá vé", "mua tặng"), hãy tìm trong danh sách khuyến mãi và trả lời chi tiết
+            - Nếu không có khuyến mãi đang hoạt động, hãy thông báo rõ ràng cho người dùng
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về điểm và voucher của người dùng:
+            - Khi người dùng hỏi về "điểm của tôi", "điểm hiện có", "tôi có bao nhiêu điểm", "voucher của tôi", "voucher hiện có", "tôi có voucher gì", v.v., bạn PHẢI sử dụng thông tin từ "Thông tin điểm và voucher của người dùng" ở trên (chỉ có khi người dùng đã đăng nhập)
+            - Trả lời chính xác số điểm hiện có của người dùng (định dạng: X.XXX điểm)
+            - Liệt kê đầy đủ các voucher của người dùng, bao gồm: thông tin giảm giá (ví dụ: "Giảm 15% tối đa 35.000đ") và hạn sử dụng
+            - Nếu người dùng chưa đăng nhập, hãy nhắc họ cần đăng nhập để xem điểm và voucher
+            - Nếu người dùng không có voucher nào, hãy thông báo rõ ràng và có thể gợi ý cách đổi điểm lấy voucher
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về thông tin liên hệ:
+            - Khi người dùng hỏi về "thông tin liên hệ", "email", "hotline", "số điện thoại", "liên hệ", "cách liên hệ", "email của cinejoy", "hotline của cinejoy", "số điện thoại của cinejoy", v.v., bạn PHẢI sử dụng thông tin từ "Thông tin liên hệ của CineJoy" ở trên
+            - Trả lời chính xác: Email: cinejoy@gmail.com và Hotline: 1900 1999
+            - Nếu người dùng hỏi "làm sao để liên hệ", "cách liên hệ với cinejoy", v.v., hãy cung cấp đầy đủ thông tin liên hệ (email và hotline)
+            - Có thể gợi ý người dùng liên hệ qua email hoặc gọi hotline tùy theo nhu cầu của họ
             
             QUAN TRỌNG - Hướng dẫn gọi tên và ngữ cảnh:
             1. CÁCH GỌI TÊN NGƯỜI DÙNG (nếu có thông tin user):
