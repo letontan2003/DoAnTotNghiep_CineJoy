@@ -305,6 +305,13 @@ const PaymentScreen = () => {
     });
   }, [navigation, movie]);
 
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: false });
+    return () => {
+      navigation.setOptions({ gestureEnabled: true });
+    };
+  }, [navigation]);
+
   const handleOrderPaid = useCallback(
     (orderData?: any) => {
       if (!pendingOrderId) return;

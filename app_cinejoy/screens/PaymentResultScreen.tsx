@@ -55,6 +55,13 @@ const PaymentResultScreen = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    navigation.setOptions({ gestureEnabled: false });
+    return () => {
+      navigation.setOptions({ gestureEnabled: true });
+    };
+  }, [navigation]);
+
+  useEffect(() => {
     const fetchOrderDetails = async () => {
       if (!params?.orderId || orderDetail) return;
       try {

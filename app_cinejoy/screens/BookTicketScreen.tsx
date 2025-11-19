@@ -8,7 +8,6 @@ import {
   StatusBar,
   ScrollView,
   Platform,
-  ActivityIndicator,
   FlatList,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -17,6 +16,8 @@ import Fontisto from "@expo/vector-icons/Fontisto";
 import { IMovie, IRegion, ITheater, IShowtime } from "@/types/api";
 import SideMenu from "@/components/SideMenu";
 import ShowtimeListSkeleton from "@/components/Skeleton/ShowtimeListSkeleton";
+import RegionChipsSkeleton from "@/components/Skeleton/RegionChipsSkeleton";
+import TheaterCardsSkeleton from "@/components/Skeleton/TheaterCardsSkeleton";
 import {
   getRegionsApi,
   getTheatersApi,
@@ -474,202 +475,201 @@ const BookTicketScreen = () => {
       {/* Region Selection */}
       <View style={styles.regionSection}>
         <Text style={styles.regionLabel}>Chọn khu vực:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.regionScrollContent}
-        >
-          {regions && regions.length > 0 ? (
-            regions.map((region) => (
-              <TouchableOpacity
-                key={region._id}
-                style={[
-                  styles.regionChip,
-                  selectedRegion?._id === region._id &&
-                    styles.regionChipSelected,
-                ]}
-                onPress={() => setSelectedRegion(region)}
-              >
-                <Text
+        {loading ? (
+          <RegionChipsSkeleton />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.regionScrollContent}
+          >
+            {regions && regions.length > 0 ? (
+              regions.map((region) => (
+                <TouchableOpacity
+                  key={region._id}
                   style={[
-                    styles.regionChipText,
+                    styles.regionChip,
                     selectedRegion?._id === region._id &&
-                      styles.regionChipTextSelected,
+                      styles.regionChipSelected,
                   ]}
+                  onPress={() => setSelectedRegion(region)}
                 >
-                  {region.name}
-                </Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>Đang tải khu vực...</Text>
-          )}
-        </ScrollView>
+                  <Text
+                    style={[
+                      styles.regionChipText,
+                      selectedRegion?._id === region._id &&
+                        styles.regionChipTextSelected,
+                    ]}
+                  >
+                    {region.name}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Không tìm thấy khu vực</Text>
+            )}
+          </ScrollView>
+        )}
       </View>
 
       {/* Theaters and Showtimes List */}
-      <FlatList
-        data={
-          filteredTheaters && filteredTheaters.length > 0
-            ? filteredTheaters
-            : []
-        }
-        keyExtractor={(item) => item._id}
-        renderItem={({ item: theater }) => {
-          const isExpanded = expandedTheaters[theater._id];
-          const theaterShowtime = showtimes[theater._id];
-          const showtimesForDate = theaterShowtime
-            ? getShowtimesForDate(theaterShowtime, selectedDate)
-            : [];
-          const groupedShowtimes = groupShowtimesByFormat(showtimesForDate);
+      {loading ? (
+        <TheaterCardsSkeleton count={3} />
+      ) : (
+        <FlatList
+          data={
+            filteredTheaters && filteredTheaters.length > 0
+              ? filteredTheaters
+              : []
+          }
+          keyExtractor={(item) => item._id}
+          renderItem={({ item: theater }) => {
+            const isExpanded = expandedTheaters[theater._id];
+            const theaterShowtime = showtimes[theater._id];
+            const showtimesForDate = theaterShowtime
+              ? getShowtimesForDate(theaterShowtime, selectedDate)
+              : [];
+            const groupedShowtimes = groupShowtimesByFormat(showtimesForDate);
 
-          return (
-            <View style={styles.theaterCard}>
-              <TouchableOpacity
-                style={styles.theaterHeader}
-                onPress={() => fetchShowtimesForTheater(theater._id)}
-              >
-                <View style={styles.theaterHeaderLeft}>
-                  {renderTheaterName(theater.name)}
-                </View>
-                <View style={styles.theaterHeaderRight}>
-                  <Fontisto
-                    name={isExpanded ? "angle-up" : "angle-down"}
-                    size={20}
-                    color="#E50914"
-                  />
-                </View>
-              </TouchableOpacity>
+            return (
+              <View style={styles.theaterCard}>
+                <TouchableOpacity
+                  style={styles.theaterHeader}
+                  onPress={() => fetchShowtimesForTheater(theater._id)}
+                >
+                  <View style={styles.theaterHeaderLeft}>
+                    {renderTheaterName(theater.name)}
+                  </View>
+                  <View style={styles.theaterHeaderRight}>
+                    <Fontisto
+                      name={isExpanded ? "angle-up" : "angle-down"}
+                      size={20}
+                      color="#E50914"
+                    />
+                  </View>
+                </TouchableOpacity>
 
-              {isExpanded && (
-                <View style={styles.showtimesContainer}>
-                  {loadingShowtimes[theater._id] ? (
-                    <ShowtimeListSkeleton rows={2} />
-                  ) : !showtimesForDate || showtimesForDate.length === 0 ? (
-                    <Text style={styles.noShowtimeText}>
-                      Không có suất chiếu cho ngày này
-                    </Text>
-                  ) : groupedShowtimes &&
-                    Object.keys(groupedShowtimes).length > 0 ? (
-                    Object.entries(groupedShowtimes).map(
-                      ([format, sessions]) => (
-                        <View key={format} style={styles.formatGroup}>
-                          <Text style={styles.formatText}>
-                            • {getSessionRoomType(sessions?.[0])} Phụ Đề Anh |
-                            Rạp {getRoomName(sessions?.[0]?.room)}
-                          </Text>
-                          <View style={styles.showtimesRow}>
-                            {sessions &&
-                            Array.isArray(sessions) &&
-                            sessions.length > 0
-                              ? sessions.map((session, idx) => {
-                                  const showtimeId = theaterShowtime?._id || "";
-                                  const theaterId = theater._id;
-                                  const sessionDate = new Date(session.date);
-                                  // Format date theo YYYY-MM-DD để backend parse đúng
-                                  const year = sessionDate.getFullYear();
-                                  const month = String(
-                                    sessionDate.getMonth() + 1
-                                  ).padStart(2, "0");
-                                  const day = String(
-                                    sessionDate.getDate()
-                                  ).padStart(2, "0");
-                                  const dateStr = `${year}-${month}-${day}`;
-                                  const startTimeStr = formatTime(
-                                    new Date(session.start)
-                                  );
-                                  const endTimeStr = session.end
-                                    ? formatTime(new Date(session.end))
-                                    : undefined;
-                                  const roomObj = session.room;
-                                  const sessionRoomType =
-                                    getSessionRoomType(session);
-                                  const roomParam =
-                                    typeof roomObj === "object"
-                                      ? {
-                                          ...roomObj,
-                                          roomType:
-                                            roomObj.roomType || sessionRoomType,
-                                        }
-                                      : roomObj;
-
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={styles.showtimeButton}
-                                      onPress={() => {
-                                        // Kiểm tra nếu chưa đăng nhập thì chuyển đến LoginScreen
-                                        if (!isAuthenticated) {
-                                          navigation.navigate("LoginScreen");
-                                          return;
-                                        }
-                                        // Nếu đã đăng nhập thì chuyển đến SelectSeatScreen
-                                        navigation.navigate(
-                                          "SelectSeatScreen",
-                                          {
-                                            movie,
-                                            showtimeId,
-                                            theaterId,
-                                            date: dateStr,
-                                            startTime: startTimeStr,
-                                            endTime: endTimeStr,
-                                            room: roomParam,
-                                            theaterName: theater.name,
+                {isExpanded && (
+                  <View style={styles.showtimesContainer}>
+                    {loadingShowtimes[theater._id] ? (
+                      <ShowtimeListSkeleton rows={2} />
+                    ) : !showtimesForDate || showtimesForDate.length === 0 ? (
+                      <Text style={styles.noShowtimeText}>
+                        Không có suất chiếu cho ngày này
+                      </Text>
+                    ) : groupedShowtimes &&
+                      Object.keys(groupedShowtimes).length > 0 ? (
+                      Object.entries(groupedShowtimes).map(
+                        ([format, sessions]) => (
+                          <View key={format} style={styles.formatGroup}>
+                            <Text style={styles.formatText}>
+                              • {getSessionRoomType(sessions?.[0])} Phụ Đề Anh |
+                              Rạp {getRoomName(sessions?.[0]?.room)}
+                            </Text>
+                            <View style={styles.showtimesRow}>
+                              {sessions &&
+                              Array.isArray(sessions) &&
+                              sessions.length > 0
+                                ? sessions.map((session, idx) => {
+                                    const showtimeId =
+                                      theaterShowtime?._id || "";
+                                    const theaterId = theater._id;
+                                    const sessionDate = new Date(session.date);
+                                    const year = sessionDate.getFullYear();
+                                    const month = String(
+                                      sessionDate.getMonth() + 1
+                                    ).padStart(2, "0");
+                                    const day = String(
+                                      sessionDate.getDate()
+                                    ).padStart(2, "0");
+                                    const dateStr = `${year}-${month}-${day}`;
+                                    const startTimeStr = formatTime(
+                                      new Date(session.start)
+                                    );
+                                    const endTimeStr = session.end
+                                      ? formatTime(new Date(session.end))
+                                      : undefined;
+                                    const roomObj = session.room;
+                                    const sessionRoomType =
+                                      getSessionRoomType(session);
+                                    const roomParam =
+                                      typeof roomObj === "object"
+                                        ? {
+                                            ...roomObj,
+                                            roomType:
+                                              roomObj.roomType ||
+                                              sessionRoomType,
                                           }
-                                        );
-                                      }}
-                                    >
-                                      <Text style={styles.showtimeButtonText}>
-                                        {startTimeStr}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })
-                              : null}
+                                        : roomObj;
+
+                                    return (
+                                      <TouchableOpacity
+                                        key={idx}
+                                        style={styles.showtimeButton}
+                                        onPress={() => {
+                                          if (!isAuthenticated) {
+                                            navigation.navigate("LoginScreen");
+                                            return;
+                                          }
+                                          navigation.navigate(
+                                            "SelectSeatScreen",
+                                            {
+                                              movie,
+                                              showtimeId,
+                                              theaterId,
+                                              date: dateStr,
+                                              startTime: startTimeStr,
+                                              endTime: endTimeStr,
+                                              room: roomParam,
+                                              theaterName: theater.name,
+                                            }
+                                          );
+                                        }}
+                                      >
+                                        <Text style={styles.showtimeButtonText}>
+                                          {startTimeStr}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })
+                                : null}
+                            </View>
                           </View>
-                        </View>
+                        )
                       )
-                    )
-                  ) : (
-                    <Text style={styles.noShowtimeText}>
-                      Không có suất chiếu cho ngày này
-                    </Text>
-                  )}
-                </View>
-              )}
-            </View>
-          );
-        }}
-        ListHeaderComponent={() => (
-          <>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#E50914" />
-                <Text style={styles.loadingText}>Đang tải...</Text>
+                    ) : (
+                      <Text style={styles.noShowtimeText}>
+                        Không có suất chiếu cho ngày này
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
-            ) : !selectedRegion ? (
+            );
+          }}
+          ListHeaderComponent={() =>
+            !selectedRegion ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
                   Vui lòng chọn khu vực để xem danh sách rạp
                 </Text>
               </View>
-            ) : null}
-          </>
-        )}
-        ListEmptyComponent={() => {
-          if (loading) return null;
-          if (!selectedRegion) return null;
-          return (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                Không có rạp nào trong khu vực này
-              </Text>
-            </View>
-          );
-        }}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      />
+            ) : null
+          }
+          ListEmptyComponent={() => {
+            if (!selectedRegion) return null;
+            return (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  Không có rạp nào trong khu vực này
+                </Text>
+              </View>
+            );
+          }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Side Menu */}
       <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
