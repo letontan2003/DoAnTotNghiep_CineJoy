@@ -82,7 +82,6 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
     }
   }, [visible]);
 
-  // Hàm xử lý click vào menu item
   const handleMenuItemPress = (item: { id: number; title: string }) => {
     if (item.id === 1) {
       // Trang chủ
@@ -101,22 +100,12 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
       if (isAuthenticated) {
         navigation.navigate("BookingHistoryScreen");
       } else {
-        Alert.alert("Thông báo", "Vui lòng đăng nhập để xem vé của tôi.", [
-          {
-            text: "Huỷ",
-            style: "cancel",
-          },
-          {
-            text: "Đăng nhập",
-            onPress: () => navigation.navigate("LoginScreen"),
-          },
-        ]);
+        navigation.navigate("LoginScreen");
       }
     }
     // Có thể thêm logic cho các menu items khác ở đây
   };
 
-  // Hàm xử lý đăng xuất
   const handleLogout = async () => {
     Alert.alert("Xác nhận đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
       {

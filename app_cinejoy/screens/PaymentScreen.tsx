@@ -1113,7 +1113,8 @@ const PaymentScreen = () => {
               {amountDiscount && (
                 <View style={styles.promotionBlock}>
                   <Text style={styles.promoText}>
-                    {amountDiscount.description}
+                    {amountDiscount.description} (-
+                    {formatCurrency(amountDiscount.discountAmount)})
                   </Text>
                 </View>
               )}
@@ -1127,7 +1128,7 @@ const PaymentScreen = () => {
                           : `Giảm ${promo.discountPercent}% ${
                               promo.comboName || ""
                             }`)}{" "}
-                      -{formatCurrency(promo.discountAmount || 0)}
+                      (-{formatCurrency(promo.discountAmount || 0)})
                     </Text>
                   ))}
                 </View>

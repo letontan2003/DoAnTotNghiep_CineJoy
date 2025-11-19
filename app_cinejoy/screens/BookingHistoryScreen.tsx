@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -19,6 +20,7 @@ type RootStackParamList = {
   BookingHistoryScreen: undefined;
   HomeScreen: undefined;
   PaymentResultScreen: { status: "success" | "failed"; orderId?: string };
+  BookingDetailScreen: { orderId: string };
 };
 
 type BookingHistoryNavProp = StackNavigationProp<
@@ -57,11 +59,15 @@ const statusMap: Record<
   },
 };
 
+const PAGE_SIZE = 6;
+
 const BookingHistoryScreen = () => {
   const navigation = useNavigation<BookingHistoryNavProp>();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -70,6 +76,7 @@ const BookingHistoryScreen = () => {
       const response = await getUserBookingHistoryApi();
       if (response?.status && Array.isArray(response.data)) {
         setOrders(response.data);
+        setPage(1);
       } else {
         setError(response?.message || "Không tải được lịch sử giao dịch");
       }
@@ -86,6 +93,26 @@ const BookingHistoryScreen = () => {
       fetchHistory();
     }, [fetchHistory])
   );
+
+  const displayedOrders = useMemo(() => {
+    return orders.slice(0, page * PAGE_SIZE);
+  }, [orders, page]);
+
+  const hasMore = displayedOrders.length < orders.length;
+
+  const handleLoadMore = () => {
+    if (!hasMore || loading || isFetchingMore) return;
+    setIsFetchingMore(true);
+    requestAnimationFrame(() => {
+      setPage((prev) => prev + 1);
+      setIsFetchingMore(false);
+    });
+  };
+
+  const handleOrderPress = (orderId?: string) => {
+    if (!orderId) return;
+    navigation.navigate("BookingDetailScreen", { orderId });
+  };
 
   const renderStatus = (status: string) => {
     const mapping = statusMap[status] || {
@@ -119,9 +146,11 @@ const BookingHistoryScreen = () => {
       .format("HH:mm");
 
     return (
-      <View style={styles.card}>
-        <StatusBar barStyle={"light-content"} translucent />
-
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.9}
+        onPress={() => handleOrderPress(item?._id)}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.orderCode}>Mã đặt vé: {item?._id}</Text>
           {renderStatus(item?.orderStatus)}
@@ -158,7 +187,7 @@ const BookingHistoryScreen = () => {
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -196,14 +225,27 @@ const BookingHistoryScreen = () => {
     }
     return (
       <FlatList
-        data={orders}
+        data={displayedOrders}
         keyExtractor={(item) => item?._id}
         contentContainerStyle={styles.listContent}
         renderItem={renderOrder}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={fetchHistory} />
         }
         ListEmptyComponent={listEmpty}
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View style={styles.listFooter}>
+              <ActivityIndicator color="#E50914" />
+            </View>
+          ) : hasMore ? (
+            <View style={styles.listFooter}>
+              <Text style={styles.footerText}>Kéo nhẹ để tải thêm…</Text>
+            </View>
+          ) : null
+        }
       />
     );
   };
@@ -326,6 +368,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   primaryButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  listFooter: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerText: { fontSize: 13, color: "#6b7280" },
 });
 
 export default BookingHistoryScreen;

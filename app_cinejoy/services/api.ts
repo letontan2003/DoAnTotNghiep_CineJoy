@@ -449,6 +449,25 @@ export const getOrderByIdApi = async (orderId: string) => {
   }
 };
 
+export const getUserOrderDetailsApi = async (orderId: string) => {
+  try {
+    const response = await axios.get<IBackendResponse<any>>(
+      `/v1/api/orders/details/${orderId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    } as IBackendResponse<any>;
+  }
+};
+
 export const getUserBookingHistoryApi = async () => {
   try {
     const response = await axios.get<IBackendResponse<any[]>>(
