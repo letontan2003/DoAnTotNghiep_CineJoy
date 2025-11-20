@@ -45,7 +45,6 @@ const AccountInfoScreen = () => {
   const [verifying, setVerifying] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"verify" | "detail">("verify");
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -63,7 +62,6 @@ const AccountInfoScreen = () => {
       setError(null);
       setShowSideMenu(false);
       setShowPassword(false);
-      setFormError(null);
     }, [])
   );
 
@@ -257,14 +255,13 @@ const AccountInfoScreen = () => {
   const handleUpdateProfile = async () => {
     if (!account?._id) return;
     if (!formValues.fullName.trim()) {
-      setFormError("Họ tên không được để trống.");
+      Alert.alert("Lỗi", "Họ tên không được để trống.");
       return;
     }
     if (!/^0\d{9}$/.test(formValues.phoneNumber)) {
-      setFormError("Số điện thoại phải có 10 chữ số và bắt đầu bằng 0.");
+      Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số và bắt đầu bằng 0.");
       return;
     }
-    setFormError(null);
     setUpdating(true);
     try {
       const payload = {
@@ -281,13 +278,14 @@ const AccountInfoScreen = () => {
           response.message || "Cập nhật thông tin thành công"
         );
       } else {
-        setFormError(
+        Alert.alert(
+          "Lỗi",
           response?.message || "Cập nhật thất bại, vui lòng thử lại."
         );
       }
     } catch (err) {
       console.error("update profile error:", err);
-      setFormError("Có lỗi xảy ra. Vui lòng thử lại.");
+      Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
       setUpdating(false);
     }
@@ -323,7 +321,6 @@ const AccountInfoScreen = () => {
       ) : (
         <>
           {renderDetailState()}
-          {formError && <Text style={styles.formError}>{formError}</Text>}
           <View style={styles.footerButtonContainer}>
             <TouchableOpacity
               style={[styles.footerButton, updating && { opacity: 0.7 }]}
@@ -595,12 +592,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
-  },
-  formError: {
-    color: "#b91c1c",
-    textAlign: "center",
-    marginBottom: 8,
-    fontSize: 13,
   },
   modalOverlay: {
     flex: 1,

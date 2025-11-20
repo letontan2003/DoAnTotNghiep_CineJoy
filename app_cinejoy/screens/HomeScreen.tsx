@@ -14,11 +14,7 @@ import {
   Modal,
   RefreshControl,
 } from "react-native";
-import {
-  useFocusEffect,
-  useNavigation,
-  useIsFocused,
-} from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import StackCarousel from "@/components/StackCarousel";
 import SideMenu from "@/components/SideMenu";
@@ -1265,6 +1261,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 5,
     borderBottomWidth: 0,
+    marginBottom: 10,
   },
   tab: {
     paddingVertical: 5,
@@ -1405,6 +1402,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   movieDetailsContainer: {
+    marginTop: 10,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     paddingHorizontal: 10,
     flexDirection: "row",
