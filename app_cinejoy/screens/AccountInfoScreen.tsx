@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import dayjs from "dayjs";
+import Feather from "@expo/vector-icons/Feather";
 
 import { useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
@@ -37,6 +38,7 @@ const AccountInfoScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"verify" | "detail">("verify");
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,6 +46,7 @@ const AccountInfoScreen = () => {
       setPassword("");
       setError(null);
       setShowSideMenu(false);
+      setShowPassword(false);
     }, [])
   );
 
@@ -76,8 +79,20 @@ const AccountInfoScreen = () => {
   };
 
   const userDetails = useMemo(() => {
+    const emailMask = (() => {
+      if (!account?.email) return "Đang cập nhật";
+      if (account.email.length <= 6) {
+        return `${account.email[0]}${"*".repeat(
+          Math.max(1, account.email.length - 2)
+        )}${account.email.slice(-1)}`;
+      }
+      const visibleSuffix = account.email.slice(-3);
+      const prefix = account.email.slice(0, 3);
+      return `${prefix}${"*".repeat(account.email.length - 6)}${visibleSuffix}`;
+    })();
+
     return {
-      email: account?.email || "Đang cập nhật",
+      email: emailMask,
       fullName: account?.fullName || "Đang cập nhật",
       dateOfBirth: account?.dateOfBirth
         ? dayjs(account.dateOfBirth).format("DD MMM, YYYY")
@@ -103,14 +118,26 @@ const AccountInfoScreen = () => {
         </Text>
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Mật khẩu</Text>
-          <TextInput
-            placeholder="Nhập mật khẩu"
-            placeholderTextColor="#a1a1aa"
-            style={styles.passwordInput}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              placeholder="Nhập mật khẩu"
+              placeholderTextColor="#a1a1aa"
+              style={styles.passwordInput}
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              <Feather
+                name={showPassword ? "eye" : "eye-off"}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
         {error && <Text style={styles.errorText}>{error}</Text>}
         <TouchableOpacity
@@ -193,7 +220,14 @@ const AccountInfoScreen = () => {
       ) : step === "verify" ? (
         renderVerifyState()
       ) : (
-        renderDetailState()
+        <>
+          {renderDetailState()}
+          <View style={styles.footerButtonContainer}>
+            <TouchableOpacity style={styles.footerButton}>
+              <Text style={styles.footerButtonText}>Cập nhật thông tin</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       <SideMenu visible={showSideMenu} onClose={() => setShowSideMenu(false)} />
@@ -260,6 +294,10 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     marginBottom: 6,
   },
+  passwordWrapper: {
+    position: "relative",
+    justifyContent: "center",
+  },
   passwordInput: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -269,6 +307,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: "#111827",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
   confirmButton: {
     marginTop: 12,
@@ -353,6 +398,22 @@ const styles = StyleSheet.create({
   noteLink: {
     color: "#b91c1c",
     fontWeight: "600",
+  },
+  footerButtonContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  footerButton: {
+    backgroundColor: "#b91c1c",
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  footerButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   stateContainer: {
     flex: 1,
