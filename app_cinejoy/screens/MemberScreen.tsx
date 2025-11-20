@@ -20,6 +20,7 @@ type RootStackParamList = {
   LoginScreen: undefined;
   MemberScreen: undefined;
   BookingHistoryScreen: undefined;
+  AccountInfoScreen: undefined;
 };
 
 type MemberScreenNavigationProp = StackNavigationProp<
@@ -50,6 +51,13 @@ const MemberScreen = () => {
 
   const handleNavigateToBookingHistory = () => {
     navigation.navigate("BookingHistoryScreen");
+  };
+
+  const handleMenuItemPress = (itemId: number) => {
+    if (itemId === 1) {
+      navigation.navigate("AccountInfoScreen");
+      return;
+    }
   };
 
   // Menu Items
@@ -136,7 +144,10 @@ const MemberScreen = () => {
         <View style={styles.menuList}>
           {menuItems.map((item, index) => (
             <View key={item.id}>
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => handleMenuItemPress(item.id)}
+              >
                 <View style={styles.menuItemLeft}>
                   <View style={styles.menuIconContainer}>
                     <Fontisto

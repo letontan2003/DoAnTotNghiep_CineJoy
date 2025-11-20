@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "../middlewares/AuthMiddleware";
 import authService from "../services/AuthService";
 
-export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const result = await authService.register(req.body);
 
@@ -18,10 +22,9 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       res.status(200).json({ ...result, data: rest });
       return;
     }
-    
+
     res.status(200).json(result);
     return;
-
   } catch (error: any) {
     console.error("Register error:", error);
     res.status(500).json({
@@ -33,7 +36,11 @@ export const register = async (req: Request, res: Response, next: NextFunction):
   }
 };
 
-export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email, password } = req.body;
 
@@ -64,7 +71,6 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 
     res.status(200).json(result);
     return;
-
   } catch (error: any) {
     console.error("Login error:", error);
     res.status(500).json({
@@ -76,10 +82,14 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
   }
 };
 
-export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const refreshToken = req.cookies.refreshToken;
-    
+
     if (!refreshToken) {
       res.status(401).json({
         status: false,
@@ -104,7 +114,11 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-export const logout = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+export const logout = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const result = await authService.logout(req.user!._id as string);
     res.clearCookie("refreshToken");
@@ -121,7 +135,11 @@ export const logout = async (req: AuthenticatedRequest, res: Response, next: Nex
   }
 };
 
-export const forgotPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -148,7 +166,11 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const verifyOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const verifyOtp = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email, otp } = req.body;
     if (!email || !otp) {
@@ -175,7 +197,11 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
-export const resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email, newPassword } = req.body;
     if (!email || !newPassword) {
@@ -202,7 +228,11 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const getAccount = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+export const getAccount = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const delay = parseInt(req.headers.delay as string) || 0;
     if (delay > 0 && delay <= 5000) {
@@ -214,6 +244,51 @@ export const getAccount = async (req: AuthenticatedRequest, res: Response, next:
     return;
   } catch (error: any) {
     console.error("Get account error:", error);
+    res.status(500).json({
+      status: false,
+      error: -1,
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
+export const verifyCurrentPassword = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400).json({
+        status: false,
+        error: 1,
+        message: "Vui lòng nhập mật khẩu",
+        data: null,
+      });
+      return;
+    }
+
+    if (!req.user?._id) {
+      res.status(401).json({
+        status: false,
+        error: 1,
+        message: "Không tìm thấy thông tin người dùng",
+        data: null,
+      });
+      return;
+    }
+
+    const result = await authService.verifyPassword(
+      req.user._id.toString(),
+      password
+    );
+    res.status(200).json(result);
+    return;
+  } catch (error: any) {
+    console.error("verify password error:", error);
     res.status(500).json({
       status: false,
       error: -1,

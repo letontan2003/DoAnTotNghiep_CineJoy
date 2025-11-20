@@ -21,6 +21,7 @@ import BookingHistoryScreen from "@/screens/BookingHistoryScreen";
 import BookingDetailScreen from "@/screens/BookingDetailScreen";
 import BlogDetailScreen from "@/screens/BlogDetailScreen";
 import HotNewsListScreen from "@/screens/HotNewsListScreen";
+import AccountInfoScreen from "@/screens/AccountInfoScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -90,6 +91,10 @@ export default function App() {
                 <Stack.Screen
                   name="HotNewsListScreen"
                   component={HotNewsListScreen}
+                />
+                <Stack.Screen
+                  name="AccountInfoScreen"
+                  component={AccountInfoScreen}
                 />
               </Stack.Navigator>
             </NavigationContainer>

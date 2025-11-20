@@ -5,7 +5,10 @@ import {
   JWT_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
 } from "../configs/config";
-import { sendResetPasswordEmail, sendWelcomeEmail } from "../utils/emailService";
+import {
+  sendResetPasswordEmail,
+  sendWelcomeEmail,
+} from "../utils/emailService";
 
 const generateAccessToken = (userId: string): string => {
   const payload = { id: userId };
@@ -24,57 +27,57 @@ const generateRefreshToken = (userId: string): string => {
 };
 
 const register = async (body: any) => {
-    let { email, password, avatar, role, ...rest } = body;
-  
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return {
-        status: false,
-        error: 1,
-        message: "Email đã tồn tại. Vui lòng sử dụng email khác",
-        data: null,
-      };
-    }
+  let { email, password, avatar, role, ...rest } = body;
 
-    if (!avatar) {
-      avatar = "https://res.cloudinary.com/dd1vwmybp/image/upload/v1752052447/cinejoy/izdwmlk2mca4hsdy3vgl.png";
-    }
-
-    if (!role) {
-      role = "USER";
-    }
-  
-    const user = await User.create({
-      ...rest,
-      email,
-      password,
-      avatar,
-      role,
-    });
-
-    const emailResult = await sendWelcomeEmail(user.email, user.fullName);
-  
-    if (!emailResult.status) {
-      console.log("Lỗi gửi email chào mừng:", emailResult.message);
-    }
-
-    const { password: _, ...userWithoutPassword } = user.toObject();
-
-    const accessToken = generateAccessToken(user._id?.toString() || '');
-    const refreshToken = generateRefreshToken(user._id?.toString() || '');
-  
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
     return {
-      status: true,
-      error: 0,
-      message: "Đăng ký thành công",
-      data: {
-        user: userWithoutPassword,
-        accessToken,
-        refreshToken,
-      },
+      status: false,
+      error: 1,
+      message: "Email đã tồn tại. Vui lòng sử dụng email khác",
+      data: null,
     };
+  }
+
+  if (!avatar) {
+    avatar =
+      "https://res.cloudinary.com/dd1vwmybp/image/upload/v1752052447/cinejoy/izdwmlk2mca4hsdy3vgl.png";
+  }
+
+  if (!role) {
+    role = "USER";
+  }
+
+  const user = await User.create({
+    ...rest,
+    email,
+    password,
+    avatar,
+    role,
+  });
+
+  const emailResult = await sendWelcomeEmail(user.email, user.fullName);
+
+  if (!emailResult.status) {
+    console.log("Lỗi gửi email chào mừng:", emailResult.message);
+  }
+
+  const { password: _, ...userWithoutPassword } = user.toObject();
+
+  const accessToken = generateAccessToken(user._id?.toString() || "");
+  const refreshToken = generateRefreshToken(user._id?.toString() || "");
+
+  return {
+    status: true,
+    error: 0,
+    message: "Đăng ký thành công",
+    data: {
+      user: userWithoutPassword,
+      accessToken,
+      refreshToken,
+    },
   };
-  
+};
 
 const login = async (email: string, password: string) => {
   const rawUser = await User.findOne({ email });
@@ -86,7 +89,7 @@ const login = async (email: string, password: string) => {
       data: null,
     };
   }
-  
+
   const isMatch = await rawUser.comparePassword(password);
 
   if (!isMatch) {
@@ -97,8 +100,8 @@ const login = async (email: string, password: string) => {
       data: null,
     };
   }
-  const accessToken = generateAccessToken(rawUser._id?.toString() || '');
-  const refreshToken = generateRefreshToken(rawUser._id?.toString() || '');
+  const accessToken = generateAccessToken(rawUser._id?.toString() || "");
+  const refreshToken = generateRefreshToken(rawUser._id?.toString() || "");
 
   const { password: _, ...userWithoutPassword } = rawUser.toObject();
 
@@ -117,7 +120,7 @@ const login = async (email: string, password: string) => {
 const refreshAccessToken = async (refreshToken: string) => {
   try {
     const decoded = jwt.verify(refreshToken, JWT_SECRET) as { id: string };
-    
+
     const rawUser = await User.findById(decoded.id);
     if (!rawUser || !rawUser.isActive) {
       return {
@@ -128,7 +131,7 @@ const refreshAccessToken = async (refreshToken: string) => {
       };
     }
 
-    const newAccessToken = generateAccessToken(rawUser._id?.toString() || '');
+    const newAccessToken = generateAccessToken(rawUser._id?.toString() || "");
 
     return {
       status: true,
@@ -175,7 +178,7 @@ const getAccount = async (userId: string) => {
     error: 0,
     message: "Lấy thông tin tài khoản thành công",
     data: {
-      user: userWithoutPassword
+      user: userWithoutPassword,
     },
   };
 };
@@ -190,7 +193,7 @@ const forgotPassword = async (email: string) => {
       message: "Email không tồn tại trong hệ thống",
       data: null,
     };
-  };
+  }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   user.otp = otp;
@@ -255,28 +258,57 @@ const verifyOtp = async (email: string, otp: string) => {
 };
 
 const resetPassword = async (email: string, newPassword: string) => {
-    const rawUser = await User.findOne({ email });
-    if (!rawUser) {
-        return {
-          status: false,
-          error: 1,
-          message: "Email không tồn tại trong hệ thống",
-          data: null,
-        };
-    }
-
-    rawUser.password = newPassword;
-    rawUser.otp = undefined;
-    rawUser.otpExpires = undefined;
-    await rawUser.save();
-
+  const rawUser = await User.findOne({ email });
+  if (!rawUser) {
     return {
-        status: true,
-        error: 0,
-        message: "Đặt lại mật khẩu thành công",
-        data: null,
+      status: false,
+      error: 1,
+      message: "Email không tồn tại trong hệ thống",
+      data: null,
     };
-};  
+  }
+
+  rawUser.password = newPassword;
+  rawUser.otp = undefined;
+  rawUser.otpExpires = undefined;
+  await rawUser.save();
+
+  return {
+    status: true,
+    error: 0,
+    message: "Đặt lại mật khẩu thành công",
+    data: null,
+  };
+};
+
+const verifyPassword = async (userId: string, password: string) => {
+  const rawUser = await User.findById(userId);
+  if (!rawUser) {
+    return {
+      status: false,
+      error: 1,
+      message: "Không tìm thấy tài khoản",
+      data: null,
+    };
+  }
+
+  const isMatch = await rawUser.comparePassword(password);
+  if (!isMatch) {
+    return {
+      status: false,
+      error: 1,
+      message: "Mật khẩu không chính xác",
+      data: null,
+    };
+  }
+
+  return {
+    status: true,
+    error: 0,
+    message: "Xác thực mật khẩu thành công",
+    data: null,
+  };
+};
 
 export default {
   register,
@@ -287,4 +319,5 @@ export default {
   forgotPassword,
   verifyOtp,
   resetPassword,
+  verifyPassword,
 };
