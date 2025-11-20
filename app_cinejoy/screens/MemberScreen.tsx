@@ -63,22 +63,20 @@ const MemberScreen = () => {
       navigation.navigate("ChangePasswordScreen");
       return;
     }
+    if (itemId === 6) {
+      navigation.navigate("BookingHistoryScreen");
+      return;
+    }
   };
 
   // Menu Items
   const menuItems: MenuItem[] = [
     { id: 1, title: "Thông tin Tài khoản", icon: "person" },
     { id: 2, title: "Đổi mật khẩu", icon: "locked" },
-    { id: 3, title: "Cài đặt mật mã thanh toán", icon: "key" },
-    { id: 4, title: "Thẻ thành viên", icon: "star" },
-    { id: 5, title: "Giới Thiệu Bạn Mới", icon: "persons" },
-    { id: 6, title: "Điểm", icon: "wallet" },
-    {
-      id: 7,
-      title: "Thẻ Q.Tặng | Voucher | Coupon",
-      icon: "gift",
-    },
-    { id: 8, title: "Lịch sử Giao dịch", icon: "list" },
+    { id: 3, title: "Thẻ thành viên", icon: "star" },
+    { id: 4, title: "Giới Thiệu Bạn Mới", icon: "persons" },
+    { id: 5, title: "Điểm", icon: "wallet" },
+    { id: 6, title: "Lịch sử giao dịch", icon: "history" },
   ];
 
   return (
