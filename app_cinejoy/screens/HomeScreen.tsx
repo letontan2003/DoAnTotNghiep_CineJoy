@@ -49,6 +49,7 @@ type RootStackParamList = {
   BookTicketScreen: { movie: IMovie };
   BlogDetailScreen: { blogId: string; blog?: IBlog };
   BookingHistoryScreen: undefined;
+  HotNewsListScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -815,7 +816,10 @@ const HomeScreen = () => {
           <View style={styles.hotNewsSection}>
             <View style={styles.hotNewsHeader}>
               <Text style={styles.hotNewsTitle}>Tin nóng</Text>
-              <TouchableOpacity style={styles.viewAllButton}>
+              <TouchableOpacity
+                style={styles.viewAllButton}
+                onPress={() => navigation.navigate("HotNewsListScreen")}
+              >
                 <Text style={styles.viewAllText}>TẤT CẢ</Text>
               </TouchableOpacity>
             </View>
