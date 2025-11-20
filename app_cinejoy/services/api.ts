@@ -11,6 +11,7 @@ import {
   ITheater,
   IShowtime,
   IFoodCombo,
+  IBlog,
 } from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
@@ -484,6 +485,26 @@ export const getUserBookingHistoryApi = async () => {
       message,
       data: null,
     } as IBackendResponse<any[]>;
+  }
+};
+
+export const getVisibleBlogsApi = async () => {
+  try {
+    const response = await axios.get<IBlog[]>("/blogs/visible");
+    return response.data;
+  } catch (error: any) {
+    console.error("getVisibleBlogsApi error:", error);
+    return [];
+  }
+};
+
+export const getBlogByIdApi = async (blogId: string) => {
+  try {
+    const response = await axios.get<IBlog>(`/blogs/${blogId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error("getBlogByIdApi error:", error);
+    return null;
   }
 };
 

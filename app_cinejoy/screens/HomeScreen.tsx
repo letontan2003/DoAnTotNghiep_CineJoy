@@ -14,12 +14,16 @@ import {
   Modal,
   RefreshControl,
 } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useIsFocused,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import StackCarousel from "@/components/StackCarousel";
 import SideMenu from "@/components/SideMenu";
-import { getMoviesByStatusApi } from "services/api";
-import { IMovie } from "types/api";
+import { getMoviesByStatusApi, getVisibleBlogsApi } from "services/api";
+import { IBlog, IMovie } from "types/api";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector } from "@/store/hooks";
 import banner1 from "assets/banner1.png";
@@ -43,6 +47,8 @@ type RootStackParamList = {
   MovieDetailScreen: { movie: IMovie };
   MemberScreen: undefined;
   BookTicketScreen: { movie: IMovie };
+  BlogDetailScreen: { blogId: string; blog?: IBlog };
+  BookingHistoryScreen: undefined;
 };
 
 type HomeScreenNavigationProp = StackNavigationProp<
@@ -86,33 +92,8 @@ const HomeScreen = () => {
     { id: 6, title: "4DX", image: banner3 },
   ];
 
-  // Hot News banners data
-  const hotNewsItems = [
-    {
-      id: 1,
-      title: "ORION 2MIX - 2 LÁT KHOAI, CÚ NÓ VỊ GIÁC CỰC ĐÌNH! CHỈ TỪ 20.000Đ",
-      image: banner1,
-      brand: "ORION",
-    },
-    {
-      id: 2,
-      title: "MUA VÉ XEM PHIM C18 TẠI CNJ NHẬN QUÀ SPECIAL TỪ SWEETBOX",
-      image: banner2,
-      brand: "SWEETBOX",
-    },
-    {
-      id: 3,
-      title: "KHUYẾN MÃI THÁNG 12 - ƯU ĐÃI ĐẶC BIỆT CHO THÀNH VIÊN",
-      image: banner3,
-      brand: "CNJ",
-    },
-    {
-      id: 4,
-      title: "COMBO BẮP NƯỚC GIÁ SỐC - TIẾT KIỆM ĐẾN 50%",
-      image: banner4,
-      brand: "COMBO",
-    },
-  ];
+  const [hotNewsItems, setHotNewsItems] = useState<IBlog[]>([]);
+  const [hotNewsLoading, setHotNewsLoading] = useState(false);
 
   // Partner Offers data - chỉ chứa ảnh, tất cả text đã có trong ảnh
   const partnerOffersOriginal = [
@@ -149,6 +130,14 @@ const HomeScreen = () => {
   const handleNavigateToMemberScreen = () => {
     if (isAuthenticated) {
       navigation.navigate("MemberScreen");
+    } else {
+      navigation.navigate("LoginScreen");
+    }
+  };
+
+  const handleNavigateToBookingHistory = () => {
+    if (isAuthenticated) {
+      navigation.navigate("BookingHistoryScreen");
     } else {
       navigation.navigate("LoginScreen");
     }
@@ -237,6 +226,23 @@ const HomeScreen = () => {
     }
   };
 
+  const fetchHotNews = async () => {
+    try {
+      setHotNewsLoading(true);
+      const response = await getVisibleBlogsApi();
+      if (Array.isArray(response)) {
+        setHotNewsItems(response.slice(0, 6));
+      } else {
+        setHotNewsItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching hot news:", error);
+      setHotNewsItems([]);
+    } finally {
+      setHotNewsLoading(false);
+    }
+  };
+
   // Fetch movies khi component mount và khi tab thay đổi
   useEffect(() => {
     const status = tabStatusMap[selectedTab];
@@ -244,6 +250,10 @@ const HomeScreen = () => {
       fetchMovies(status);
     }
   }, [selectedTab]);
+
+  useEffect(() => {
+    fetchHotNews();
+  }, []);
 
   // Hàm xử lý pull-to-refresh - reload toàn bộ screen như lần đầu vào
   const onRefresh = async () => {
@@ -301,6 +311,9 @@ const HomeScreen = () => {
         await fetchMovies(status);
       }
 
+      // Reload hot news
+      await fetchHotNews();
+
       // Hiển thị lại modal promo như lần đầu vào
       hasShownModal.current = false;
       setTimeout(() => {
@@ -316,6 +329,9 @@ const HomeScreen = () => {
 
   // Hiển thị modal khi vào HomeScreen lần đầu tiên
   useFocusEffect(() => {
+    // Disable gesture để không cho vuốt quay lại screen trước
+    navigation.setOptions({ gestureEnabled: false });
+
     if (!hasShownModal.current) {
       hasShownModal.current = true;
       // Delay một chút để đảm bảo HomeScreen đã render xong
@@ -323,6 +339,11 @@ const HomeScreen = () => {
         setShowPromoModal(true);
       }, 500);
     }
+
+    // Cleanup: enable gesture khi unmount (không cần thiết nhưng để an toàn)
+    return () => {
+      navigation.setOptions({ gestureEnabled: true });
+    };
   });
 
   // Auto-play effect
@@ -462,7 +483,10 @@ const HomeScreen = () => {
             </View>
 
             <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerIcon}>
+              <TouchableOpacity
+                style={styles.headerIcon}
+                onPress={handleNavigateToBookingHistory}
+              >
                 <Fontisto
                   name="ticket-alt"
                   size={23}
@@ -509,7 +533,10 @@ const HomeScreen = () => {
             </View>
 
             <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerIcon}>
+              <TouchableOpacity
+                style={styles.headerIcon}
+                onPress={handleNavigateToBookingHistory}
+              >
                 <Fontisto name="ticket-alt" size={23} color="#E50914" />
               </TouchableOpacity>
               <TouchableOpacity
@@ -678,7 +705,7 @@ const HomeScreen = () => {
                 )}
                 onIndexChange={(index) => setCurrentMovieIndex(index)}
                 itemWidth={width * 0.65}
-                itemHeight={height * 0.53}
+                itemHeight={height * 0.63}
               />
             </View>
           )}
@@ -792,24 +819,47 @@ const HomeScreen = () => {
                 <Text style={styles.viewAllText}>TẤT CẢ</Text>
               </TouchableOpacity>
             </View>
-
-            <FlatList
-              data={hotNewsItems}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hotNewsContent}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.hotNewsCard}>
-                  <Image source={item.image} style={styles.hotNewsImage} />
-                  <View style={styles.hotNewsCardContent}>
-                    <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id.toString()}
-            />
+            {hotNewsLoading ? (
+              <View style={styles.hotNewsPlaceholder}>
+                <ActivityIndicator color="#E50914" />
+              </View>
+            ) : hotNewsItems.length === 0 ? (
+              <View style={styles.hotNewsPlaceholder}>
+                <Text style={styles.hotNewsEmptyText}>Chưa có tin nóng</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={hotNewsItems}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hotNewsContent}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.hotNewsCard}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      navigation.navigate("BlogDetailScreen", {
+                        blogId: item._id,
+                        blog: item,
+                      })
+                    }
+                  >
+                    <Image
+                      source={
+                        item.posterImage ? { uri: item.posterImage } : banner1
+                      }
+                      style={styles.hotNewsImage}
+                    />
+                    <View style={styles.hotNewsCardContent}>
+                      <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                keyExtractor={(item) => item._id}
+              />
+            )}
           </View>
 
           {/* Partner Offers Section */}
@@ -1552,6 +1602,15 @@ const styles = StyleSheet.create({
   },
   hotNewsContent: {
     paddingLeft: 0,
+  },
+  hotNewsPlaceholder: {
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hotNewsEmptyText: {
+    fontSize: 13,
+    color: "#666",
   },
   hotNewsCard: {
     width: width * 0.44,

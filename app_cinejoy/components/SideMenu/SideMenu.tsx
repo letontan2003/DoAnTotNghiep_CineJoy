@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -86,7 +86,12 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
     if (item.id === 1) {
       // Trang chủ
       onClose();
-      navigation.navigate("HomeScreen");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "HomeScreen" }],
+        })
+      );
     } else if (item.id === 2) {
       // Thành viên CNJ
       onClose();
@@ -131,8 +136,13 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
             // Đóng side menu
             onClose();
 
-            // Redirect về HomeScreen
-            navigation.navigate("HomeScreen");
+            // Redirect về HomeScreen và reset navigation stack
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: "HomeScreen" }],
+              })
+            );
 
             // Hiển thị thông báo thành công
             Alert.alert("Thành công", "Đăng xuất thành công!");
@@ -144,8 +154,13 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
             dispatch(logout());
             onClose();
 
-            // Redirect về HomeScreen
-            navigation.navigate("HomeScreen");
+            // Redirect về HomeScreen và reset navigation stack
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: "HomeScreen" }],
+              })
+            );
 
             Alert.alert("Thông báo", "Đã đăng xuất khỏi thiết bị này.");
           } finally {

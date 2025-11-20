@@ -28,6 +28,18 @@ export interface IUser {
   createdAt: Date;
 }
 
+export interface IBlog {
+  _id: string;
+  blogCode: string;
+  title: string;
+  description: string;
+  postedDate: string;
+  content: string;
+  posterImage: string;
+  backgroundImage: string;
+  status: "Hiển thị" | "Ẩn";
+}
+
 // Auth types
 export interface IRegister {
   email: string;

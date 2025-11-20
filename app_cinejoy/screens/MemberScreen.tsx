@@ -19,6 +19,7 @@ type RootStackParamList = {
   HomeScreen: undefined;
   LoginScreen: undefined;
   MemberScreen: undefined;
+  BookingHistoryScreen: undefined;
 };
 
 type MemberScreenNavigationProp = StackNavigationProp<
@@ -45,6 +46,10 @@ const MemberScreen = () => {
 
   const closeSideMenu = () => {
     setShowSideMenu(false);
+  };
+
+  const handleNavigateToBookingHistory = () => {
+    navigation.navigate("BookingHistoryScreen");
   };
 
   // Menu Items
@@ -77,8 +82,11 @@ const MemberScreen = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thành viên CNJ</Text>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Fontisto name="ticket" size={24} color="#E50914" />
+          <TouchableOpacity
+            style={styles.headerIcon}
+            onPress={handleNavigateToBookingHistory}
+          >
+            <Fontisto name="ticket-alt" size={23} color="#E50914" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerIcon} onPress={toggleSideMenu}>
             <Text style={styles.menuIconText}>☰</Text>
@@ -206,7 +214,6 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
   headerIcon: {
     width: 40,
