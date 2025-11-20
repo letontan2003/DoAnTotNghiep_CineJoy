@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,23 @@ import {
   StatusBar,
   TextInput,
   ScrollView,
+  Alert,
+  Modal,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import dayjs from "dayjs";
 import Feather from "@expo/vector-icons/Feather";
 
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
-import { fetchAccountApi, verifyPasswordApi } from "@/services/api";
+import {
+  fetchAccountApi,
+  updateUserApi,
+  verifyPasswordApi,
+} from "@/services/api";
 import { IUser } from "@/types/api";
+import { setUser } from "@/store/appSlice";
 
 type RootStackParamList = {
   AccountInfoScreen: undefined;
@@ -31,14 +38,23 @@ type AccountInfoNavProp = StackNavigationProp<
 const AccountInfoScreen = () => {
   const navigation = useNavigation<AccountInfoNavProp>();
   const storedUser = useAppSelector((state) => state.app.user);
+  const dispatch = useAppDispatch();
 
   const [account, setAccount] = useState<IUser | null>(storedUser || null);
   const [password, setPassword] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"verify" | "detail">("verify");
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [formValues, setFormValues] = useState({
+    fullName: storedUser?.fullName || "",
+    phoneNumber: storedUser?.phoneNumber || "",
+    gender: storedUser?.gender || "Nam",
+  });
+  const [showGenderModal, setShowGenderModal] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,8 +63,19 @@ const AccountInfoScreen = () => {
       setError(null);
       setShowSideMenu(false);
       setShowPassword(false);
+      setFormError(null);
     }, [])
   );
+
+  useEffect(() => {
+    if (account) {
+      setFormValues({
+        fullName: account.fullName || "",
+        phoneNumber: account.phoneNumber || "",
+        gender: account.gender || "Nam",
+      });
+    }
+  }, [account]);
 
   const handleVerifyPassword = async () => {
     if (!password.trim()) {
@@ -101,13 +128,6 @@ const AccountInfoScreen = () => {
       phoneNumber: account?.phoneNumber || "Đang cập nhật",
     };
   }, [account]);
-
-  const renderInfoRow = (label: string, value: string) => (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
 
   const renderVerifyState = () => (
     <View style={styles.verifyWrapper}>
@@ -169,16 +189,58 @@ const AccountInfoScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>THÔNG TIN THÊM</Text>
         <View style={styles.infoCard}>
-          {renderInfoRow("Họ tên", userDetails.fullName)}
-          {renderInfoRow("Ngày sinh", userDetails.dateOfBirth)}
-          {renderInfoRow("Giới tính", userDetails.gender)}
+          <View style={styles.editRow}>
+            <Text style={styles.infoLabel}>Họ tên</Text>
+            <TextInput
+              value={formValues.fullName}
+              onChangeText={(text) =>
+                setFormValues((prev) => ({ ...prev, fullName: text }))
+              }
+              style={styles.editInput}
+              placeholder="Nhập họ tên"
+              placeholderTextColor="#9ca3af"
+              underlineColorAndroid="transparent"
+            />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Ngày sinh</Text>
+            <Text style={[styles.infoValue, styles.disabledValue]}>
+              {userDetails.dateOfBirth}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.genderSelectRow}
+            onPress={() => setShowGenderModal(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.infoLabel}>Giới tính</Text>
+            <View style={styles.genderSelectValue}>
+              <Text style={styles.infoValue}>{formValues.gender}</Text>
+              <Feather name="chevron-down" size={18} color="#9ca3af" />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>LIÊN HỆ</Text>
         <View style={styles.infoCard}>
-          {renderInfoRow("SĐT di động", userDetails.phoneNumber)}
+          <View style={styles.editRow}>
+            <Text style={styles.infoLabel}>SĐT di động</Text>
+            <TextInput
+              value={formValues.phoneNumber}
+              keyboardType="phone-pad"
+              onChangeText={(text) =>
+                setFormValues((prev) => ({ ...prev, phoneNumber: text }))
+              }
+              style={styles.editInput}
+              placeholder="Ví dụ: 0901234567"
+              placeholderTextColor="#9ca3af"
+              underlineColorAndroid="transparent"
+            />
+          </View>
         </View>
       </View>
 
@@ -191,6 +253,45 @@ const AccountInfoScreen = () => {
       </View>
     </ScrollView>
   );
+
+  const handleUpdateProfile = async () => {
+    if (!account?._id) return;
+    if (!formValues.fullName.trim()) {
+      setFormError("Họ tên không được để trống.");
+      return;
+    }
+    if (!/^0\d{9}$/.test(formValues.phoneNumber)) {
+      setFormError("Số điện thoại phải có 10 chữ số và bắt đầu bằng 0.");
+      return;
+    }
+    setFormError(null);
+    setUpdating(true);
+    try {
+      const payload = {
+        fullName: formValues.fullName.trim(),
+        phoneNumber: formValues.phoneNumber.trim(),
+        gender: formValues.gender,
+      };
+      const response = await updateUserApi(account._id, payload);
+      if (response?.status && response.data) {
+        setAccount(response.data);
+        dispatch(setUser(response.data));
+        Alert.alert(
+          "Thành công",
+          response.message || "Cập nhật thông tin thành công"
+        );
+      } else {
+        setFormError(
+          response?.message || "Cập nhật thất bại, vui lòng thử lại."
+        );
+      }
+    } catch (err) {
+      console.error("update profile error:", err);
+      setFormError("Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -222,15 +323,60 @@ const AccountInfoScreen = () => {
       ) : (
         <>
           {renderDetailState()}
+          {formError && <Text style={styles.formError}>{formError}</Text>}
           <View style={styles.footerButtonContainer}>
-            <TouchableOpacity style={styles.footerButton}>
-              <Text style={styles.footerButtonText}>Cập nhật thông tin</Text>
+            <TouchableOpacity
+              style={[styles.footerButton, updating && { opacity: 0.7 }]}
+              onPress={handleUpdateProfile}
+              disabled={updating}
+            >
+              <Text style={styles.footerButtonText}>
+                {updating ? "Đang cập nhật..." : "Cập nhật thông tin"}
+              </Text>
             </TouchableOpacity>
           </View>
         </>
       )}
 
       <SideMenu visible={showSideMenu} onClose={() => setShowSideMenu(false)} />
+
+      <Modal
+        transparent
+        visible={showGenderModal}
+        animationType="fade"
+        onRequestClose={() => setShowGenderModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowGenderModal(false)}
+        >
+          <View style={styles.genderModal}>
+            {["Nam", "Nữ", "Khác"].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={styles.genderModalItem}
+                onPress={() => {
+                  setFormValues((prev) => ({ ...prev, gender: option }));
+                  setShowGenderModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.genderModalText,
+                    formValues.gender === option && {
+                      color: "#b91c1c",
+                      fontWeight: "700",
+                    },
+                  ]}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -366,6 +512,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
+  editRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  editInput: {
+    borderWidth: 0,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 180,
+    textAlign: "right",
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "600",
+  },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -373,6 +536,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#f3f4f6",
   },
   infoLabel: {
     fontSize: 14,
@@ -383,6 +550,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
     textAlign: "right",
+  },
+  genderSelectRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  genderSelectValue: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  disabledValue: {
+    color: "#9ca3af",
   },
   noteContainer: {
     marginTop: 12,
@@ -414,6 +595,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  formError: {
+    color: "#b91c1c",
+    textAlign: "center",
+    marginBottom: 8,
+    fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  genderModal: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: "80%",
+    paddingVertical: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  genderModalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  genderModalText: {
+    fontSize: 15,
+    color: "#111827",
   },
   stateContainer: {
     flex: 1,

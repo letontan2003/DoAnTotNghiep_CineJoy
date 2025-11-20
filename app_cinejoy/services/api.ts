@@ -12,6 +12,7 @@ import {
   IShowtime,
   IFoodCombo,
   IBlog,
+  IUser,
 } from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
@@ -76,6 +77,23 @@ export const resetPasswordApi = async (data: {
 }) => {
   const response = await axios.post<IBackendResponse<null>>(
     "/v1/api/auth/resetPassword",
+    data
+  );
+  return response.data;
+};
+
+export const updateUserApi = async (
+  userId: string,
+  data: {
+    fullName?: string;
+    phoneNumber?: string;
+    gender?: string;
+    avatar?: string;
+    dateOfBirth?: string;
+  }
+) => {
+  const response = await axios.put<IBackendResponse<IUser>>(
+    `/v1/api/user/${userId}`,
     data
   );
   return response.data;
