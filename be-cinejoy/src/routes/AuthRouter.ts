@@ -9,6 +9,7 @@ import {
   verifyOtp,
   resetPassword,
   verifyCurrentPassword,
+  changePassword,
 } from "../controllers/AuthController";
 import { verifyToken } from "../middlewares/AuthMiddleware";
 
@@ -23,5 +24,6 @@ router.post("/forgotPassword", forgotPassword);
 router.post("/verifyOtp", verifyOtp);
 router.post("/resetPassword", resetPassword);
 router.post("/verify-password", verifyToken, verifyCurrentPassword);
+router.post("/change-password", verifyToken, changePassword);
 
 export default router;

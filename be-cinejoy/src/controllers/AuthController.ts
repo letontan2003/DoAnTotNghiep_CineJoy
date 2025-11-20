@@ -297,3 +297,49 @@ export const verifyCurrentPassword = async (
     });
   }
 };
+
+export const changePassword = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({
+        status: false,
+        error: 1,
+        message: "Thiếu mật khẩu hiện tại hoặc mật khẩu mới",
+        data: null,
+      });
+      return;
+    }
+
+    if (!req.user?._id) {
+      res.status(401).json({
+        status: false,
+        error: 1,
+        message: "Không tìm thấy thông tin người dùng",
+        data: null,
+      });
+      return;
+    }
+
+    const result = await authService.changePassword(
+      req.user._id.toString(),
+      currentPassword,
+      newPassword
+    );
+    res.status(200).json(result);
+    return;
+  } catch (error: any) {
+    console.error("change password error:", error);
+    res.status(500).json({
+      status: false,
+      error: -1,
+      message: error.message,
+      data: null,
+    });
+  }
+};

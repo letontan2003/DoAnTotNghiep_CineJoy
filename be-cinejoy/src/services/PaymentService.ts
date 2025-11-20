@@ -12,6 +12,21 @@ import ShowtimeService from "./ShowtimeService";
 
 const showtimeService = new ShowtimeService();
 
+const inferRoomTypeFromSeats = (seats: Array<{ type?: string }> = []) => {
+  if (!Array.isArray(seats)) {
+    return undefined;
+  }
+
+  const has4dxSeat = seats.some(
+    (seat) => (seat?.type || "").toLowerCase() === "4dx"
+  );
+  if (has4dxSeat) {
+    return "4DX";
+  }
+
+  return undefined;
+};
+
 export interface CreatePaymentData {
   orderId: string;
   amount: number;
@@ -357,7 +372,19 @@ class PaymentService {
               }
             }
 
-            console.log("✅ Final roomType (VNPay):", roomType);
+            const seatBasedRoomType = inferRoomTypeFromSeats(
+              populatedOrder.seats as any
+            );
+            const normalizedRoomType = roomType
+              ? roomType.toUpperCase()
+              : undefined;
+            const finalRoomType = seatBasedRoomType || normalizedRoomType;
+
+            console.log("✅ Final roomType (VNPay):", {
+              fromRoomDoc: roomType,
+              inferredFromSeats: seatBasedRoomType,
+              finalRoomType,
+            });
 
             const emailData: PaymentEmailData = {
               userName: (populatedOrder.userId as any).fullName || "Khách hàng",
@@ -367,7 +394,7 @@ class PaymentService {
               cinema:
                 (populatedOrder.showtimeId as any)?.theaterId?.name || "N/A",
               room: populatedOrder.room || "N/A",
-              roomType: roomType,
+              roomType: finalRoomType,
               showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
               seats: populatedOrder.seats.map((seat) => seat.seatId),
               ticketPrice: populatedOrder.ticketPrice || 0,
@@ -639,7 +666,19 @@ class PaymentService {
               }
             }
 
-            console.log("✅ Final roomType (MoMo):", roomType);
+            const seatBasedRoomType = inferRoomTypeFromSeats(
+              populatedOrder.seats as any
+            );
+            const normalizedRoomType = roomType
+              ? roomType.toUpperCase()
+              : undefined;
+            const finalRoomType = seatBasedRoomType || normalizedRoomType;
+
+            console.log("✅ Final roomType (MoMo):", {
+              fromRoomDoc: roomType,
+              inferredFromSeats: seatBasedRoomType,
+              finalRoomType,
+            });
 
             const emailData: PaymentEmailData = {
               userName: (populatedOrder.userId as any).fullName || "Khách hàng",
@@ -649,7 +688,7 @@ class PaymentService {
               cinema:
                 (populatedOrder.showtimeId as any)?.theaterId?.name || "N/A",
               room: populatedOrder.room || "N/A", // Lấy từ Order.room
-              roomType: roomType,
+              roomType: finalRoomType,
               showtime: `${populatedOrder.showDate} ${populatedOrder.showTime}`,
               seats: populatedOrder.seats.map((seat) => seat.seatId),
               ticketPrice: populatedOrder.ticketPrice || 0,

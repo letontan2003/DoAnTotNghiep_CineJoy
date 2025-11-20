@@ -107,6 +107,17 @@ export const verifyPasswordApi = async (data: { password: string }) => {
   return response.data;
 };
 
+export const changePasswordApi = async (data: {
+  currentPassword: string;
+  newPassword: string;
+}) => {
+  const response = await axios.post<IBackendResponse<null>>(
+    "/v1/api/auth/change-password",
+    data
+  );
+  return response.data;
+};
+
 export const fetchAccountApi = async () => {
   const response = await axios.get<IBackendResponse<IFetchAccount>>(
     "/v1/api/auth/account",

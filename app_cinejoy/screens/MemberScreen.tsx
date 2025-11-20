@@ -21,6 +21,7 @@ type RootStackParamList = {
   MemberScreen: undefined;
   BookingHistoryScreen: undefined;
   AccountInfoScreen: undefined;
+  ChangePasswordScreen: undefined;
 };
 
 type MemberScreenNavigationProp = StackNavigationProp<
@@ -56,6 +57,10 @@ const MemberScreen = () => {
   const handleMenuItemPress = (itemId: number) => {
     if (itemId === 1) {
       navigation.navigate("AccountInfoScreen");
+      return;
+    }
+    if (itemId === 2) {
+      navigation.navigate("ChangePasswordScreen");
       return;
     }
   };

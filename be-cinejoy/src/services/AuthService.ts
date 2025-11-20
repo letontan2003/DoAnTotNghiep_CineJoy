@@ -10,6 +10,9 @@ import {
   sendWelcomeEmail,
 } from "../utils/emailService";
 
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 const generateAccessToken = (userId: string): string => {
   const payload = { id: userId };
   const secret: Secret = JWT_SECRET;
@@ -310,6 +313,62 @@ const verifyPassword = async (userId: string, password: string) => {
   };
 };
 
+const changePassword = async (
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+) => {
+  const rawUser = await User.findById(userId);
+  if (!rawUser) {
+    return {
+      status: false,
+      error: 1,
+      message: "Không tìm thấy tài khoản",
+      data: null,
+    };
+  }
+
+  const isCurrentMatch = await rawUser.comparePassword(currentPassword);
+  if (!isCurrentMatch) {
+    return {
+      status: false,
+      error: 1,
+      message: "Mật khẩu hiện tại không chính xác",
+      data: null,
+    };
+  }
+
+  const isSameAsOld = await rawUser.comparePassword(newPassword);
+  if (isSameAsOld) {
+    return {
+      status: false,
+      error: 1,
+      message: "Mật khẩu mới không được trùng với mật khẩu hiện tại",
+      data: null,
+    };
+  }
+
+  if (!PASSWORD_REGEX.test(newPassword)) {
+    return {
+      status: false,
+      error: 1,
+      message:
+        "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt",
+      data: null,
+    };
+  }
+
+  rawUser.password = newPassword;
+  await rawUser.save();
+
+  return {
+    status: true,
+    error: 0,
+    message: "Đổi mật khẩu thành công",
+    data: null,
+  };
+};
+
 export default {
   register,
   login,
@@ -320,4 +379,5 @@ export default {
   verifyOtp,
   resetPassword,
   verifyPassword,
+  changePassword,
 };

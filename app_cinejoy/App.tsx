@@ -22,6 +22,7 @@ import BookingDetailScreen from "@/screens/BookingDetailScreen";
 import BlogDetailScreen from "@/screens/BlogDetailScreen";
 import HotNewsListScreen from "@/screens/HotNewsListScreen";
 import AccountInfoScreen from "@/screens/AccountInfoScreen";
+import ChangePasswordScreen from "@/screens/ChangePasswordScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -95,6 +96,10 @@ export default function App() {
                 <Stack.Screen
                   name="AccountInfoScreen"
                   component={AccountInfoScreen}
+                />
+                <Stack.Screen
+                  name="ChangePasswordScreen"
+                  component={ChangePasswordScreen}
                 />
               </Stack.Navigator>
             </NavigationContainer>
