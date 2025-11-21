@@ -595,10 +595,17 @@ export const redeemVoucherApi = async (
 };
 
 // Chatbot APIs
-export const sendChatbotMessageApi = async (message: string) => {
-  const response = await axios.post<{ reply: string }>("/chatbot/chat", {
-    message,
-  });
+export const sendChatbotMessageApi = async (payload: {
+  message?: string;
+  imageBase64?: string;
+  mimeType?: string;
+}) => {
+  const response = await axios.post<{
+    reply: string;
+    movie?: any;
+    showtimes?: any[];
+    movieTitle?: string;
+  }>("/chatbot/chat", payload);
   return response.data;
 };
 

@@ -56,7 +56,7 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
   const menuGridItems = [
     { id: 1, title: "Trang chủ", icon: "🏠" },
     { id: 2, title: "Thành viên CNJ", icon: "👤" },
-    { id: 3, title: "Chatbot hỗ trợ", icon: "💬" },
+    { id: 3, title: "CNJ hỗ trợ", icon: "💬" },
     { id: 4, title: "Tin mới & Ưu đãi", icon: "🎁" },
     { id: 5, title: "Vé của tôi", icon: "🎟️" },
     { id: 6, title: "Đổi ưu đãi", icon: "🎗️" },
@@ -101,7 +101,7 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
         navigation.navigate("LoginScreen");
       }
     } else if (item.id === 3) {
-      // Chatbot hỗ trợ
+      // CineJoy hỗ trợ
       onClose();
       navigation.navigate("ChatbotScreen");
     } else if (item.id === 4) {

@@ -18,7 +18,8 @@ import Fontisto from "@expo/vector-icons/Fontisto";
 import { useEffect, useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import SideMenu from "@/components/SideMenu";
-import { sendChatbotMessageApi, uploadChatbotImageApi } from "@/services/api";
+import { sendChatbotMessageApi } from "@/services/api";
+import Logo from "@/assets/CineJoyLogo.png";
 
 type RootStackParamList = {
   ChatbotScreen: undefined;
@@ -53,24 +54,24 @@ const quickSuggestions = [
 
 const TypingIndicator = () => {
   const anims = [
-    useRef(new Animated.Value(0.2)).current,
-    useRef(new Animated.Value(0.2)).current,
-    useRef(new Animated.Value(0.2)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
   ];
 
   useEffect(() => {
     const loops = anims.map((anim, index) =>
       Animated.loop(
         Animated.sequence([
-          Animated.delay(index * 120),
+          Animated.delay(index * 350),
           Animated.timing(anim, {
-            toValue: 1,
-            duration: 250,
+            toValue: -6,
+            duration: 400,
             useNativeDriver: true,
           }),
           Animated.timing(anim, {
-            toValue: 0.2,
-            duration: 250,
+            toValue: 0,
+            duration: 400,
             useNativeDriver: true,
           }),
         ])
@@ -88,15 +89,7 @@ const TypingIndicator = () => {
           style={[
             styles.dot,
             {
-              opacity: anim,
-              transform: [
-                {
-                  scale: anim.interpolate({
-                    inputRange: [0.2, 1],
-                    outputRange: [0.8, 1.1],
-                  }),
-                },
-              ],
+              transform: [{ translateY: anim }],
             },
           ]}
         />
@@ -110,6 +103,11 @@ const ChatbotScreen = () => {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputMessage, setInputMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{
+    uri: string;
+    base64: string;
+    mimeType: string;
+  } | null>(null);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -118,29 +116,41 @@ const ChatbotScreen = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isProcessing) return;
     const trimmed = inputMessage.trim();
+    if ((!trimmed && !pendingImage) || isProcessing) return;
+
+    const imageToSend = pendingImage;
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       sender: "user",
       text: trimmed,
       timestamp: Date.now(),
+      imageUri: imageToSend?.uri,
     };
+
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
+    setPendingImage(null);
     setIsProcessing(true);
+
     try {
-      const response = await sendChatbotMessageApi(trimmed);
+      const response = await sendChatbotMessageApi({
+        message: trimmed || undefined,
+        imageBase64: imageToSend?.base64,
+        mimeType: imageToSend?.mimeType,
+      });
       const replyText =
         response?.reply?.trim() ||
         "Xin lỗi, tôi chưa thể phản hồi ngay lúc này. Bạn vui lòng thử lại sau nhé!";
-      const botMessage: Message = {
-        id: `bot-${Date.now()}`,
-        sender: "bot",
-        text: replyText,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          sender: "bot",
+          text: replyText,
+          timestamp: Date.now(),
+        },
+      ]);
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -193,47 +203,14 @@ const ChatbotScreen = () => {
         Alert.alert("Lỗi", "Không đọc được dữ liệu ảnh. Hãy thử ảnh khác nhé!");
         return;
       }
-
-      const imageMessage: Message = {
-        id: `user-img-${Date.now()}`,
-        sender: "user",
-        text: "📷 Đã gửi hình ảnh",
-        timestamp: Date.now(),
-        imageUri: asset.uri,
-      };
-
-      setMessages((prev) => [...prev, imageMessage]);
-      setIsProcessing(true);
-
-      const response = await uploadChatbotImageApi(
-        base64Source,
-        asset.mimeType || "image/jpeg"
-      );
-      const replyText =
-        response?.reply ||
-        "Đã nhận được hình ảnh của bạn. CineJoy sẽ hỗ trợ ngay!";
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-${Date.now()}`,
-          sender: "bot",
-          text: replyText,
-          timestamp: Date.now(),
-        },
-      ]);
+      setPendingImage({
+        uri: asset.uri,
+        base64: base64Source,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
     } catch (error) {
       console.error("handlePickImage error", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-error-${Date.now()}`,
-          sender: "bot",
-          text: "Xin lỗi, có lỗi khi xử lý ảnh. Bạn vui lòng thử lại sau.",
-          timestamp: Date.now(),
-        },
-      ]);
-    } finally {
-      setIsProcessing(false);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Bạn vui lòng thử lại sau.");
     }
   };
 
@@ -250,7 +227,7 @@ const ChatbotScreen = () => {
         >
           <Fontisto name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chatbot hỗ trợ</Text>
+        <Text style={styles.headerTitle}>CineJoy hỗ trợ</Text>
         <TouchableOpacity style={styles.menuButton} onPress={toggleSideMenu}>
           <Text style={styles.menuButtonText}>☰</Text>
         </TouchableOpacity>
@@ -278,7 +255,7 @@ const ChatbotScreen = () => {
               >
                 {message.sender === "bot" && (
                   <View style={styles.avatarBot}>
-                    <Text style={styles.avatarText}>CJ</Text>
+                    <Image source={Logo} style={styles.avatarImage} />
                   </View>
                 )}
                 <View
@@ -295,23 +272,25 @@ const ChatbotScreen = () => {
                       style={styles.messageImage}
                     />
                   )}
-                  <Text
-                    style={[
-                      styles.messageText,
-                      message.sender === "user"
-                        ? styles.messageTextUser
-                        : styles.messageTextBot,
-                    ]}
-                  >
-                    {message.text}
-                  </Text>
+                  {!!message.text && (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        message.sender === "user"
+                          ? styles.messageTextUser
+                          : styles.messageTextBot,
+                      ]}
+                    >
+                      {message.text}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
             {isProcessing && (
               <View style={[styles.messageRow, styles.rowBot]}>
                 <View style={styles.avatarBot}>
-                  <Text style={styles.avatarText}>CJ</Text>
+                  <Image source={Logo} style={styles.avatarImage} />
                 </View>
                 <View style={[styles.messageBubble, styles.bubbleBot]}>
                   <TypingIndicator />
@@ -332,6 +311,21 @@ const ChatbotScreen = () => {
                 <Text style={styles.suggestionText}>{suggestion}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+
+        {pendingImage && (
+          <View style={styles.pendingImageContainer}>
+            <Image
+              source={{ uri: pendingImage.uri }}
+              style={styles.pendingImage}
+            />
+            <TouchableOpacity
+              style={styles.removePendingButton}
+              onPress={() => setPendingImage(null)}
+            >
+              <Text style={styles.removePendingText}>×</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -357,11 +351,11 @@ const ChatbotScreen = () => {
           <TouchableOpacity
             style={[
               styles.sendButton,
-              (!inputMessage.trim() || isProcessing) &&
+              ((!inputMessage.trim() && !pendingImage) || isProcessing) &&
                 styles.sendButtonDisabled,
             ]}
             onPress={handleSendMessage}
-            disabled={!inputMessage.trim() || isProcessing}
+            disabled={(!inputMessage.trim() && !pendingImage) || isProcessing}
           >
             <Fontisto name="paper-plane" size={18} color="#fff" />
           </TouchableOpacity>
@@ -440,14 +434,8 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#f97316",
     alignItems: "center",
     justifyContent: "center",
-  },
-  avatarText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 12,
   },
   messageBubble: {
     maxWidth: "75%",
@@ -475,8 +463,9 @@ const styles = StyleSheet.create({
     color: "#e2e8f0",
   },
   messageImage: {
-    width: 180,
-    height: 180,
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
     borderRadius: 12,
     marginBottom: 8,
   },
@@ -510,6 +499,31 @@ const styles = StyleSheet.create({
     color: "#e2e8f0",
     fontSize: 12,
     fontWeight: "500",
+  },
+  pendingImageContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    gap: 12,
+  },
+  pendingImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+  },
+  removePendingButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removePendingText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
   },
   inputContainer: {
     flexDirection: "row",
@@ -562,6 +576,11 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: "#9ca3af",
+  },
+  avatarImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
 });
 

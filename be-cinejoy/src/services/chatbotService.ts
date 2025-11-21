@@ -1938,4 +1938,94 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   },
 };
 
+export const generatePosterQuestionReply = async ({
+  posterInfo,
+  question,
+  sessionId = "default",
+  userId,
+}: {
+  posterInfo: {
+    success: boolean;
+    movieTitle?: string;
+    movie?: any;
+    showtimes?: any[];
+    message: string;
+  };
+  question: string;
+  sessionId?: string;
+  userId?: string;
+}) => {
+  const userInfo = await ChatbotService.getUserInfo(userId);
+  const userName = userInfo?.firstName || "bạn";
+
+  const movie = posterInfo.movie;
+  const movieSummary = movie
+    ? `Tên phim: ${movie.title}
+Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}
+Thời lượng: ${movie.duration || "Chưa cập nhật"} phút
+Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}
+Trạng thái: ${movie.status || "Chưa cập nhật"}`
+    : `Poster được nhận diện là "${
+        posterInfo.movieTitle || "một phim chưa có trong hệ thống"
+      }".`;
+
+  const showtimeSummary =
+    posterInfo.showtimes && posterInfo.showtimes.length > 0
+      ? posterInfo.showtimes
+          .slice(0, 3)
+          .map((st: any, index: number) => {
+            const theaterName = st.theaterId?.name || "Chưa có tên";
+            const firstShow = st.showTimes?.[0];
+            if (firstShow) {
+              const date = new Date(firstShow.date).toLocaleDateString("vi-VN");
+              const time = new Date(firstShow.start).toLocaleTimeString(
+                "vi-VN",
+                { hour: "2-digit", minute: "2-digit" }
+              );
+              return `${index + 1}. Rạp ${theaterName} - ${date} ${time}`;
+            }
+            return `${index + 1}. Rạp ${theaterName}`;
+          })
+          .join("\n")
+      : "Hiện chưa có suất chiếu sẵn sàng.";
+
+  const prompt = `
+Bạn là CineJoy Assistant. Hệ thống đã phân tích poster với kết quả:
+${posterInfo.message}
+
+Tóm tắt phim:
+${movieSummary}
+
+Lịch chiếu (nếu có):
+${showtimeSummary}
+
+Người dùng (${userName}) hỏi thêm: "${question}"
+
+Nhiệm vụ:
+1. Trả lời duy nhất một đoạn văn (có thể xuống dòng nhưng không được chào hỏi lặp lại nếu đã trả lời trước đó).
+2. Nếu phim chưa có trong hệ thống, giải thích rõ và gợi ý các lựa chọn khác.
+3. Nếu phim có trong hệ thống, kết hợp thông tin poster + câu hỏi để trả lời trực tiếp.
+4. Không nhắc lại thông tin phân tích theo dạng máy móc; hãy diễn đạt lại tự nhiên.
+5. Chỉ trả lời một lần duy nhất.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let reply =
+      response.text() ||
+      "Xin lỗi, tôi chưa thể trả lời ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+    reply = reply.replace(/\*\*/g, "").replace(/\*/g, "");
+
+    ChatbotService.saveMessage(sessionId, { sender: "bot", text: reply });
+    return reply;
+  } catch (error) {
+    console.error("Error generating poster question reply:", error);
+    const fallback =
+      "Xin lỗi, hệ thống đang bận nên chưa thể trả lời câu hỏi về poster ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+    ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
+    return fallback;
+  }
+};
+
 export default ChatbotService;

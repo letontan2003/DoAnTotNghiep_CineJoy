@@ -1,22 +1,108 @@
-import chatbotService from "../services/chatbotService";
+import chatbotService, {
+  generatePosterQuestionReply,
+} from "../services/chatbotService";
 
 const ChatbotController = {
   //Chatbot ứng dụng web
   getChatResponse: async (req: any, res: any) => {
-    const { message, sessionId = "default" } = req.body;
+    const {
+      message = "",
+      imageBase64,
+      mimeType = "image/jpeg",
+      sessionId = "default",
+    } = req.body;
 
-    if (!message) {
+    if (!message.trim() && !imageBase64) {
       return res.status(400).json({ error: "Tin nhắn không được để trống." });
     }
 
     const userId = (req as any).user?._id?.toString() || req.body.userId;
+    let finalReply = "";
 
-    const response = await chatbotService.getResponse(
-      message,
-      sessionId,
-      userId
-    );
-    res.json({ reply: response });
+    try {
+      let imageResult: {
+        success: boolean;
+        movieTitle?: string;
+        movie?: any;
+        showtimes?: any[];
+        message: string;
+      } | null = null;
+
+      if (imageBase64) {
+        imageResult = await chatbotService.processPosterUpload(
+          imageBase64,
+          mimeType,
+          userId
+        );
+
+        chatbotService.saveMessage(sessionId, {
+          sender: "user",
+          text: "[Đã gửi hình ảnh]",
+        });
+
+        if (!message.trim()) {
+          chatbotService.saveMessage(sessionId, {
+            sender: "bot",
+            text: imageResult.message,
+          });
+          finalReply = imageResult.message;
+        }
+      }
+
+      if (message.trim()) {
+        chatbotService.saveMessage(sessionId, {
+          sender: "user",
+          text: message,
+        });
+
+        let responseText = "";
+
+        if (imageResult) {
+          responseText = await generatePosterQuestionReply({
+            posterInfo: imageResult,
+            question: message,
+            sessionId,
+            userId,
+          });
+        } else {
+          const response = await chatbotService.getResponse(
+            message,
+            sessionId,
+            userId
+          );
+
+          responseText =
+            typeof response === "string"
+              ? response
+              : response && typeof response.toString === "function"
+              ? response.toString()
+              : "";
+
+          chatbotService.saveMessage(sessionId, {
+            sender: "bot",
+            text: responseText,
+          });
+        }
+
+        finalReply = responseText;
+      }
+
+      if (!finalReply && imageResult) {
+        finalReply = imageResult.message;
+      }
+
+      res.json({
+        reply: finalReply,
+        movie: imageResult?.movie,
+        showtimes: imageResult?.showtimes,
+        movieTitle: imageResult?.movieTitle,
+      });
+    } catch (error) {
+      console.error("Error handling chatbot message:", error);
+      res.status(500).json({
+        error: "Đã có lỗi xảy ra khi xử lý yêu cầu. Vui lòng thử lại sau.",
+      });
+    }
   },
 
   // Xử lý upload poster phim (Multi-modal)
