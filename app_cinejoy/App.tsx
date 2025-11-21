@@ -26,6 +26,7 @@ import ChangePasswordScreen from "@/screens/ChangePasswordScreen";
 import MemberCardScreen from "@/screens/MemberCardScreen";
 import CNJPointsScreen from "@/screens/CNJPointsScreen";
 import VoucherScreen from "@/screens/VoucherScreen";
+import ChatbotScreen from "@/screens/ChatbotScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -113,6 +114,7 @@ export default function App() {
                   component={CNJPointsScreen}
                 />
                 <Stack.Screen name="VoucherScreen" component={VoucherScreen} />
+                <Stack.Screen name="ChatbotScreen" component={ChatbotScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </AppProvider>

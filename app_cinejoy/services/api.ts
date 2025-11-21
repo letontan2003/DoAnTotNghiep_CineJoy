@@ -594,4 +594,26 @@ export const redeemVoucherApi = async (
   }
 };
 
+// Chatbot APIs
+export const sendChatbotMessageApi = async (message: string) => {
+  const response = await axios.post<{ reply: string }>("/chatbot/chat", {
+    message,
+  });
+  return response.data;
+};
+
+export const uploadChatbotImageApi = async (
+  imageBase64: string,
+  mimeType: string
+) => {
+  const response = await axios.post<{ reply: string }>(
+    "/chatbot/upload-poster",
+    {
+      imageBase64,
+      mimeType,
+    }
+  );
+  return response.data;
+};
+
 export default axios;
