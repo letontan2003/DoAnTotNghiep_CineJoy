@@ -22,6 +22,7 @@ type RootStackParamList = {
   BookingHistoryScreen: undefined;
   AccountInfoScreen: undefined;
   ChangePasswordScreen: undefined;
+  MemberCardScreen: undefined;
 };
 
 type MemberScreenNavigationProp = StackNavigationProp<
@@ -63,7 +64,11 @@ const MemberScreen = () => {
       navigation.navigate("ChangePasswordScreen");
       return;
     }
-    if (itemId === 6) {
+    if (itemId === 3) {
+      navigation.navigate("MemberCardScreen");
+      return;
+    }
+    if (itemId === 5) {
       navigation.navigate("BookingHistoryScreen");
       return;
     }
@@ -74,9 +79,8 @@ const MemberScreen = () => {
     { id: 1, title: "Thông tin Tài khoản", icon: "person" },
     { id: 2, title: "Đổi mật khẩu", icon: "locked" },
     { id: 3, title: "Thẻ thành viên", icon: "star" },
-    { id: 4, title: "Giới Thiệu Bạn Mới", icon: "persons" },
-    { id: 5, title: "Điểm", icon: "wallet" },
-    { id: 6, title: "Lịch sử giao dịch", icon: "history" },
+    { id: 4, title: "Điểm", icon: "wallet" },
+    { id: 5, title: "Lịch sử giao dịch", icon: "history" },
   ];
 
   return (
@@ -219,6 +223,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
+    marginLeft: 40,
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",

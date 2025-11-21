@@ -513,13 +513,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
   },
   editInput: {
     borderWidth: 0,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     minWidth: 180,
     textAlign: "right",
     fontSize: 14,
@@ -611,7 +610,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   genderModalItem: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 20,
   },
   genderModalText: {

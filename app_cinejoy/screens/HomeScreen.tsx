@@ -1077,7 +1077,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 100,
     height: 100,
-    marginLeft: 25,
+    marginLeft: 45,
     resizeMode: "contain",
   },
   logoImageSticky: {
