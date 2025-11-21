@@ -30,6 +30,7 @@ type RootStackParamList = {
   MovieDetailScreen: undefined;
   MemberScreen: undefined;
   BookingHistoryScreen: undefined;
+  HotNewsListScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -100,6 +101,10 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
       } else {
         navigation.navigate("LoginScreen");
       }
+    } else if (item.id === 5) {
+      // Tin mới & Ưu đãi
+      onClose();
+      navigation.navigate("HotNewsListScreen");
     } else if (item.id === 6) {
       onClose();
       if (isAuthenticated) {
