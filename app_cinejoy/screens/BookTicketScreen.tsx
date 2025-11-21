@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
 import { useAppSelector } from "@/store/hooks";
 
 const { width, height } = Dimensions.get("window");
+const FORMAT_OPTIONS = ["TẤT CẢ", "2D", "4DX"];
 
 type RootStackParamList = {
   HomeScreen: undefined;
@@ -80,6 +81,38 @@ const BookTicketScreen = () => {
   const [loadingShowtimes, setLoadingShowtimes] = useState<{
     [theaterId: string]: boolean;
   }>({});
+  const [formatFilter, setFormatFilter] = useState("TẤT CẢ");
+  const [showFormatDropdown, setShowFormatDropdown] = useState(false);
+
+  const requestShowtimesForTheater = useCallback(
+    async (theaterId: string) => {
+      try {
+        setLoadingShowtimes((prev) => ({ ...prev, [theaterId]: true }));
+        const showtimesData = await getShowtimesByTheaterMovieApi(
+          theaterId,
+          movie._id
+        );
+        const payload =
+          Array.isArray(showtimesData) && showtimesData.length > 0
+            ? showtimesData[0]
+            : ({
+                _id: `${theaterId}-empty`,
+                movieId: movie._id,
+                theaterId,
+                showTimes: [],
+              } as IShowtime);
+        setShowtimes((prev) => ({
+          ...prev,
+          [theaterId]: payload,
+        }));
+      } catch (error) {
+        console.error("Error fetching showtimes:", error);
+      } finally {
+        setLoadingShowtimes((prev) => ({ ...prev, [theaterId]: false }));
+      }
+    },
+    [movie._id]
+  );
 
   // Render tên rạp với phần "CNJ" màu đỏ, phần còn lại màu đen
   const renderTheaterName = (name: string) => {
@@ -227,7 +260,6 @@ const BookTicketScreen = () => {
   const fetchShowtimesForTheater = async (theaterId: string) => {
     const isCurrentlyExpanded = expandedTheaters[theaterId];
 
-    // Nếu đang expanded, chỉ toggle để đóng lại
     if (isCurrentlyExpanded) {
       setExpandedTheaters((prev) => ({
         ...prev,
@@ -236,41 +268,16 @@ const BookTicketScreen = () => {
       return;
     }
 
-    // Nếu đã có data nhưng chưa expanded, chỉ toggle để mở
-    if (showtimes[theaterId]) {
-      setExpandedTheaters((prev) => ({
-        ...prev,
-        [theaterId]: true,
-      }));
+    setExpandedTheaters((prev) => ({
+      ...prev,
+      [theaterId]: true,
+    }));
+
+    if (showtimes[theaterId] || loadingShowtimes[theaterId]) {
       return;
     }
 
-    // Chưa có data, fetch và mở
-    try {
-      setExpandedTheaters((prev) => ({
-        ...prev,
-        [theaterId]: true,
-      }));
-      setLoadingShowtimes((prev) => ({ ...prev, [theaterId]: true }));
-      const showtimesData = await getShowtimesByTheaterMovieApi(
-        theaterId,
-        movie._id
-      );
-      if (Array.isArray(showtimesData) && showtimesData.length > 0) {
-        setShowtimes((prev) => ({
-          ...prev,
-          [theaterId]: showtimesData[0],
-        }));
-      }
-      setExpandedTheaters((prev) => ({
-        ...prev,
-        [theaterId]: true,
-      }));
-    } catch (error) {
-      console.error("Error fetching showtimes:", error);
-    } finally {
-      setLoadingShowtimes((prev) => ({ ...prev, [theaterId]: false }));
-    }
+    await requestShowtimesForTheater(theaterId);
   };
 
   // Helper function để format date theo local time (không phải UTC)
@@ -381,6 +388,60 @@ const BookTicketScreen = () => {
     return grouped;
   };
 
+  useEffect(() => {
+    if (!FORMAT_OPTIONS.includes(formatFilter)) {
+      setFormatFilter("TẤT CẢ");
+    }
+  }, [formatFilter]);
+
+  useEffect(() => {
+    if (formatFilter === "TẤT CẢ") return;
+    if (!filteredTheaters || filteredTheaters.length === 0) return;
+
+    filteredTheaters.forEach((theater) => {
+      if (!showtimes[theater._id] && !loadingShowtimes[theater._id]) {
+        requestShowtimesForTheater(theater._id);
+      }
+    });
+  }, [
+    filteredTheaters,
+    formatFilter,
+    loadingShowtimes,
+    requestShowtimesForTheater,
+    showtimes,
+  ]);
+
+  const filterShowtimesByFormat = (sessions: any[]) => {
+    if (formatFilter === "TẤT CẢ") return sessions;
+    return sessions.filter(
+      (session) => getSessionRoomType(session) === formatFilter
+    );
+  };
+
+  const theatersToDisplay =
+    formatFilter === "TẤT CẢ"
+      ? filteredTheaters
+      : filteredTheaters.filter((theater) => {
+          const theaterShowtime = showtimes[theater._id];
+          if (!theaterShowtime) return false;
+          const showtimesForDate = getShowtimesForDate(
+            theaterShowtime,
+            selectedDate
+          );
+          if (!showtimesForDate || showtimesForDate.length === 0) {
+            return false;
+          }
+          const filteredSessions = filterShowtimesByFormat(showtimesForDate);
+          return filteredSessions.length > 0;
+        });
+
+  const hasFormatFilterApplied = formatFilter !== "TẤT CẢ";
+  const isFetchingFormatData =
+    hasFormatFilterApplied &&
+    filteredTheaters.some(
+      (theater) => loadingShowtimes[theater._id] && !showtimes[theater._id]
+    );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
@@ -406,9 +467,47 @@ const BookTicketScreen = () => {
       {/* Sub Header */}
       <View style={styles.subHeader}>
         <Text style={styles.subHeaderLeft}>Định dạng phim</Text>
-        <TouchableOpacity>
-          <Text style={styles.subHeaderRight}>TẤT CẢ</Text>
-        </TouchableOpacity>
+        <View style={styles.formatSelectorWrapper}>
+          <TouchableOpacity
+            style={styles.formatSelector}
+            onPress={() => setShowFormatDropdown((prev) => !prev)}
+          >
+            <Text style={styles.subHeaderRight}>{formatFilter}</Text>
+            <Fontisto
+              name={showFormatDropdown ? "angle-up" : "angle-down"}
+              size={14}
+              color="#E50914"
+            />
+          </TouchableOpacity>
+          {showFormatDropdown && (
+            <View style={styles.formatDropdown}>
+              {FORMAT_OPTIONS.map((option, idx) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.formatDropdownItem,
+                    idx === FORMAT_OPTIONS.length - 1 &&
+                      styles.formatDropdownItemLast,
+                  ]}
+                  onPress={() => {
+                    setFormatFilter(option);
+                    setShowFormatDropdown(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.formatDropdownText,
+                      option === formatFilter &&
+                        styles.formatDropdownTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Date Selection Bar */}
@@ -518,8 +617,8 @@ const BookTicketScreen = () => {
       ) : (
         <FlatList
           data={
-            filteredTheaters && filteredTheaters.length > 0
-              ? filteredTheaters
+            theatersToDisplay && theatersToDisplay.length > 0
+              ? theatersToDisplay
               : []
           }
           keyExtractor={(item) => item._id}
@@ -529,7 +628,11 @@ const BookTicketScreen = () => {
             const showtimesForDate = theaterShowtime
               ? getShowtimesForDate(theaterShowtime, selectedDate)
               : [];
-            const groupedShowtimes = groupShowtimesByFormat(showtimesForDate);
+            const filteredSessions =
+              showtimesForDate && showtimesForDate.length > 0
+                ? filterShowtimesByFormat(showtimesForDate)
+                : [];
+            const groupedShowtimes = groupShowtimesByFormat(filteredSessions);
 
             return (
               <View style={styles.theaterCard}>
@@ -553,7 +656,7 @@ const BookTicketScreen = () => {
                   <View style={styles.showtimesContainer}>
                     {loadingShowtimes[theater._id] ? (
                       <ShowtimeListSkeleton rows={2} />
-                    ) : !showtimesForDate || showtimesForDate.length === 0 ? (
+                    ) : !filteredSessions || filteredSessions.length === 0 ? (
                       <Text style={styles.noShowtimeText}>
                         Không có suất chiếu cho ngày này
                       </Text>
@@ -658,6 +761,19 @@ const BookTicketScreen = () => {
           }
           ListEmptyComponent={() => {
             if (!selectedRegion) return null;
+
+            if (hasFormatFilterApplied) {
+              return (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    {isFetchingFormatData
+                      ? `Đang tải suất chiếu ${formatFilter}...`
+                      : `Không có rạp nào có suất chiếu ${formatFilter} trong khu vực này cho ngày đã chọn`}
+                  </Text>
+                </View>
+              );
+            }
+
             return (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
@@ -736,9 +852,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingTop:
-      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 70 : 100,
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 70 : 95,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
@@ -749,7 +865,54 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   subHeaderRight: {
+    fontSize: 12,
+    color: "#E50914",
+    fontWeight: "600",
+    paddingVertical: 6,
+  },
+  formatSelectorWrapper: {
+    position: "relative",
+  },
+  formatSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E50914",
+    borderRadius: 16,
+    backgroundColor: "#fff",
+  },
+  formatDropdown: {
+    position: "absolute",
+    top: 38,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 2000,
+    minWidth: 140,
+  },
+  formatDropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  formatDropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+  formatDropdownText: {
     fontSize: 14,
+    color: "#333",
+  },
+  formatDropdownTextSelected: {
     color: "#E50914",
     fontWeight: "600",
   },
