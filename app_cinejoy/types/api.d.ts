@@ -160,3 +160,72 @@ export interface IShowtime {
   theaterId: string | ITheater;
   showTimes: IShowtimeSession[];
 }
+
+// Voucher types
+export interface VoucherDetail {
+  _id?: string;
+  description?: string;
+  pointToRedeem?: number;
+  quantity?: number;
+  totalQuantity?: number;
+  discountPercent?: number;
+  maxDiscountValue?: number;
+}
+
+export interface IPromotionLine {
+  promotionType: "item" | "amount" | "percent" | "voucher";
+  validityPeriod: {
+    startDate: Date | string;
+    endDate: Date | string;
+  };
+  status: "hoạt động" | "không hoạt động";
+  detail: VoucherDetail | any;
+  rule?: {
+    stackingPolicy: "STACKABLE" | "EXCLUSIVE" | "EXCLUSIVE_WITH_GROUP";
+    exclusionGroup?: string;
+  };
+  code?: string;
+}
+
+export interface IVoucher {
+  _id: string;
+  name: string;
+  promotionalCode: string;
+  description?: string;
+  startDate: Date | string;
+  endDate: Date | string;
+  status: "hoạt động" | "không hoạt động";
+  lines: IPromotionLine[];
+  quantity?: number;
+  discountPercent?: number;
+  pointToRedeem?: number;
+  validityPeriod?: {
+    startDate: Date | string;
+    endDate: Date | string;
+  };
+  applyType?: "voucher" | "combo" | "ticket";
+}
+
+export interface IUserVoucher {
+  _id: string;
+  userId: string;
+  voucherId:
+    | {
+        _id: string;
+        name: string;
+        validityPeriod: {
+          startDate: string;
+          endDate: string;
+        };
+        quantity: number;
+        discountPercent: number;
+        pointToRedeem: number;
+        description?: string;
+      }
+    | string;
+  code: string;
+  status: "unused" | "used" | "expired";
+  redeemedAt: string;
+  usedAt?: string;
+  detailId?: string;
+}

@@ -31,6 +31,7 @@ type RootStackParamList = {
   MemberScreen: undefined;
   BookingHistoryScreen: undefined;
   HotNewsListScreen: undefined;
+  VoucherScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -109,6 +110,14 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
       onClose();
       if (isAuthenticated) {
         navigation.navigate("BookingHistoryScreen");
+      } else {
+        navigation.navigate("LoginScreen");
+      }
+    } else if (item.id === 9) {
+      // Đổi ưu đãi
+      onClose();
+      if (isAuthenticated) {
+        navigation.navigate("VoucherScreen");
       } else {
         navigation.navigate("LoginScreen");
       }

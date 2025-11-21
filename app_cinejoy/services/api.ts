@@ -13,6 +13,8 @@ import {
   IFoodCombo,
   IBlog,
   IUser,
+  IVoucher,
+  IUserVoucher,
 } from "types/api";
 
 const axios = createInstanceAxios(config.API_URL);
@@ -542,6 +544,53 @@ export const getBlogByIdApi = async (blogId: string) => {
   } catch (error: any) {
     console.error("getBlogByIdApi error:", error);
     return null;
+  }
+};
+
+// Voucher APIs
+export const getVouchersApi = async (): Promise<IVoucher[]> => {
+  try {
+    const response = await axios.get<IVoucher[]>("/v1/api/vouchers");
+    return response.data || [];
+  } catch (error) {
+    console.error("Error fetching vouchers:", error);
+    return [];
+  }
+};
+
+export const getMyVouchersApi = async () => {
+  try {
+    const response = await axios.get<IBackendResponse<IUserVoucher[]>>(
+      "/v1/api/vouchers/my-vouchers"
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching my vouchers:", error);
+    return { status: false, message: "Có lỗi xảy ra", data: [] };
+  }
+};
+
+export const redeemVoucherApi = async (
+  voucherId: string,
+  detailId?: string
+) => {
+  try {
+    const response = await axios.post<IBackendResponse<IUserVoucher>>(
+      "/v1/api/vouchers/redeem",
+      {
+        voucherId,
+        detailId,
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Error redeeming voucher:", error);
+    return {
+      status: false,
+      message:
+        error?.response?.data?.message || "Có lỗi xảy ra khi đổi voucher",
+      data: null,
+    };
   }
 };
 
