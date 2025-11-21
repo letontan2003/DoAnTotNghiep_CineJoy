@@ -24,6 +24,7 @@ import HotNewsListScreen from "@/screens/HotNewsListScreen";
 import AccountInfoScreen from "@/screens/AccountInfoScreen";
 import ChangePasswordScreen from "@/screens/ChangePasswordScreen";
 import MemberCardScreen from "@/screens/MemberCardScreen";
+import CNJPointsScreen from "@/screens/CNJPointsScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -105,6 +106,10 @@ export default function App() {
                 <Stack.Screen
                   name="MemberCardScreen"
                   component={MemberCardScreen}
+                />
+                <Stack.Screen
+                  name="CNJPointsScreen"
+                  component={CNJPointsScreen}
                 />
               </Stack.Navigator>
             </NavigationContainer>

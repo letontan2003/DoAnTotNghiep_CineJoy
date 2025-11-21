@@ -23,6 +23,7 @@ type RootStackParamList = {
   AccountInfoScreen: undefined;
   ChangePasswordScreen: undefined;
   MemberCardScreen: undefined;
+  CNJPointsScreen: undefined;
 };
 
 type MemberScreenNavigationProp = StackNavigationProp<
@@ -66,6 +67,10 @@ const MemberScreen = () => {
     }
     if (itemId === 3) {
       navigation.navigate("MemberCardScreen");
+      return;
+    }
+    if (itemId === 4) {
+      navigation.navigate("CNJPointsScreen");
       return;
     }
     if (itemId === 5) {
