@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import SideMenu from "@/components/SideMenu";
 import ShowtimeListSkeleton from "@/components/Skeleton/ShowtimeListSkeleton";
 import RegionChipsSkeleton from "@/components/Skeleton/RegionChipsSkeleton";
 import TheaterCardsSkeleton from "@/components/Skeleton/TheaterCardsSkeleton";
+import FormatFilterSkeleton from "@/components/Skeleton/FormatFilterSkeleton";
 import {
   getRegionsApi,
   getTheatersApi,
@@ -83,6 +84,7 @@ const BookTicketScreen = () => {
   }>({});
   const [formatFilter, setFormatFilter] = useState("TẤT CẢ");
   const [showFormatDropdown, setShowFormatDropdown] = useState(false);
+  const prevFormatFilter = useRef("TẤT CẢ");
 
   const requestShowtimesForTheater = useCallback(
     async (theaterId: string) => {
@@ -391,6 +393,13 @@ const BookTicketScreen = () => {
   useEffect(() => {
     if (!FORMAT_OPTIONS.includes(formatFilter)) {
       setFormatFilter("TẤT CẢ");
+      prevFormatFilter.current = "TẤT CẢ";
+      return;
+    }
+
+    if (prevFormatFilter.current !== formatFilter) {
+      setExpandedTheaters({});
+      prevFormatFilter.current = formatFilter;
     }
   }, [formatFilter]);
 
@@ -441,6 +450,38 @@ const BookTicketScreen = () => {
     filteredTheaters.some(
       (theater) => loadingShowtimes[theater._id] && !showtimes[theater._id]
     );
+
+  useEffect(() => {
+    if (!hasFormatFilterApplied) return;
+    if (!theatersToDisplay || theatersToDisplay.length === 0) return;
+
+    const firstTheater = theatersToDisplay[0];
+    const theaterShowtime = showtimes[firstTheater._id];
+    if (!theaterShowtime) return;
+
+    const showtimesForDate = getShowtimesForDate(theaterShowtime, selectedDate);
+    if (!showtimesForDate || showtimesForDate.length === 0) return;
+
+    const filteredSessions = showtimesForDate.filter(
+      (session) => getSessionRoomType(session) === formatFilter
+    );
+
+    if (filteredSessions.length === 0) return;
+
+    if (!expandedTheaters[firstTheater._id]) {
+      setExpandedTheaters((prev) => ({
+        ...prev,
+        [firstTheater._id]: true,
+      }));
+    }
+  }, [
+    expandedTheaters,
+    formatFilter,
+    hasFormatFilterApplied,
+    selectedDate,
+    showtimes,
+    theatersToDisplay,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -763,12 +804,14 @@ const BookTicketScreen = () => {
             if (!selectedRegion) return null;
 
             if (hasFormatFilterApplied) {
+              if (isFetchingFormatData) {
+                return <FormatFilterSkeleton cardCount={3} />;
+              }
+
               return (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>
-                    {isFetchingFormatData
-                      ? `Đang tải suất chiếu ${formatFilter}...`
-                      : `Không có rạp nào có suất chiếu ${formatFilter} trong khu vực này cho ngày đã chọn`}
+                    {`Không có rạp nào có suất chiếu ${formatFilter} trong khu vực này cho ngày đã chọn`}
                   </Text>
                 </View>
               );
