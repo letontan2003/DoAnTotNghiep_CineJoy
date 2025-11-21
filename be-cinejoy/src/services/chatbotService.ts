@@ -669,8 +669,18 @@ Trả lời:`;
       const response = await result.response;
       const answer = response.text().trim().toUpperCase();
       
-      // Trả lời "NO" nghĩa là câu hỏi ngoài lề (off-topic)
-      return answer.includes("NO") || answer === "KHÔNG";
+      const aiSaysOffTopic = answer.includes("NO") || answer === "KHÔNG";
+      if (!aiSaysOffTopic) {
+        return false;
+      }
+
+      // Nếu AI cho là off-topic nhưng từ khóa cho thấy có liên quan, ưu tiên từ khóa
+      const keywordFallback = ChatbotService.isOffTopicByKeywords(userMessage);
+      if (!keywordFallback) {
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error("Error checking off-topic question:", error);
       // Nếu có lỗi, sử dụng keyword-based fallback
@@ -714,7 +724,9 @@ Trả lời:`;
       'số vé đã mua', 'số lượng vé hoàn tất', 'số lượng vé trả', 'vé của tôi',
       'đơn hàng của tôi', 'tôi đã mua vé nào', 'ngày', 'mua vé',
       'liên hệ', 'thông tin liên hệ', 'email', 'hotline', 'số điện thoại',
-      'cách liên hệ', 'email của cinejoy', 'hotline của cinejoy', 'contact'
+      'cách liên hệ', 'email của cinejoy', 'hotline của cinejoy', 'contact',
+      'chi nhánh', 'branch', 'cơ sở', 'địa chỉ rạp', 'địa điểm rạp', 'hệ thống rạp',
+      'danh sách rạp', 'các rạp cinejoy', 'chi nhánh cinejoy'
     ];
     
     // Từ khóa từ chối (off-topic)
@@ -1419,7 +1431,10 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   processPosterUpload: async (
     imageBase64: string,
     mimeType: string = "image/jpeg",
-    userId?: string
+    options?: {
+      userId?: string;
+      userMessage?: string;
+    }
   ): Promise<{
     success: boolean;
     movieTitle?: string;
@@ -1428,6 +1443,33 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     message: string;
   }> => {
     try {
+      const userId = options?.userId;
+      const userMessage = options?.userMessage;
+
+      const detectPosterQuestionIntent = (
+        input?: string
+      ): "content" | "name" | "part" | "showtime" | null => {
+        if (!input) return null;
+        const trimmed = input.trim();
+        if (!trimmed) return null;
+        const normalized = removeAccents(trimmed).toLowerCase();
+        const cleaned = normalized.replace(/[^a-z0-9]/g, "");
+        if (!cleaned) return null;
+        if (/(noi dung|tom tat|story|plot|noi dung phim|ke ve|noi dung cua phim)/.test(normalized)) {
+          return "content";
+        }
+        if (/(phim gi|phim nao|ten phim|ten gi|movie name|what movie|day la phim|poster gi)/.test(normalized)) {
+          return "name";
+        }
+        if (/(phan may|phan nao|season|tap|episode|part|chuong)/.test(normalized)) {
+          return "part";
+        }
+        if (/(suat chieu|lich chieu|gio chieu|showtime|bao gio chieu|khi nao chieu|thoi gian chieu)/.test(normalized)) {
+          return "showtime";
+        }
+        return null;
+      };
+
       // Bước 1: Nhận diện poster với Gemini Vision
       const recognizedTitle = await ChatbotService.recognizePosterFromImage(imageBase64, mimeType);
 
@@ -1456,35 +1498,38 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       const userInfo = await ChatbotService.getUserInfo(userId);
       const userName = userInfo?.firstName || "bạn";
 
-      let message = `${userName} ơi, tôi đã nhận diện được poster là phim "${movie.title}"!\n\n`;
-      message += `📽️ Thông tin phim:\n`;
-      message += `- Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}\n`;
-      message += `- Thời lượng: ${movie.duration || "Chưa cập nhật"} phút\n`;
-      message += `- Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}\n`;
-      message += `- Trạng thái: ${movie.status || "Chưa cập nhật"}\n\n`;
+      const formatMovieDetails = () => {
+        return `📽️ Thông tin phim:\n` +
+          `- Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}\n` +
+          `- Thời lượng: ${movie.duration || "Chưa cập nhật"} phút\n` +
+          `- Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}\n` +
+          `- Trạng thái: ${movie.status || "Chưa cập nhật"}`;
+      };
 
-      if (showtimes.length === 0) {
-        message += `⚠️ Hiện tại phim này chưa có suất chiếu. Vui lòng kiểm tra lại sau.\n\n`;
-        message += `💬 ${userName} có muốn:\n`;
-        message += `- Tìm hiểu thêm về nội dung phim?\n`;
-        message += `- Xem danh sách các phim khác đang chiếu?\n`;
-        message += `- Biết thêm về diễn viên hoặc đạo diễn của phim?`;
-      } else {
-        message += `🎬 Lịch chiếu:\n`;
+      const formatShowtimeDetails = () => {
+        if (showtimes.length === 0) {
+          let noShowtimeMessage = `⚠️ Hiện tại phim này chưa có suất chiếu. Vui lòng kiểm tra lại sau.\n\n`;
+          noShowtimeMessage += `💬 ${userName} có muốn:\n`;
+          noShowtimeMessage += `- Tìm hiểu thêm về nội dung phim?\n`;
+          noShowtimeMessage += `- Xem danh sách các phim khác đang chiếu?\n`;
+          noShowtimeMessage += `- Biết thêm về diễn viên hoặc đạo diễn của phim?`;
+          return noShowtimeMessage;
+        }
+
+        let showtimeText = `🎬 Lịch chiếu:\n`;
         showtimes.forEach((st: any, index: number) => {
           const theaterName = st.theaterId?.name || "Chưa có tên";
-          message += `\n${index + 1}. Rạp: ${theaterName}\n`;
-          
-          // Lấy các suất chiếu sắp tới (trong 7 ngày tới)
+          showtimeText += `\n${index + 1}. Rạp: ${theaterName}\n`;
+
           const now = new Date();
           const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          
+
           const upcomingShowtimes = st.showTimes
             .filter((showTime: any) => {
               const showDate = new Date(showTime.date);
-              return showDate >= now && showDate <= nextWeek && showTime.status === 'active';
+              return showDate >= now && showDate <= nextWeek && showTime.status === "active";
             })
-            .slice(0, 5); // Chỉ lấy 5 suất gần nhất
+            .slice(0, 5);
 
           if (upcomingShowtimes.length > 0) {
             upcomingShowtimes.forEach((showTime: any) => {
@@ -1494,15 +1539,50 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
                 minute: "2-digit",
               });
               const roomName = showTime.room?.name || "Chưa có";
-              message += `   📅 ${date} - ${start} (Phòng ${roomName})\n`;
+              showtimeText += `   📅 ${date} - ${start} (Phòng ${roomName})\n`;
             });
           } else {
-            message += `   Chưa có suất chiếu sắp tới\n`;
+            showtimeText += `   Chưa có suất chiếu sắp tới\n`;
           }
         });
-        message += `\n💡 ${userName} có muốn:\n`;
-        message += `- Tìm hiểu thêm về nội dung phim?\n`;
-        message += `- Xem các phim cùng thể loại "${movie.genre?.[0] || 'hành động'}"?`;
+        showtimeText += `\n💡 ${userName} có muốn:\n`;
+        showtimeText += `- Tìm hiểu thêm về nội dung phim?\n`;
+        showtimeText += `- Xem các phim cùng thể loại "${movie.genre?.[0] || "hành động"}"?`;
+        return showtimeText;
+      };
+
+      const intent = detectPosterQuestionIntent(userMessage);
+
+      let message: string;
+
+      if (intent === "content") {
+        const description = movie.description?.trim();
+        message = `${userName} ơi, đây là poster của phim "${movie.title}".\n\n`;
+        if (description) {
+          message += `📖 Nội dung phim:\n${description}\n\n`;
+        } else {
+          message += `📖 CineJoy chưa có mô tả chi tiết cho phim này, nhưng bạn có thể tham khảo thông tin tổng quan bên dưới.\n\n`;
+        }
+        message += `${formatShowtimeDetails()}\n\n${formatMovieDetails()}`;
+      } else if (intent === "name") {
+        message = `${userName} ơi, poster bạn gửi chính là phim "${movie.title}".\n\n`;
+        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
+      } else if (intent === "showtime") {
+        message = `${userName} ơi, đây là lịch chiếu của phim "${movie.title}" mà bạn quan tâm:\n\n`;
+        message += `${formatShowtimeDetails()}\n\n${formatMovieDetails()}`;
+      } else if (intent === "part") {
+        const partInfo =
+          movie.title.match(/(phần\s*\d+|season\s*\d+|part\s*\d+|chapter\s*\d+|tập\s*\d+)/i)?.[0] || null;
+        message = `${userName} ơi, poster này là phim "${movie.title}".`;
+        if (partInfo) {
+          message += ` Đây là ${partInfo} theo tiêu đề mà CineJoy đang lưu trữ.\n\n`;
+        } else {
+          message += ` Tiêu đề hiện tại không ghi rõ số phần, nhưng bạn có thể xem thông tin chi tiết bên dưới.\n\n`;
+        }
+        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
+      } else {
+        message = `${userName} ơi, tôi đã nhận diện được poster là phim "${movie.title}"!\n\n`;
+        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
       }
 
       return {

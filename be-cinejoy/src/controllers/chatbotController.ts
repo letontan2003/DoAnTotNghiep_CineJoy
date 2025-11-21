@@ -28,7 +28,7 @@ const ChatbotController = {
     // Xử lý upload poster phim (Multi-modal)
     uploadPoster: async (req: any, res: any) => {
         try {
-            const { imageBase64, mimeType = "image/jpeg", sessionId = "default" } = req.body;
+            const { imageBase64, mimeType = "image/jpeg", sessionId = "default", userMessage } = req.body;
 
             if (!imageBase64) {
                 return res.status(400).json({ 
@@ -44,13 +44,16 @@ const ChatbotController = {
             const result = await chatbotService.processPosterUpload(
                 imageBase64,
                 mimeType,
-                userId
+                {
+                    userId,
+                    userMessage
+                }
             );
 
             // Lưu tin nhắn vào lịch sử
             chatbotService.saveMessage(sessionId, {
                 sender: "user",
-                text: "[Đã upload poster phim]",
+                text: userMessage?.trim()?.length ? userMessage.trim() : "[Đã upload poster phim]",
             });
 
             chatbotService.saveMessage(sessionId, {
