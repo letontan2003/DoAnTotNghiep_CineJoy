@@ -10,13 +10,17 @@ import {
   Platform,
   Linking,
   Alert,
+  FlatList,
 } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import { IMovie } from "@/types/api";
+import { IMovie, IBlog } from "@/types/api";
 import SideMenu from "@/components/SideMenu";
+import { getVisibleBlogsApi } from "@/services/api";
+import banner1 from "assets/banner1.png";
+import HotNewsHorizontalSkeleton from "@/components/Skeleton/HotNewsHorizontalSkeleton";
 
 const { width, height } = Dimensions.get("window");
 
@@ -26,6 +30,8 @@ type RootStackParamList = {
   LoginScreen: undefined;
   MovieDetailScreen: { movie: IMovie };
   BookTicketScreen: { movie: IMovie };
+  HotNewsListScreen: undefined;
+  BlogDetailScreen: { blogId: string; blog?: IBlog };
 };
 
 type MovieDetailScreenNavigationProp = StackNavigationProp<
@@ -44,6 +50,8 @@ const MovieDetailScreen = () => {
   const route = useRoute<MovieDetailScreenRouteProp>();
   const { movie } = route.params;
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [hotNewsItems, setHotNewsItems] = useState<IBlog[]>([]);
+  const [hotNewsLoading, setHotNewsLoading] = useState(false);
 
   // Hàm mở/đóng side menu
   const toggleSideMenu = () => {
@@ -53,6 +61,27 @@ const MovieDetailScreen = () => {
   const closeSideMenu = () => {
     setShowSideMenu(false);
   };
+
+  const fetchHotNews = async () => {
+    try {
+      setHotNewsLoading(true);
+      const response = await getVisibleBlogsApi();
+      if (Array.isArray(response)) {
+        setHotNewsItems(response.slice(0, 6));
+      } else {
+        setHotNewsItems([]);
+      }
+    } catch (error) {
+      console.error("Error fetching hot news:", error);
+      setHotNewsItems([]);
+    } finally {
+      setHotNewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHotNews();
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -263,33 +292,56 @@ const MovieDetailScreen = () => {
           </View>
         </View>
 
-        {/* Promotions Section */}
-        <View style={styles.promotionsSection}>
-          <View style={styles.promotionsHeader}>
-            <Text style={styles.promotionsTitle}>Tin mới & Ưu đãi</Text>
-            <TouchableOpacity>
-              <Text style={styles.promotionsAllButton}>TẤT CẢ</Text>
+        {/* Hot News Section */}
+        <View style={styles.hotNewsSection}>
+          <View style={styles.hotNewsHeader}>
+            <Text style={styles.hotNewsTitle}>Tin mới & Ưu đãi</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate("HotNewsListScreen")}
+            >
+              <Text style={styles.viewAllText}>TẤT CẢ</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.promotionsScrollContent}
-          >
-            <View style={styles.promotionCard}>
-              <Text style={styles.promotionCardLogo}>CNJ</Text>
-              <Text style={styles.promotionCardTitle}>QUÀ ĐỘC QUYỀN</Text>
-              <TouchableOpacity style={styles.promotionCardButton}>
-                <Text style={styles.promotionCardButtonText}>ĐẶT VÉ</Text>
-              </TouchableOpacity>
+          {hotNewsLoading ? (
+            <HotNewsHorizontalSkeleton />
+          ) : hotNewsItems.length === 0 ? (
+            <View style={styles.hotNewsPlaceholder}>
+              <Text style={styles.hotNewsEmptyText}>Chưa có tin nóng</Text>
             </View>
-            <View style={styles.promotionCard}>
-              <Text style={styles.promotionCardLogo}>Zalopay</Text>
-              <Text style={styles.promotionCardTitle}>CNJ</Text>
-              <Text style={styles.promotionCardSubtitle}>Khao Ban T</Text>
-              <Text style={styles.promotionCardText}>Không giới hạn</Text>
-            </View>
-          </ScrollView>
+          ) : (
+            <FlatList
+              data={hotNewsItems}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hotNewsContent}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.hotNewsCard}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    navigation.navigate("BlogDetailScreen", {
+                      blogId: item._id,
+                      blog: item,
+                    })
+                  }
+                >
+                  <Image
+                    source={
+                      item.posterImage ? { uri: item.posterImage } : banner1
+                    }
+                    style={styles.hotNewsImage}
+                  />
+                  <View style={styles.hotNewsCardContent}>
+                    <Text style={styles.hotNewsCardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item._id}
+            />
+          )}
         </View>
 
         {/* Bottom padding for floating button */}
@@ -489,71 +541,77 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-  promotionsSection: {
+  hotNewsSection: {
     backgroundColor: "#000",
-    paddingVertical: 16,
+    paddingTop: 10,
+    paddingBottom: 5,
+    paddingLeft: 16,
+    paddingRight: 0,
   },
-  promotionsHeader: {
+  hotNewsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingRight: 16,
   },
-  promotionsTitle: {
+  hotNewsTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
   },
-  promotionsAllButton: {
-    fontSize: 14,
-    color: "#E50914",
-    fontWeight: "600",
+  viewAllButton: {
+    backgroundColor: "#000",
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  promotionsScrollContent: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  promotionCard: {
-    width: width * 0.7,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 8,
-    padding: 16,
-    marginRight: 12,
-  },
-  promotionCardLogo: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#E50914",
-    marginBottom: 8,
-  },
-  promotionCardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+  viewAllText: {
     color: "#fff",
-    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 0.8,
   },
-  promotionCardSubtitle: {
-    fontSize: 12,
-    color: "#ccc",
-    marginBottom: 4,
+  hotNewsContent: {
+    paddingLeft: 0,
   },
-  promotionCardText: {
-    fontSize: 12,
+  hotNewsPlaceholder: {
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hotNewsEmptyText: {
+    fontSize: 13,
     color: "#888",
-    marginBottom: 12,
   },
-  promotionCardButton: {
-    backgroundColor: "#E50914",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-    alignSelf: "flex-start",
+  hotNewsCard: {
+    width: width * 0.44,
+    marginRight: 10,
+    borderRadius: 12,
+    overflow: "hidden",
   },
-  promotionCardButtonText: {
-    color: "#fff",
+  hotNewsImage: {
+    width: "100%",
+    height: 100,
+    resizeMode: "cover",
+    borderRadius: 12,
+  },
+  hotNewsCardContent: {
+    paddingTop: 6,
+    minHeight: 50,
+  },
+  hotNewsCardTitle: {
     fontSize: 12,
-    fontWeight: "bold",
+    color: "#fff",
+    lineHeight: 16,
+    fontWeight: "600",
   },
   bottomPadding: {
     height: 20,
