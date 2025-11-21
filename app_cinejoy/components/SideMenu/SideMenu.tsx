@@ -32,6 +32,7 @@ type RootStackParamList = {
   BookingHistoryScreen: undefined;
   HotNewsListScreen: undefined;
   VoucherScreen: undefined;
+  ChatbotScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -55,13 +56,10 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
   const menuGridItems = [
     { id: 1, title: "Trang chủ", icon: "🏠" },
     { id: 2, title: "Thành viên CNJ", icon: "👤" },
-    { id: 3, title: "Rạp", icon: "ℹ️" },
-    { id: 4, title: "Rạp đặc biệt", icon: "⭐" },
-    { id: 5, title: "Tin mới & Ưu đãi", icon: "🎁" },
-    { id: 6, title: "Vé của tôi", icon: "🎟️" },
-    { id: 7, title: "CNJ Store", icon: "🍿" },
-    { id: 8, title: "CNJ eGift", icon: "🎁" },
-    { id: 9, title: "Đổi ưu đãi", icon: "🎗️" },
+    { id: 3, title: "Chatbot hỗ trợ", icon: "💬" },
+    { id: 4, title: "Tin mới & Ưu đãi", icon: "🎁" },
+    { id: 5, title: "Vé của tôi", icon: "🎟️" },
+    { id: 6, title: "Đổi ưu đãi", icon: "🎗️" },
   ];
 
   useEffect(() => {
@@ -102,18 +100,23 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
       } else {
         navigation.navigate("LoginScreen");
       }
-    } else if (item.id === 5) {
+    } else if (item.id === 3) {
+      // Chatbot hỗ trợ
+      onClose();
+      navigation.navigate("ChatbotScreen");
+    } else if (item.id === 4) {
       // Tin mới & Ưu đãi
       onClose();
       navigation.navigate("HotNewsListScreen");
-    } else if (item.id === 6) {
+    } else if (item.id === 5) {
+      // Vé của tôi
       onClose();
       if (isAuthenticated) {
         navigation.navigate("BookingHistoryScreen");
       } else {
         navigation.navigate("LoginScreen");
       }
-    } else if (item.id === 9) {
+    } else if (item.id === 6) {
       // Đổi ưu đãi
       onClose();
       if (isAuthenticated) {
@@ -287,16 +290,10 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
                   <Text style={styles.menuPointValue}>{user?.point || 0}</Text>
                 </View>
               </View>
+
+              <View style={styles.menuPointItemSeparator} />
             </>
           )}
-
-          {/* Booking Buttons */}
-          <TouchableOpacity style={styles.menuBookingButton}>
-            <Text style={styles.menuBookingButtonText}>Đặt vé theo Phim</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuBookingButton}>
-            <Text style={styles.menuBookingButtonText}>Đặt vé theo Rạp</Text>
-          </TouchableOpacity>
 
           {/* Menu Grid */}
           <View style={styles.menuGrid}>
@@ -308,7 +305,6 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
               >
                 <View style={styles.menuGridIconContainer}>
                   <Text style={styles.menuGridIcon}>{item.icon}</Text>
-                  {item.id === 8 && <View style={styles.menuGridBadge} />}
                 </View>
                 <Text style={styles.menuGridItemText}>{item.title}</Text>
               </TouchableOpacity>
@@ -548,29 +544,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-  // Booking Buttons
-  menuBookingButton: {
-    borderTopWidth: 1,
+  menuPointItemSeparator: {
+    width: "90%",
     borderBottomWidth: 1,
     borderColor: "#333",
     borderStyle: "solid",
-    backgroundColor: "transparent",
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  menuBookingButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    marginVertical: 10,
+    marginHorizontal: "auto",
   },
   // Menu Grid
   menuGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: 8,
-    paddingTop: 16,
     paddingBottom: 10,
   },
   menuGridItem: {
