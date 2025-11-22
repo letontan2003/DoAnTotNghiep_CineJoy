@@ -8,11 +8,13 @@ import priceListService from "./PriceListService";
 import VoucherService from "./VoucherService";
 import UserVoucherService from "./UserVoucherService";
 import OrderService from "./OrderService";
+import BlogService from "./BlogService";
 
 const { model, cache, conversationCache, PROMPT_CONFIG } = chatbotConfig;
 const showtimeService = new ShowtimeService();
 const voucherService = new VoucherService();
 const userVoucherService = new UserVoucherService();
+const blogService = new BlogService();
 
 const ChatbotService = {
   // Lưu tin nhắn vào lịch sử trò chuyện
@@ -166,7 +168,7 @@ ${timesDetails}
   getPriceInfo: async () => {
     try {
       const priceList = await priceListService.getCurrentPriceList();
-      
+
       if (!priceList) {
         return "Hiện không có bảng giá đang hoạt động.";
       }
@@ -181,32 +183,36 @@ ${timesDetails}
       const singleProductPrices: { name: string; price: number }[] = [];
 
       priceList.lines.forEach((line) => {
-        if (line.type === 'ticket' && line.seatType) {
-          const seatTypeName = 
-            line.seatType === 'normal' ? 'Ghế thường' :
-            line.seatType === 'vip' ? 'Ghế VIP' :
-            line.seatType === 'couple' ? 'Ghế đôi' :
-            line.seatType === '4dx' ? 'Ghế 4DX' :
-            line.seatType;
+        if (line.type === "ticket" && line.seatType) {
+          const seatTypeName =
+            line.seatType === "normal"
+              ? "Ghế thường"
+              : line.seatType === "vip"
+              ? "Ghế VIP"
+              : line.seatType === "couple"
+              ? "Ghế đôi"
+              : line.seatType === "4dx"
+              ? "Ghế 4DX"
+              : line.seatType;
           ticketPrices.push({
             seatType: seatTypeName,
-            price: line.price
+            price: line.price,
           });
-        } else if (line.type === 'combo' && line.productName) {
+        } else if (line.type === "combo" && line.productName) {
           comboPrices.push({
             name: line.productName,
-            price: line.price
+            price: line.price,
           });
-        } else if (line.type === 'single' && line.productName) {
+        } else if (line.type === "single" && line.productName) {
           singleProductPrices.push({
             name: line.productName,
-            price: line.price
+            price: line.price,
           });
         }
       });
 
-      let priceInfo = `Bảng giá hiện tại: ${priceList.name || 'Chưa có tên'}\n`;
-      
+      let priceInfo = `Bảng giá hiện tại: ${priceList.name || "Chưa có tên"}\n`;
+
       if (priceList.description) {
         priceInfo += `Mô tả: ${priceList.description}\n`;
       }
@@ -214,7 +220,9 @@ ${timesDetails}
       priceInfo += `\nGiá vé theo loại ghế:\n`;
       if (ticketPrices.length > 0) {
         ticketPrices.forEach((ticket) => {
-          priceInfo += `- ${ticket.seatType}: ${ticket.price.toLocaleString('vi-VN')}đ\n`;
+          priceInfo += `- ${ticket.seatType}: ${ticket.price.toLocaleString(
+            "vi-VN"
+          )}đ\n`;
         });
       } else {
         priceInfo += `- Chưa có thông tin giá vé\n`;
@@ -223,14 +231,18 @@ ${timesDetails}
       if (comboPrices.length > 0) {
         priceInfo += `\nCombo đồ ăn/nước uống:\n`;
         comboPrices.forEach((combo) => {
-          priceInfo += `- ${combo.name}: ${combo.price.toLocaleString('vi-VN')}đ\n`;
+          priceInfo += `- ${combo.name}: ${combo.price.toLocaleString(
+            "vi-VN"
+          )}đ\n`;
         });
       }
 
       if (singleProductPrices.length > 0) {
         priceInfo += `\nSản phẩm đơn lẻ:\n`;
         singleProductPrices.forEach((product) => {
-          priceInfo += `- ${product.name}: ${product.price.toLocaleString('vi-VN')}đ\n`;
+          priceInfo += `- ${product.name}: ${product.price.toLocaleString(
+            "vi-VN"
+          )}đ\n`;
         });
       }
 
@@ -246,18 +258,18 @@ ${timesDetails}
     try {
       const vouchers = await voucherService.getVouchers();
       const now = new Date();
-      
+
       // Lọc các voucher đang hoạt động
-      const activeVouchers = vouchers.filter(voucher => {
+      const activeVouchers = vouchers.filter((voucher) => {
         const startDate = new Date(voucher.startDate);
         const endDate = new Date(voucher.endDate);
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(23, 59, 59, 999);
         now.setHours(0, 0, 0, 0);
-        
-        return voucher.status === 'hoạt động' && 
-               now >= startDate && 
-               now <= endDate;
+
+        return (
+          voucher.status === "hoạt động" && now >= startDate && now <= endDate
+        );
       });
 
       if (activeVouchers.length === 0) {
@@ -269,42 +281,46 @@ ${timesDetails}
 
       activeVouchers.forEach((voucher) => {
         // Lọc các promotion lines đang hoạt động
-        if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
-          const activeLines = voucher.lines.filter(line => {
-            if (line.status !== 'hoạt động') return false;
-            
+        if (
+          voucher.lines &&
+          Array.isArray(voucher.lines) &&
+          voucher.lines.length > 0
+        ) {
+          const activeLines = voucher.lines.filter((line) => {
+            if (line.status !== "hoạt động") return false;
+
             const lineStart = new Date(line.validityPeriod.startDate);
             const lineEnd = new Date(line.validityPeriod.endDate);
             lineStart.setHours(0, 0, 0, 0);
             lineEnd.setHours(23, 59, 59, 999);
-            
+
             return now >= lineStart && now <= lineEnd;
           });
 
           if (activeLines.length > 0) {
             activeLines.forEach((line) => {
               const detail = line.detail as any;
-              
+
               // Xác định loại khuyến mãi
-              let promotionType = '';
-              if (line.promotionType === 'voucher') {
-                promotionType = 'Voucher đổi điểm';
-              } else if (line.promotionType === 'percent') {
-                promotionType = 'Giảm giá theo phần trăm';
-              } else if (line.promotionType === 'amount') {
-                promotionType = 'Giảm giá cố định';
-              } else if (line.promotionType === 'item') {
-                promotionType = 'Mua tặng';
+              let promotionType = "";
+              if (line.promotionType === "voucher") {
+                promotionType = "Voucher đổi điểm";
+              } else if (line.promotionType === "percent") {
+                promotionType = "Giảm giá theo phần trăm";
+              } else if (line.promotionType === "amount") {
+                promotionType = "Giảm giá cố định";
+              } else if (line.promotionType === "item") {
+                promotionType = "Mua tặng";
               }
-              
+
               // Lấy mô tả
-              let description = '';
+              let description = "";
               if (detail.description) {
                 description = detail.description;
               } else if (voucher.description) {
                 description = voucher.description;
               }
-              
+
               if (promotionType) {
                 promotionInfo += `${promotionIndex}. Loại: ${promotionType}\n`;
                 if (description) {
@@ -337,7 +353,7 @@ ${timesDetails}
       }
 
       // Lấy thông tin user để lấy điểm
-      const user = await User.findById(userId).select('point');
+      const user = await User.findById(userId).select("point");
       if (!user) {
         return "Không tìm thấy thông tin người dùng.";
       }
@@ -345,13 +361,21 @@ ${timesDetails}
       const userPoints = user.point || 0;
 
       // Lấy voucher chưa sử dụng của user
-      const vouchersResult = await userVoucherService.getUnusedUserVouchers(userId);
-      let vouchersInfo = '';
+      const vouchersResult = await userVoucherService.getUnusedUserVouchers(
+        userId
+      );
+      let vouchersInfo = "";
 
-      if (vouchersResult.status && vouchersResult.data && Array.isArray(vouchersResult.data)) {
+      if (
+        vouchersResult.status &&
+        vouchersResult.data &&
+        Array.isArray(vouchersResult.data)
+      ) {
         const vouchers = vouchersResult.data;
-        console.log(`🔍 getUserPointsAndVouchers: Found ${vouchers.length} unused user vouchers`);
-        
+        console.log(
+          `🔍 getUserPointsAndVouchers: Found ${vouchers.length} unused user vouchers`
+        );
+
         // Lọc voucher chưa hết hạn
         const now = new Date();
         const activeVouchers = vouchers.filter((uv: any) => {
@@ -360,145 +384,295 @@ ${timesDetails}
             console.log(`⚠️ Voucher ${uv._id} has no voucherId (skipped)`);
             return false;
           }
-          
-          console.log(`✅ Checking voucher ${uv._id}, voucherId: ${voucher._id || 'N/A'}`);
-          
+
+          console.log(
+            `✅ Checking voucher ${uv._id}, voucherId: ${voucher._id || "N/A"}`
+          );
+
           // Kiểm tra thời gian hiệu lực từ voucher hoặc lines
           let endDate: Date | null = null;
-          
+
           // Ưu tiên kiểm tra validityPeriod từ lines (nếu có)
-          if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+          if (
+            voucher.lines &&
+            Array.isArray(voucher.lines) &&
+            voucher.lines.length > 0
+          ) {
             // Lấy line đầu tiên có validityPeriod
-            const lineWithPeriod = voucher.lines.find((l: any) => l.validityPeriod?.endDate);
+            const lineWithPeriod = voucher.lines.find(
+              (l: any) => l.validityPeriod?.endDate
+            );
             if (lineWithPeriod?.validityPeriod?.endDate) {
               endDate = new Date(lineWithPeriod.validityPeriod.endDate);
-              console.log(`   Found endDate from line: ${endDate.toLocaleDateString('vi-VN')}`);
+              console.log(
+                `   Found endDate from line: ${endDate.toLocaleDateString(
+                  "vi-VN"
+                )}`
+              );
             }
           }
-          
+
           // Fallback: kiểm tra validityPeriod của voucher
           if (!endDate && voucher.validityPeriod?.endDate) {
             endDate = new Date(voucher.validityPeriod.endDate);
-            console.log(`   Found endDate from voucher.validityPeriod: ${endDate.toLocaleDateString('vi-VN')}`);
+            console.log(
+              `   Found endDate from voucher.validityPeriod: ${endDate.toLocaleDateString(
+                "vi-VN"
+              )}`
+            );
           }
-          
+
           // Fallback: kiểm tra endDate của voucher
           if (!endDate && voucher.endDate) {
             endDate = new Date(voucher.endDate);
-            console.log(`   Found endDate from voucher.endDate: ${endDate.toLocaleDateString('vi-VN')}`);
+            console.log(
+              `   Found endDate from voucher.endDate: ${endDate.toLocaleDateString(
+                "vi-VN"
+              )}`
+            );
           }
-          
+
           // Nếu có endDate, kiểm tra còn hạn không
           if (endDate) {
             // Reset giờ về cuối ngày để so sánh chính xác
             const endDateEndOfDay = new Date(endDate);
             endDateEndOfDay.setHours(23, 59, 59, 999);
             const isValid = now <= endDateEndOfDay;
-            console.log(`   Voucher ${isValid ? 'VALID' : 'EXPIRED'} (now: ${now.toLocaleDateString('vi-VN')} ${now.toLocaleTimeString('vi-VN')}, endDate: ${endDate.toLocaleDateString('vi-VN')})`);
+            console.log(
+              `   Voucher ${
+                isValid ? "VALID" : "EXPIRED"
+              } (now: ${now.toLocaleDateString(
+                "vi-VN"
+              )} ${now.toLocaleTimeString(
+                "vi-VN"
+              )}, endDate: ${endDate.toLocaleDateString("vi-VN")})`
+            );
             return isValid;
           }
-          
+
           // Nếu không có thông tin thời gian, giả sử còn hạn (để tránh lọc nhầm)
           console.log(`   No endDate found, assuming valid`);
           return true;
         });
-        
+
         console.log(`✅ Found ${activeVouchers.length} active vouchers`);
 
         if (activeVouchers.length > 0) {
           vouchersInfo = `Voucher của bạn (${activeVouchers.length} voucher):\n`;
-          
+
           activeVouchers.forEach((uv: any, index: number) => {
             const voucher = uv.voucherId as any;
             if (!voucher) {
               console.log(`⚠️ Skipping voucher ${uv._id} - no voucherId`);
               return;
             }
-            
+
             console.log(`📝 Processing voucher ${index + 1}:`, {
               voucherId: voucher._id,
               hasLines: !!voucher.lines,
-              linesCount: voucher.lines?.length || 0
+              linesCount: voucher.lines?.length || 0,
             });
-            
+
             // Lấy thông tin giảm giá từ voucher
-            let discountInfo = '';
-            if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+            let discountInfo = "";
+            if (
+              voucher.lines &&
+              Array.isArray(voucher.lines) &&
+              voucher.lines.length > 0
+            ) {
               // Tìm line có promotionType = 'voucher'
-              const voucherLine = voucher.lines.find((l: any) => l.promotionType === 'voucher');
+              const voucherLine = voucher.lines.find(
+                (l: any) => l.promotionType === "voucher"
+              );
               if (voucherLine) {
                 const detail = voucherLine.detail as any;
-                console.log(`   Found voucher line, detail:`, JSON.stringify(detail, null, 2));
+                console.log(
+                  `   Found voucher line, detail:`,
+                  JSON.stringify(detail, null, 2)
+                );
                 if (detail && detail.discountPercent) {
                   discountInfo = `Giảm ${detail.discountPercent}%`;
                   if (detail.maxDiscountValue) {
-                    discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+                    discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString(
+                      "vi-VN"
+                    )}đ`;
                   }
                 }
               }
-              
+
               // Nếu không tìm thấy line 'voucher' hoặc không có discountPercent, thử lấy từ line đầu tiên
               if (!discountInfo) {
                 const firstLine = voucher.lines[0];
                 if (firstLine) {
                   const detail = firstLine.detail as any;
-                  console.log(`   Using first line, detail:`, JSON.stringify(detail, null, 2));
+                  console.log(
+                    `   Using first line, detail:`,
+                    JSON.stringify(detail, null, 2)
+                  );
                   if (detail && detail.discountPercent) {
                     discountInfo = `Giảm ${detail.discountPercent}%`;
                     if (detail.maxDiscountValue) {
-                      discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+                      discountInfo += ` tối đa ${detail.maxDiscountValue.toLocaleString(
+                        "vi-VN"
+                      )}đ`;
                     }
                   }
                 }
               }
             }
-            
+
             // Fallback: kiểm tra discountPercent trực tiếp từ voucher (legacy)
             if (!discountInfo && voucher.discountPercent) {
               discountInfo = `Giảm ${voucher.discountPercent}%`;
               if (voucher.maxDiscountValue) {
-                discountInfo += ` tối đa ${voucher.maxDiscountValue.toLocaleString('vi-VN')}đ`;
+                discountInfo += ` tối đa ${voucher.maxDiscountValue.toLocaleString(
+                  "vi-VN"
+                )}đ`;
               }
             }
-            
+
             // Nếu vẫn không có thông tin, dùng mặc định
             if (!discountInfo) {
-              discountInfo = 'Voucher giảm giá';
+              discountInfo = "Voucher giảm giá";
             }
-            
+
             // Lấy hạn sử dụng
-            let expiryDate = '';
-            if (voucher.lines && Array.isArray(voucher.lines) && voucher.lines.length > 0) {
+            let expiryDate = "";
+            if (
+              voucher.lines &&
+              Array.isArray(voucher.lines) &&
+              voucher.lines.length > 0
+            ) {
               // Lấy line đầu tiên có validityPeriod
-              const lineWithPeriod = voucher.lines.find((l: any) => l.validityPeriod?.endDate);
+              const lineWithPeriod = voucher.lines.find(
+                (l: any) => l.validityPeriod?.endDate
+              );
               if (lineWithPeriod?.validityPeriod?.endDate) {
-                expiryDate = new Date(lineWithPeriod.validityPeriod.endDate).toLocaleDateString('vi-VN');
+                expiryDate = new Date(
+                  lineWithPeriod.validityPeriod.endDate
+                ).toLocaleDateString("vi-VN");
               }
             } else if (voucher.validityPeriod?.endDate) {
-              expiryDate = new Date(voucher.validityPeriod.endDate).toLocaleDateString('vi-VN');
+              expiryDate = new Date(
+                voucher.validityPeriod.endDate
+              ).toLocaleDateString("vi-VN");
             } else if (voucher.endDate) {
-              expiryDate = new Date(voucher.endDate).toLocaleDateString('vi-VN');
+              expiryDate = new Date(voucher.endDate).toLocaleDateString(
+                "vi-VN"
+              );
             }
-            
-            vouchersInfo += `${index + 1}. ${discountInfo || 'Voucher giảm giá'}`;
+
+            vouchersInfo += `${index + 1}. ${
+              discountInfo || "Voucher giảm giá"
+            }`;
             if (expiryDate) {
               vouchersInfo += ` - Hạn dùng: ${expiryDate}`;
             }
             vouchersInfo += `\n`;
           });
         } else {
-          vouchersInfo = 'Bạn chưa có voucher nào.';
-          console.log(`⚠️ No active vouchers found. Total vouchers: ${vouchers.length}`);
+          vouchersInfo = "Bạn chưa có voucher nào.";
+          console.log(
+            `⚠️ No active vouchers found. Total vouchers: ${vouchers.length}`
+          );
         }
       } else {
-        vouchersInfo = 'Bạn chưa có voucher nào.';
+        vouchersInfo = "Bạn chưa có voucher nào.";
       }
 
-      return `Điểm CNJ hiện có: ${userPoints.toLocaleString('vi-VN')} điểm\n\n${vouchersInfo}`;
+      return `Điểm CNJ hiện có: ${userPoints.toLocaleString(
+        "vi-VN"
+      )} điểm\n\n${vouchersInfo}`;
     } catch (error) {
       console.error("Error fetching user points and vouchers:", error);
       return "Không thể lấy thông tin điểm và voucher do lỗi hệ thống.";
     }
+  },
+
+  // Lấy thông tin blog/tin tức
+  getBlogInfo: async () => {
+    try {
+      const blogs = await blogService.getVisibleBlogs();
+      
+      if (!blogs || blogs.length === 0) {
+        return "Hiện không có tin tức nào.";
+      }
+
+      // Lấy 10 blog mới nhất
+      const recentBlogs = blogs.slice(0, 10);
+      
+      return recentBlogs
+        .map((blog: any, index: number) => {
+          return `${index + 1}. ${blog.title || "Chưa có tiêu đề"}`;
+        })
+        .join("\n");
+    } catch (error) {
+      console.error("Error fetching blog info:", error);
+      return "Không thể lấy thông tin tin tức do lỗi hệ thống.";
+    }
+  },
+
+  // Lấy thông tin cách tích điểm
+  getPointsAccumulationInfo: async (userId?: string) => {
+    let birthdayInfo = "";
+    
+    if (userId) {
+      try {
+        const user = await User.findById(userId).select("dateOfBirth");
+        if (user && user.dateOfBirth) {
+          const today = new Date();
+          const birthday = new Date(user.dateOfBirth);
+          const currentYear = today.getFullYear();
+          
+          // Tạo ngày sinh nhật năm nay
+          const thisYearBirthday = new Date(currentYear, birthday.getMonth(), birthday.getDate());
+          
+          // Nếu sinh nhật đã qua trong năm nay, tính cho năm sau
+          let nextBirthday = thisYearBirthday;
+          if (today > thisYearBirthday) {
+            nextBirthday = new Date(currentYear + 1, birthday.getMonth(), birthday.getDate());
+          }
+          
+          // Tính số ngày còn lại
+          const daysUntilBirthday = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          
+          const birthdayDateStr = birthday.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+          
+          birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Sinh nhật của bạn: ${birthdayDateStr}
+   - Còn ${daysUntilBirthday} ngày nữa đến sinh nhật để được cộng điểm`;
+        } else {
+          birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Bạn chưa cập nhật ngày sinh nhật trong tài khoản`;
+        }
+      } catch (error) {
+        console.error("Error getting birthday info:", error);
+        birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn`;
+      }
+    } else {
+      birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Bạn cần đăng nhập để xem thông tin sinh nhật của mình`;
+    }
+    
+    return `Các cách tích lũy điểm CNJ tại CineJoy:
+
+1. Mua vé xem phim:
+   - Mỗi vé xem phim: +5 điểm CNJ
+   - Ví dụ: Mua 2 vé = +10 điểm CNJ
+
+2. Mua combo đồ ăn/nước uống:
+   - Mỗi combo (loại combo): +5 điểm CNJ
+   - Ví dụ: Mua 2 combo = +10 điểm CNJ
+   - Lưu ý: Sản phẩm đơn lẻ (single) không được cộng điểm${birthdayInfo}
+
+Lưu ý:
+- Điểm chỉ được cộng khi đơn hàng có trạng thái "Đã xác nhận" (CONFIRMED)
+- Điểm tích lũy có thể dùng để đổi voucher giảm giá
+- Để kiểm tra điểm hiện có, bạn có thể hỏi "điểm của tôi" hoặc "tôi có bao nhiêu điểm"`;
   },
 
   // Lấy lịch sử giao dịch của người dùng
@@ -522,17 +696,20 @@ ${timesDetails}
         // Parse filterDate (có thể là "18/11", "18/11/2024", "2024-11-18", v.v.)
         const dateParts = filterDate.split(/[\/\-]/);
         let targetDate: Date | null = null;
-        
+
         if (dateParts.length >= 2) {
           const day = parseInt(dateParts[0]);
           const month = parseInt(dateParts[1]) - 1; // Month is 0-indexed
-          const year = dateParts.length === 3 ? parseInt(dateParts[2]) : new Date().getFullYear();
-          
+          const year =
+            dateParts.length === 3
+              ? parseInt(dateParts[2])
+              : new Date().getFullYear();
+
           targetDate = new Date(year, month, day);
           targetDate.setHours(0, 0, 0, 0);
           const nextDay = new Date(targetDate);
           nextDay.setDate(nextDay.getDate() + 1);
-          
+
           filteredOrders = orders.filter((order: any) => {
             const orderDate = new Date(order.createdAt);
             orderDate.setHours(0, 0, 0, 0);
@@ -542,26 +719,34 @@ ${timesDetails}
       }
 
       if (filteredOrders.length === 0) {
-        return filterDate 
+        return filterDate
           ? `Bạn không có đơn hàng nào vào ngày ${filterDate}.`
           : "Bạn chưa có đơn hàng nào.";
       }
 
       // Tính toán thống kê
       const totalOrders = filteredOrders.length;
-      const completedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'COMPLETED').length;
-      const returnedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'RETURNED').length;
-      const confirmedOrders = filteredOrders.filter((o: any) => o.orderStatus === 'CONFIRMED').length;
-      const cancelledOrders = filteredOrders.filter((o: any) => o.orderStatus === 'CANCELLED').length;
-      
+      const completedOrders = filteredOrders.filter(
+        (o: any) => o.orderStatus === "COMPLETED"
+      ).length;
+      const returnedOrders = filteredOrders.filter(
+        (o: any) => o.orderStatus === "RETURNED"
+      ).length;
+      const confirmedOrders = filteredOrders.filter(
+        (o: any) => o.orderStatus === "CONFIRMED"
+      ).length;
+      const cancelledOrders = filteredOrders.filter(
+        (o: any) => o.orderStatus === "CANCELLED"
+      ).length;
+
       // Tính tổng số vé (tổng số ghế trong tất cả orders)
       const totalTickets = filteredOrders.reduce((sum: number, order: any) => {
         return sum + (order.seats?.length || 0);
       }, 0);
 
       // Format thông tin
-      let historyInfo = '';
-      
+      let historyInfo = "";
+
       if (filterDate) {
         historyInfo = `Lịch sử giao dịch ngày ${filterDate}:\n\n`;
       } else {
@@ -578,35 +763,38 @@ ${timesDetails}
       // Chi tiết từng đơn hàng
       historyInfo += `Chi tiết đơn hàng:\n`;
       filteredOrders.forEach((order: any, index: number) => {
-        const orderDate = new Date(order.createdAt).toLocaleDateString('vi-VN');
-        const orderTime = new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const orderDate = new Date(order.createdAt).toLocaleDateString("vi-VN");
+        const orderTime = new Date(order.createdAt).toLocaleTimeString(
+          "vi-VN",
+          { hour: "2-digit", minute: "2-digit" }
+        );
         const movie = order.movieId as any;
         const theater = order.theaterId as any;
-        const movieTitle = movie?.title || 'Không rõ';
-        const theaterName = theater?.name || 'Không rõ';
+        const movieTitle = movie?.title || "Không rõ";
+        const theaterName = theater?.name || "Không rõ";
         const seatCount = order.seats?.length || 0;
-        const seatIds = order.seats?.map((s: any) => s.seatId).join(', ') || '';
-        
+        const seatIds = order.seats?.map((s: any) => s.seatId).join(", ") || "";
+
         // Trạng thái đơn hàng
-        let statusText = '';
+        let statusText = "";
         switch (order.orderStatus) {
-          case 'COMPLETED':
-            statusText = 'Đã hoàn tất';
+          case "COMPLETED":
+            statusText = "Đã hoàn tất";
             break;
-          case 'CONFIRMED':
-            statusText = 'Đã xác nhận';
+          case "CONFIRMED":
+            statusText = "Đã xác nhận";
             break;
-          case 'RETURNED':
-            statusText = 'Đã trả vé';
+          case "RETURNED":
+            statusText = "Đã trả vé";
             break;
-          case 'CANCELLED':
-            statusText = 'Đã hủy';
+          case "CANCELLED":
+            statusText = "Đã hủy";
             break;
-          case 'PENDING':
-            statusText = 'Đang chờ';
+          case "PENDING":
+            statusText = "Đang chờ";
             break;
           default:
-            statusText = order.orderStatus || 'Không rõ';
+            statusText = order.orderStatus || "Không rõ";
         }
 
         historyInfo += `${index + 1}. Mã đơn: ${order.orderCode}\n`;
@@ -616,7 +804,9 @@ ${timesDetails}
         historyInfo += `   Phòng: ${order.room}\n`;
         historyInfo += `   Ghế: ${seatIds} (${seatCount} vé)\n`;
         historyInfo += `   Trạng thái: ${statusText}\n`;
-        historyInfo += `   Tổng tiền: ${order.finalAmount.toLocaleString('vi-VN')}đ\n`;
+        historyInfo += `   Tổng tiền: ${order.finalAmount.toLocaleString(
+          "vi-VN"
+        )}đ\n`;
         historyInfo += `   Ngày đặt: ${orderDate} ${orderTime}\n`;
         historyInfo += `\n`;
       });
@@ -645,6 +835,8 @@ CÁC CHỦ ĐỀ ĐƯỢC CHẤP NHẬN (ON-TOPIC):
 - Câu hỏi chào hỏi thông thường: xin chào, cảm ơn, tạm biệt
 - Câu hỏi về tài khoản: điểm tích lũy, thông tin cá nhân, lịch sử giao dịch, đơn hàng, vé đã mua (nếu có trong hệ thống)
 - Câu hỏi về thông tin liên hệ: email, hotline, số điện thoại, cách liên hệ với CineJoy
+- Câu hỏi về tin tức/blog của CineJoy: tin tức, blog, bài viết của rạp chiếu phim CineJoy
+- Câu hỏi về cách tích lũy điểm: làm sao để có điểm, cách tích điểm, cách kiếm điểm CNJ
 
 CÁC CHỦ ĐỀ KHÔNG ĐƯỢC CHẤP NHẬN (OFF-TOPIC):
 - Toán học: phép tính, giải bài tập toán
@@ -668,19 +860,9 @@ Trả lời:`;
       const result = await model.generateContent(offTopicPrompt);
       const response = await result.response;
       const answer = response.text().trim().toUpperCase();
-      
-      const aiSaysOffTopic = answer.includes("NO") || answer === "KHÔNG";
-      if (!aiSaysOffTopic) {
-        return false;
-      }
 
-      // Nếu AI cho là off-topic nhưng từ khóa cho thấy có liên quan, ưu tiên từ khóa
-      const keywordFallback = ChatbotService.isOffTopicByKeywords(userMessage);
-      if (!keywordFallback) {
-        return false;
-      }
-
-      return true;
+      // Trả lời "NO" nghĩa là câu hỏi ngoài lề (off-topic)
+      return answer.includes("NO") || answer === "KHÔNG";
     } catch (error) {
       console.error("Error checking off-topic question:", error);
       // Nếu có lỗi, sử dụng keyword-based fallback
@@ -691,79 +873,194 @@ Trả lời:`;
   // Phương thức dự phòng: kiểm tra bằng từ khóa
   isOffTopicByKeywords: (userMessage: string): boolean => {
     const message = userMessage.toLowerCase().trim();
-    
+
     // Kiểm tra phép tính toán học trước (pattern: số + số hoặc số - số, v.v.)
     // Pattern này bắt: "1 + 1", "567 - 333", "2*3", "10/2", v.v.
-    const mathPattern = /^\d+\s*[+\-*/×÷]\s*\d+\s*(bằng\s*(mấy|bao\s*nhiêu|gì))?$/i;
+    const mathPattern =
+      /^\d+\s*[+\-*/×÷]\s*\d+\s*(bằng\s*(mấy|bao\s*nhiêu|gì))?$/i;
     const simpleMathPattern = /^\d+\s*[+\-*/×÷=]\s*\d+$/;
-    
+
     if (mathPattern.test(message) || simpleMathPattern.test(message)) {
       return true; // Đây là câu hỏi toán học, off-topic
     }
-    
+
     // Kiểm tra các câu hỏi toán học với từ khóa tiếng Việt
-    if (/bằng\s*(mấy|bao\s*nhiêu|gì)/i.test(message) && /\d+\s*[+\-*/×÷]/.test(message)) {
+    if (
+      /bằng\s*(mấy|bao\s*nhiêu|gì)/i.test(message) &&
+      /\d+\s*[+\-*/×÷]/.test(message)
+    ) {
       return true; // Off-topic
     }
-    
+
     // Từ khóa chỉ chấp nhận (on-topic)
     const onTopicKeywords = [
-      'phim', 'movie', 'rạp', 'theater', 'cinema', 'chiếu', 'showtime',
-      'vé', 'ticket', 'booking', 'đặt', 'combo', 'suất', 'giờ chiếu',
-      'diễn viên', 'actor', 'đạo diễn', 'director', 'thể loại', 'genre',
-      'đánh giá', 'rating', 'review', 'nội dung', 'mô tả', 'description',
-      'cinejoy', 'chào', 'hello', 'hi', 'xin chào', 'cảm ơn', 'thank',
-      'tạm biệt', 'goodbye', 'bye', 'điểm', 'point', 'tích lũy',
-      'giá', 'price', 'bảng giá', 'pricing', 'giá vé', 'ticket price',
-      'sản phẩm', 'product', 'đồ ăn', 'food', 'nước uống', 'drink',
-      'khuyến mãi', 'promotion', 'voucher', 'giảm giá', 'discount', 'ưu đãi',
-      'mã giảm giá', 'coupon', 'chương trình', 'campaign',
-      'voucher của tôi', 'điểm của tôi', 'điểm hiện có', 'voucher hiện có',
-      'tôi có bao nhiêu điểm', 'tôi có voucher gì', 'điểm tích lũy',
-      'lịch sử', 'giao dịch', 'vé đã mua', 'đơn hàng', 'lịch sử giao dịch',
-      'số vé đã mua', 'số lượng vé hoàn tất', 'số lượng vé trả', 'vé của tôi',
-      'đơn hàng của tôi', 'tôi đã mua vé nào', 'ngày', 'mua vé',
-      'liên hệ', 'thông tin liên hệ', 'email', 'hotline', 'số điện thoại',
-      'cách liên hệ', 'email của cinejoy', 'hotline của cinejoy', 'contact',
-      'chi nhánh', 'branch', 'cơ sở', 'địa chỉ rạp', 'địa điểm rạp', 'hệ thống rạp',
-      'danh sách rạp', 'các rạp cinejoy', 'chi nhánh cinejoy'
+      "phim",
+      "movie",
+      "rạp",
+      "theater",
+      "cinema",
+      "chiếu",
+      "showtime",
+      "vé",
+      "ticket",
+      "booking",
+      "đặt",
+      "combo",
+      "suất",
+      "giờ chiếu",
+      "diễn viên",
+      "actor",
+      "đạo diễn",
+      "director",
+      "thể loại",
+      "genre",
+      "đánh giá",
+      "rating",
+      "review",
+      "nội dung",
+      "mô tả",
+      "description",
+      "cinejoy",
+      "chào",
+      "hello",
+      "hi",
+      "xin chào",
+      "cảm ơn",
+      "thank",
+      "tạm biệt",
+      "goodbye",
+      "bye",
+      "điểm",
+      "point",
+      "tích lũy",
+      "giá",
+      "price",
+      "bảng giá",
+      "pricing",
+      "giá vé",
+      "ticket price",
+      "sản phẩm",
+      "product",
+      "đồ ăn",
+      "food",
+      "nước uống",
+      "drink",
+      "khuyến mãi",
+      "promotion",
+      "voucher",
+      "giảm giá",
+      "discount",
+      "ưu đãi",
+      "mã giảm giá",
+      "coupon",
+      "chương trình",
+      "campaign",
+      "voucher của tôi",
+      "điểm của tôi",
+      "điểm hiện có",
+      "voucher hiện có",
+      "tôi có bao nhiêu điểm",
+      "tôi có voucher gì",
+      "điểm tích lũy",
+      "lịch sử",
+      "giao dịch",
+      "vé đã mua",
+      "đơn hàng",
+      "lịch sử giao dịch",
+      "số vé đã mua",
+      "số lượng vé hoàn tất",
+      "số lượng vé trả",
+      "vé của tôi",
+      "đơn hàng của tôi",
+      "tôi đã mua vé nào",
+      "ngày",
+      "mua vé",
+      "liên hệ",
+      "thông tin liên hệ",
+      "email",
+      "hotline",
+      "số điện thoại",
+      "cách liên hệ",
+      "email của cinejoy",
+      "hotline của cinejoy",
+      "contact",
+      "tin tức",
+      "blog",
+      "bài viết",
+      "tin tức cinejoy",
+      "tin tức mới",
+      "làm sao để có điểm",
+      "cách tích điểm",
+      "làm thế nào để có điểm",
+      "cách kiếm điểm",
+      "cách tích lũy điểm",
+      "làm sao để có điểm CNJ",
+      "cách tích lũy điểm CNJ",
     ];
-    
+
     // Từ khóa từ chối (off-topic)
     const offTopicKeywords = [
       // Toán học
-      'bằng mấy', 'bằng bao nhiêu', 'tính', 'cộng', 'trừ', 'nhân', 'chia',
-      'toán', 'math', 'giải bài toán', 'phép tính',
+      "bằng mấy",
+      "bằng bao nhiêu",
+      "tính",
+      "cộng",
+      "trừ",
+      "nhân",
+      "chia",
+      "toán",
+      "math",
+      "giải bài toán",
+      "phép tính",
       // Khoa học
-      'vật lý', 'physics', 'hóa học', 'chemistry', 'sinh học', 'biology',
+      "vật lý",
+      "physics",
+      "hóa học",
+      "chemistry",
+      "sinh học",
+      "biology",
       // Giáo dục
-      'bài tập', 'homework', 'học', 'study', 'giải bài',
+      "bài tập",
+      "homework",
+      "học",
+      "study",
+      "giải bài",
       // Thời sự
-      'tin tức', 'news', 'thời sự',
+      "tin tức",
+      "news",
+      "thời sự",
       // Thể thao
-      'bóng đá', 'football', 'thể thao', 'sport',
+      "bóng đá",
+      "football",
+      "thể thao",
+      "sport",
       // Sức khỏe
-      'sức khỏe', 'health', 'bệnh', 'disease', 'y tế', 'medical'
+      "sức khỏe",
+      "health",
+      "bệnh",
+      "disease",
+      "y tế",
+      "medical",
     ];
-    
+
     // Kiểm tra từ khóa off-topic
-    const hasOffTopicKeyword = offTopicKeywords.some(keyword => 
+    const hasOffTopicKeyword = offTopicKeywords.some((keyword) =>
       message.includes(keyword)
     );
-    
+
     if (hasOffTopicKeyword) {
       return true; // Off-topic
     }
-    
+
     // Nếu có từ khóa on-topic, coi như on-topic
-    const hasOnTopicKeyword = onTopicKeywords.some(keyword => 
+    const hasOnTopicKeyword = onTopicKeywords.some((keyword) =>
       message.includes(keyword)
     );
-    
+
     if (hasOnTopicKeyword) {
       return false; // On-topic
     }
-    
+
     // Mặc định: nếu không chắc, cho phép (false = không phải off-topic)
     // Để Gemini AI xử lý trong prompt chính
     return false;
@@ -771,44 +1068,51 @@ Trả lời:`;
 
   // Lấy thông tin người dùng từ database
   getUserInfo: async (userId?: string) => {
-    console.log('🔍 getUserInfo called with userId:', userId);
+    console.log("🔍 getUserInfo called with userId:", userId);
     if (!userId) {
-      console.log('⚠️ No userId provided');
+      console.log("⚠️ No userId provided");
       return null;
     }
     try {
-      const user = await User.findById(userId).select('-password -otp -otpExpires');
+      const user = await User.findById(userId).select(
+        "-password -otp -otpExpires"
+      );
       if (!user || !user.isActive) {
-        console.log('⚠️ User not found or inactive:', userId);
+        console.log("⚠️ User not found or inactive:", userId);
         return null;
       }
-      console.log('✅ User found:', user.fullName);
-      
+      console.log("✅ User found:", user.fullName);
+
       // Tách tên để lấy phần tên chính (tên cuối cùng - tên riêng)
       // VD: "Lê Tôn Tần" -> "Tần", "Nguyễn Văn A" -> "A", "Trần Thị Bích" -> "Bích"
-      const fullName = user.fullName || '';
-      const nameParts = fullName.trim().split(/\s+/).filter(part => part.length > 0);
+      const fullName = user.fullName || "";
+      const nameParts = fullName
+        .trim()
+        .split(/\s+/)
+        .filter((part) => part.length > 0);
       let firstName = fullName; // Mặc định dùng tên đầy đủ
-      
+
       if (nameParts.length > 1) {
         // Lấy từ cuối cùng (tên riêng) làm tên chính để gọi thân mật
-        firstName = nameParts[nameParts.length - 1]; 
+        firstName = nameParts[nameParts.length - 1];
         // VD: "Lê Tôn Tần" -> "Tần"
         // VD: "Nguyễn Văn A" -> "A"
         // VD: "Trần Thị Bích" -> "Bích"
       } else if (nameParts.length === 1) {
         firstName = nameParts[0];
       }
-      
+
       return {
-        fullName: fullName || 'Chưa cập nhật',
-        firstName: firstName || fullName || 'Chưa cập nhật', // Tên để gọi thân mật
-        email: user.email || 'Chưa cập nhật',
-        phoneNumber: user.phoneNumber || 'Chưa cập nhật',
-        gender: user.gender || 'Chưa cập nhật',
-        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật',
+        fullName: fullName || "Chưa cập nhật",
+        firstName: firstName || fullName || "Chưa cập nhật", // Tên để gọi thân mật
+        email: user.email || "Chưa cập nhật",
+        phoneNumber: user.phoneNumber || "Chưa cập nhật",
+        gender: user.gender || "Chưa cập nhật",
+        dateOfBirth: user.dateOfBirth
+          ? new Date(user.dateOfBirth).toLocaleDateString("vi-VN")
+          : "Chưa cập nhật",
         point: user.point || 0,
-        role: user.role || 'USER'
+        role: user.role || "USER",
       };
     } catch (error) {
       console.error("Error fetching user info:", error);
@@ -816,19 +1120,25 @@ Trả lời:`;
     }
   },
 
-  getResponse: async (userMessage: string, sessionId = "default", userId?: string) => {
+  getResponse: async (
+    userMessage: string,
+    sessionId = "default",
+    userId?: string
+  ) => {
     // Kiểm tra câu hỏi ngoài lề TRƯỚC KHI xử lý
     const isOffTopic = await ChatbotService.isOffTopicQuestion(userMessage);
-    
+
     if (isOffTopic) {
       // Lấy thông tin người dùng và lịch sử hội thoại để cá nhân hóa thông báo từ chối
       const userInfo = await ChatbotService.getUserInfo(userId);
       const pastMessages = ChatbotService.getConversation(sessionId);
-      const botMessagesCount = pastMessages.filter(msg => msg.sender === 'bot').length;
+      const botMessagesCount = pastMessages.filter(
+        (msg) => msg.sender === "bot"
+      ).length;
       const isFirstMessage = botMessagesCount <= 1;
-      
-      const userName = userInfo?.firstName || 'bạn';
-      
+
+      const userName = userInfo?.firstName || "bạn";
+
       // Tạo thông báo từ chối phù hợp
       let rejectionMessage: string;
       if (userInfo && isFirstMessage) {
@@ -844,7 +1154,7 @@ Trả lời:`;
         // Đã có hội thoại trước, không có thông tin user -> không chào lại
         rejectionMessage = `Tôi chỉ có thể hỗ trợ bạn về các vấn đề liên quan đến phim ảnh, rạp chiếu phim, đặt vé, suất chiếu và dịch vụ của CineJoy. Bạn có câu hỏi nào về phim hoặc rạp chiếu phim không ạ?`;
       }
-      
+
       // Lưu tin nhắn người dùng và phản hồi từ chối vào lịch sử
       ChatbotService.saveMessage(sessionId, {
         sender: "user",
@@ -854,7 +1164,7 @@ Trả lời:`;
         sender: "bot",
         text: rejectionMessage,
       });
-      
+
       return rejectionMessage;
     }
 
@@ -891,29 +1201,40 @@ Trả lời:`;
       const priceInfo = await ChatbotService.getPriceInfo();
       // Lấy thông tin khuyến mãi đang hoạt động
       const promotionInfo = await ChatbotService.getPromotionInfo();
+      // Lấy thông tin blog/tin tức
+      const blogInfo = await ChatbotService.getBlogInfo();
+      // Lấy thông tin cách tích điểm
+      const pointsAccumulationInfo = ChatbotService.getPointsAccumulationInfo();
       // Lấy thông tin người dùng (nếu có)
       const userInfo = await ChatbotService.getUserInfo(userId);
       // Lấy thông tin điểm và voucher của người dùng (nếu có userId)
-      const userPointsAndVouchers = userId ? await ChatbotService.getUserPointsAndVouchers(userId) : null;
-      
+      const userPointsAndVouchers = userId
+        ? await ChatbotService.getUserPointsAndVouchers(userId)
+        : null;
+
       // Kiểm tra xem user có hỏi về ngày cụ thể không
       let filterDate: string | undefined = undefined;
-      const datePattern = /(?:ngày|vào ngày|hôm|ngày)\s*(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i;
+      const datePattern =
+        /(?:ngày|vào ngày|hôm|ngày)\s*(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i;
       const dateMatch = userMessage.match(datePattern);
       if (dateMatch && dateMatch[1]) {
         filterDate = dateMatch[1];
       }
-      
+
       // Lấy lịch sử giao dịch của người dùng (nếu có userId)
-      const orderHistory = userId ? await ChatbotService.getOrderHistory(userId, filterDate) : null;
+      const orderHistory = userId
+        ? await ChatbotService.getOrderHistory(userId, filterDate)
+        : null;
       // Lấy lịch sử trò chuyện
       const pastMessages: any[] = ChatbotService.getConversation(sessionId);
-      
+
       // Kiểm tra xem đây có phải là tin nhắn đầu tiên không (chỉ có tin nhắn từ bot mặc định hoặc chưa có tin nhắn nào từ bot)
-      const botMessagesCount = pastMessages.filter(msg => msg.sender === 'bot').length;
+      const botMessagesCount = pastMessages.filter(
+        (msg) => msg.sender === "bot"
+      ).length;
       const isFirstResponse = botMessagesCount <= 1; // 0 hoặc 1 (tin nhắn chào mặc định)
 
-      const userInfoText = userInfo 
+      const userInfoText = userInfo
         ? `
             Thông tin người dùng hiện tại:
             - Tên đầy đủ: ${userInfo.fullName}
@@ -923,23 +1244,34 @@ Trả lời:`;
             - Giới tính: ${userInfo.gender}
             - Ngày sinh: ${userInfo.dateOfBirth}
             - Điểm tích lũy: ${userInfo.point} điểm
-            - Vai trò: ${userInfo.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng'}
+            - Vai trò: ${
+              userInfo.role === "ADMIN" ? "Quản trị viên" : "Khách hàng"
+            }
             
             QUAN TRỌNG - Hướng dẫn gọi tên người dùng:
-            - Sử dụng tên thân mật "${userInfo.firstName}" thay vì "bạn" hoặc "anh/chị" trong câu trả lời
-            - CHỈ CHÀO "Chào ${userInfo.firstName}" ở tin nhắn ĐẦU TIÊN của cuộc hội thoại
-            - Ở các tin nhắn tiếp theo, KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...")
+            - Sử dụng tên thân mật "${
+              userInfo.firstName
+            }" thay vì "bạn" hoặc "anh/chị" trong câu trả lời
+            - CHỈ CHÀO "Chào ${
+              userInfo.firstName
+            }" ở tin nhắn ĐẦU TIÊN của cuộc hội thoại
+            - Ở các tin nhắn tiếp theo, KHÔNG chào lại, chỉ sử dụng tên "${
+              userInfo.firstName
+            }" một cách tự nhiên (ví dụ: "${
+            userInfo.firstName
+          } có thể...", "Dạ ${userInfo.firstName}...")
             - Nếu có thể, hãy cá nhân hóa câu trả lời dựa trên thông tin của họ (giới tính, điểm tích lũy, v.v.)
             `
-        : 'Người dùng chưa đăng nhập hoặc thông tin không có sẵn.';
+        : "Người dùng chưa đăng nhập hoặc thông tin không có sẵn.";
 
       // Phân tích lịch sử hội thoại để tìm ngữ cảnh
-      const contextAnalysis = pastMessages.length > 0
-        ? pastMessages
-            .slice(-4) // Lấy 4 tin nhắn gần nhất để phân tích ngữ cảnh
-            .map((msg) => msg.text)
-            .join(" ")
-        : "";
+      const contextAnalysis =
+        pastMessages.length > 0
+          ? pastMessages
+              .slice(-4) // Lấy 4 tin nhắn gần nhất để phân tích ngữ cảnh
+              .map((msg) => msg.text)
+              .join(" ")
+          : "";
 
       const prompt = `
             Bạn là một chatbot thông minh của rạp chiếu phim CineJoy, được thiết kế để trả lời các câu hỏi của người dùng về phim ảnh và rạp chiếu phim một cách ngắn gọn, chính xác và chuyên nghiệp.
@@ -975,8 +1307,20 @@ Trả lời:`;
             ${priceInfo}
             Thông tin các chương trình khuyến mãi đang hoạt động:
             ${promotionInfo}
-            ${userPointsAndVouchers ? `Thông tin điểm và voucher của người dùng:\n${userPointsAndVouchers}` : ''}
-            ${orderHistory ? `Lịch sử giao dịch của người dùng:\n${orderHistory}` : ''}
+            Danh sách tin tức/blog hiện có:
+            ${blogInfo}
+            Thông tin cách tích lũy điểm CNJ:
+            ${pointsAccumulationInfo}
+            ${
+              userPointsAndVouchers
+                ? `Thông tin điểm và voucher của người dùng:\n${userPointsAndVouchers}`
+                : ""
+            }
+            ${
+              orderHistory
+                ? `Lịch sử giao dịch của người dùng:\n${orderHistory}`
+                : ""
+            }
             
             QUAN TRỌNG - Hướng dẫn trả lời về lịch sử giao dịch:
             - Khi người dùng hỏi về "lịch sử giao dịch", "vé đã mua", "đơn hàng của tôi", "số vé đã mua", "số lượng vé hoàn tất", "số lượng vé trả", "vào ngày X tôi đã mua vé nào", "ngày X tôi mua gì", v.v., bạn PHẢI sử dụng thông tin từ "Lịch sử giao dịch của người dùng" ở trên (chỉ có khi người dùng đã đăng nhập)
@@ -1014,10 +1358,38 @@ Trả lời:`;
             - Nếu người dùng hỏi "làm sao để liên hệ", "cách liên hệ với cinejoy", v.v., hãy cung cấp đầy đủ thông tin liên hệ (email và hotline)
             - Có thể gợi ý người dùng liên hệ qua email hoặc gọi hotline tùy theo nhu cầu của họ
             
+            QUAN TRỌNG - Hướng dẫn trả lời về tin tức/blog:
+            - Khi người dùng hỏi về "tin tức", "blog", "bài viết", "tin tức mới", "có tin tức gì", "tin tức cinejoy", v.v., bạn PHẢI sử dụng thông tin từ "Danh sách tin tức/blog hiện có" ở trên
+            - CHỈ liệt kê TIÊU ĐỀ của các tin tức (KHÔNG nêu ngày đăng, KHÔNG nêu chi tiết nội dung)
+            - Sau khi liệt kê tiêu đề, bạn PHẢI nhắc người dùng: "Bạn có thể vào trang tin tức trên website để xem chi tiết các tin tức này"
+            - KHÔNG được nêu chi tiết nội dung của các tin tức, chỉ nêu tiêu đề và hướng dẫn vào trang tin tức
+            - Nếu không có tin tức nào, hãy thông báo rõ ràng
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về cách tích lũy điểm:
+            - Khi người dùng hỏi về "làm sao để có điểm", "cách tích điểm", "làm thế nào để có điểm tích lũy", "cách kiếm điểm", "làm sao để có điểm CNJ", "cách tích lũy điểm CNJ", v.v., bạn PHẢI sử dụng thông tin từ "Thông tin cách tích lũy điểm CNJ" ở trên
+            - Trả lời CHI TIẾT và ĐẦY ĐỦ các cách tích điểm:
+              + Mua vé xem phim: mỗi vé = +5 điểm
+              + Mua combo đồ ăn/nước uống: mỗi combo = +5 điểm (chỉ loại combo, không phải single)
+              + Sự kiện sinh nhật: +100 điểm vào ngày sinh nhật
+            - Nếu người dùng đã đăng nhập và có thông tin sinh nhật trong "Thông tin cách tích lũy điểm CNJ", bạn PHẢI trả lời:
+              + Số điểm được cộng vào sinh nhật: +100 điểm CNJ
+              + Ngày sinh nhật của họ (nếu có)
+              + Còn bao nhiêu ngày nữa đến sinh nhật để được cộng điểm (nếu có)
+            - Khi người dùng hỏi "sinh nhật tôi được cộng bao nhiêu điểm" hoặc "sinh nhật được cộng bao nhiêu điểm", bạn PHẢI trả lời: +100 điểm CNJ vào ngày sinh nhật
+            - Khi người dùng hỏi "còn bao nhiêu ngày nữa đến sinh nhật tôi" hoặc "còn bao nhiêu ngày nữa đến sinh nhật để được cộng điểm", bạn PHẢI sử dụng thông tin từ "Thông tin cách tích lũy điểm CNJ" để trả lời số ngày còn lại (nếu người dùng đã đăng nhập và có thông tin sinh nhật)
+            - Nếu người dùng chưa đăng nhập hoặc chưa cập nhật ngày sinh nhật, hãy nhắc họ cần đăng nhập và cập nhật thông tin
+            - Giải thích rõ: điểm chỉ được cộng khi đơn hàng có trạng thái "Đã xác nhận" (CONFIRMED)
+            - Có thể gợi ý người dùng dùng điểm để đổi voucher giảm giá
+            - Nếu người dùng hỏi cụ thể về một cách tích điểm, hãy giải thích chi tiết cách đó
+            
             QUAN TRỌNG - Hướng dẫn gọi tên và ngữ cảnh:
             1. CÁCH GỌI TÊN NGƯỜI DÙNG (nếu có thông tin user):
-               - CHỈ CHÀO TÊN ở tin nhắn ĐẦU TIÊN khi bắt đầu cuộc hội thoại (ví dụ: "Chào ${userInfo?.firstName}")
-               - Ở các tin nhắn tiếp theo, KHÔNG cần chào lại, chỉ cần sử dụng tên một cách tự nhiên trong câu trả lời (ví dụ: "Tần có thể...", "Dạ ${userInfo?.firstName}...")
+               - CHỈ CHÀO TÊN ở tin nhắn ĐẦU TIÊN khi bắt đầu cuộc hội thoại (ví dụ: "Chào ${
+                 userInfo?.firstName
+               }")
+               - Ở các tin nhắn tiếp theo, KHÔNG cần chào lại, chỉ cần sử dụng tên một cách tự nhiên trong câu trả lời (ví dụ: "Tần có thể...", "Dạ ${
+                 userInfo?.firstName
+               }...")
                - KHÔNG lặp lại "Chào ${userInfo?.firstName}" ở mỗi tin nhắn
                - Nếu đã có lịch sử hội thoại (đã trả lời trước đó), KHÔNG chào lại nữa, chỉ trả lời trực tiếp
             
@@ -1038,9 +1410,9 @@ Trả lời:`;
                 ? pastMessages
                     .map(
                       (msg, index) =>
-                        `${index + 1}. ${msg.sender === "user" ? "Người dùng" : "Chatbot"}: ${
-                          msg.text
-                        }`
+                        `${index + 1}. ${
+                          msg.sender === "user" ? "Người dùng" : "Chatbot"
+                        }: ${msg.text}`
                     )
                     .join("\n")
                 : "Không có lịch sử hội thoại."
@@ -1060,12 +1432,20 @@ Trả lời:`;
               - Ví dụ đúng: "Thanh gươm diệt quỷ: 18:00 - 20:00" hoặc "- Thanh gươm diệt quỷ: 18:00 - 20:00"
               - Ví dụ sai: "* Thanh gươm diệt quỷ: 18:00 - 20:00" hoặc "**Thanh gươm diệt quỷ:** 18:00 - 20:00"
               - Luôn luôn trả lời bằng văn bản thuần túy, không format đậm, không dùng markdown, KHÔNG dùng dấu * trong bất kỳ trường hợp nào
-            ${userInfo ? `
+            ${
+              userInfo
+                ? `
             - QUAN TRỌNG VỀ GỌI TÊN:
-              - ${isFirstResponse 
+              - ${
+                isFirstResponse
                   ? `Đây là lần ĐẦU TIÊN bạn trả lời (chỉ có ${botMessagesCount} tin nhắn từ bot trước đó), nên hãy chào "Chào ${userInfo.firstName}"`
-                  : `Đây KHÔNG phải là tin nhắn đầu tiên (đã có ${botMessagesCount} tin nhắn từ bot trước đó), nên KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên trong câu trả lời (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...", v.v.)`}
-              - Thay vì nói "bạn" hoặc "anh/chị", hãy sử dụng tên "${userInfo.firstName}" một cách tự nhiên và thân thiện, nhưng KHÔNG lặp lại lời chào ở các tin nhắn tiếp theo` : ''}
+                  : `Đây KHÔNG phải là tin nhắn đầu tiên (đã có ${botMessagesCount} tin nhắn từ bot trước đó), nên KHÔNG chào lại, chỉ sử dụng tên "${userInfo.firstName}" một cách tự nhiên trong câu trả lời (ví dụ: "${userInfo.firstName} có thể...", "Dạ ${userInfo.firstName}...", v.v.)`
+              }
+              - Thay vì nói "bạn" hoặc "anh/chị", hãy sử dụng tên "${
+                userInfo.firstName
+              }" một cách tự nhiên và thân thiện, nhưng KHÔNG lặp lại lời chào ở các tin nhắn tiếp theo`
+                : ""
+            }
             `;
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -1074,7 +1454,7 @@ Trả lời:`;
         "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
 
       // Loại bỏ tất cả dấu * khỏi response để đảm bảo không có markdown formatting
-      botResponse = botResponse.replace(/\*\*/g, '').replace(/\*/g, '');
+      botResponse = botResponse.replace(/\*\*/g, "").replace(/\*/g, "");
 
       // Lưu phản hồi vào cache và lịch sử trò chuyện
       cache.set(cacheKey, botResponse);
@@ -1086,25 +1466,44 @@ Trả lời:`;
       return botResponse;
     } catch (error: any) {
       console.error("Error calling Gemini API:", error);
-      
+
       // Xử lý lỗi API key bị leaked hoặc không hợp lệ
-      if (error?.status === 403 && error?.message?.includes('leaked')) {
-        console.error("❌ GEMINI API KEY ERROR: API key đã bị báo là leaked. Vui lòng tạo API key mới tại https://makersuite.google.com/app/apikey");
+      if (error?.status === 403 && error?.message?.includes("leaked")) {
+        console.error(
+          "❌ GEMINI API KEY ERROR: API key đã bị báo là leaked. Vui lòng tạo API key mới tại https://makersuite.google.com/app/apikey"
+        );
         return "Xin lỗi, hệ thống chatbot đang gặp vấn đề về cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.";
       }
-      
+
       // Xử lý lỗi API key không hợp lệ hoặc thiếu
       if (error?.status === 403 || error?.status === 401) {
-        console.error("❌ GEMINI API KEY ERROR: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra GEMINI_API_KEY trong file .env");
+        console.error(
+          "❌ GEMINI API KEY ERROR: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra GEMINI_API_KEY trong file .env"
+        );
         return "Xin lỗi, hệ thống chatbot đang gặp vấn đề về cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.";
       }
-      
+
+      // Xử lý lỗi quota exceeded (429)
+      if (error?.status === 429) {
+        const retryDelay = error?.errorDetails?.find(
+          (detail: any) => detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+        )?.retryDelay || "một lúc";
+        
+        console.error(
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
+        );
+        return `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
+      }
+
       return "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
     }
   },
 
   // Xử lý image poster với Gemini Vision API
-  recognizePosterFromImage: async (imageBase64: string, mimeType: string = "image/jpeg"): Promise<string | null> => {
+  recognizePosterFromImage: async (
+    imageBase64: string,
+    mimeType: string = "image/jpeg"
+  ): Promise<string | null> => {
     try {
       // Convert base64 to format Gemini expects
       const imagePart = {
@@ -1157,13 +1556,24 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
         .replace(/^Tên phim:\s*/i, "")
         .trim();
 
-      if (cleanTitle.toUpperCase().includes("KHONG_TIM_THAY") || cleanTitle.length === 0) {
+      if (
+        cleanTitle.toUpperCase().includes("KHONG_TIM_THAY") ||
+        cleanTitle.length === 0
+      ) {
         return null;
       }
 
       return cleanTitle;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error recognizing poster from image:", error);
+      
+      // Xử lý lỗi quota exceeded (429)
+      if (error?.status === 429) {
+        console.error(
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests khi nhận diện poster."
+        );
+      }
+      
       return null;
     }
   },
@@ -1173,9 +1583,9 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     return removeAccents(title)
       .toLowerCase()
       .trim()
-      .replace(/[-_]/g, ' ') // Thay dấu gạch ngang và gạch dưới bằng khoảng trắng
-      .replace(/\s+/g, ' ') // Nhiều khoảng trắng thành 1
-      .replace(/[^\w\s]/g, '') // Loại bỏ ký tự đặc biệt khác
+      .replace(/[-_]/g, " ") // Thay dấu gạch ngang và gạch dưới bằng khoảng trắng
+      .replace(/\s+/g, " ") // Nhiều khoảng trắng thành 1
+      .replace(/[^\w\s]/g, "") // Loại bỏ ký tự đặc biệt khác
       .trim();
   },
 
@@ -1183,23 +1593,23 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   calculateSimilarity: (str1: string, str2: string): number => {
     const s1 = str1.toLowerCase().trim();
     const s2 = str2.toLowerCase().trim();
-    
+
     if (s1 === s2) return 1.0;
     if (s1.includes(s2) || s2.includes(s1)) return 0.9;
-    
+
     // Tính Levenshtein distance
     const len1 = s1.length;
     const len2 = s2.length;
     const matrix: number[][] = [];
-    
+
     for (let i = 0; i <= len2; i++) {
       matrix[i] = [i];
     }
-    
+
     for (let j = 0; j <= len1; j++) {
       matrix[0][j] = j;
     }
-    
+
     for (let i = 1; i <= len2; i++) {
       for (let j = 1; j <= len1; j++) {
         if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
@@ -1213,7 +1623,7 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
         }
       }
     }
-    
+
     const distance = matrix[len2][len1];
     const maxLen = Math.max(len1, len2);
     return 1 - distance / maxLen;
@@ -1225,17 +1635,37 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     let normalized = removeAccents(title)
       .toLowerCase()
       .trim()
-      .replace(/[-_]/g, ' ') // Thay dấu gạch ngang và gạch dưới bằng khoảng trắng
-      .replace(/\s+/g, ' ') // Nhiều khoảng trắng thành 1
-      .replace(/[^\w\s]/g, ' ') // Thay ký tự đặc biệt bằng khoảng trắng (không xóa)
+      .replace(/[-_]/g, " ") // Thay dấu gạch ngang và gạch dưới bằng khoảng trắng
+      .replace(/\s+/g, " ") // Nhiều khoảng trắng thành 1
+      .replace(/[^\w\s]/g, " ") // Thay ký tự đặc biệt bằng khoảng trắng (không xóa)
       .trim();
-    
+
     // Loại bỏ các từ không quan trọng (stop words)
-    const stopWords = ['phim', 'movie', 'the', 'a', 'an', 'cua', 'của', 'va', 'và', 'voi', 'với', 'cho', 'tu', 'từ', 'tren', 'trên', 'trong', 'cua', 'của'];
-    const words = normalized.split(/\s+/).filter(word => 
-      word.length > 1 && !stopWords.includes(word)
-    );
-    
+    const stopWords = [
+      "phim",
+      "movie",
+      "the",
+      "a",
+      "an",
+      "cua",
+      "của",
+      "va",
+      "và",
+      "voi",
+      "với",
+      "cho",
+      "tu",
+      "từ",
+      "tren",
+      "trên",
+      "trong",
+      "cua",
+      "của",
+    ];
+    const words = normalized
+      .split(/\s+/)
+      .filter((word) => word.length > 1 && !stopWords.includes(word));
+
     // Ưu tiên các từ dài hơn (từ khóa quan trọng hơn)
     return words.sort((a, b) => b.length - a.length);
   },
@@ -1244,20 +1674,20 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   calculateKeywordScore: (inputKeywords: string[], dbTitle: string): number => {
     const dbKeywords = ChatbotService.extractKeywords(dbTitle);
     const dbNormalized = ChatbotService.normalizeTitle(dbTitle);
-    
+
     let matchCount = 0;
     let totalWeight = 0;
-    
+
     for (const keyword of inputKeywords) {
       const weight = keyword.length; // Từ dài hơn có trọng số cao hơn
       totalWeight += weight;
-      
+
       // Kiểm tra keyword có trong DB title không
       if (dbNormalized.includes(keyword)) {
         matchCount += weight;
       }
     }
-    
+
     if (totalWeight === 0) return 0;
     return matchCount / totalWeight;
   },
@@ -1270,18 +1700,22 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       const inputKeywords = ChatbotService.extractKeywords(title);
       console.log(`🔍 Searching for movie: "${title}"`);
       console.log(`   Normalized: "${normalizedInput}"`);
-      console.log(`   Keywords: [${inputKeywords.join(', ')}]`);
+      console.log(`   Keywords: [${inputKeywords.join(", ")}]`);
 
       // Escape regex special characters
       const escapeRegex = (str: string) => {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       };
 
       // Bước 1: Tìm chính xác (exact match)
       let movie = await Movie.findOne({
         $or: [
           { title: { $regex: new RegExp(`^${escapeRegex(title)}$`, "i") } },
-          { titleNoAccent: { $regex: new RegExp(`^${escapeRegex(removeAccents(title))}$`, "i") } },
+          {
+            titleNoAccent: {
+              $regex: new RegExp(`^${escapeRegex(removeAccents(title))}$`, "i"),
+            },
+          },
         ],
       });
 
@@ -1307,7 +1741,9 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       // Bước 3: Tìm với từng từ khóa (nếu có ít nhất 2 từ khóa)
       if (inputKeywords.length >= 2) {
         // Tìm phim có chứa TẤT CẢ các từ khóa (không cần liên tiếp)
-        const keywordRegex = inputKeywords.map(k => escapeRegex(k)).join('.*');
+        const keywordRegex = inputKeywords
+          .map((k) => escapeRegex(k))
+          .join(".*");
         movie = await Movie.findOne({
           $or: [
             { title: { $regex: new RegExp(keywordRegex, "i") } },
@@ -1316,28 +1752,42 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
         });
 
         if (movie) {
-          console.log(`✅ Found keyword match (all keywords): "${movie.title}"`);
+          console.log(
+            `✅ Found keyword match (all keywords): "${movie.title}"`
+          );
           return movie;
         }
 
         // Tìm phim có chứa ÍT NHẤT 2 từ khóa quan trọng nhất (từ dài nhất)
-        const importantKeywords = inputKeywords.slice(0, Math.min(2, inputKeywords.length));
-        const importantKeywordRegex = importantKeywords.map(k => escapeRegex(k)).join('.*');
+        const importantKeywords = inputKeywords.slice(
+          0,
+          Math.min(2, inputKeywords.length)
+        );
+        const importantKeywordRegex = importantKeywords
+          .map((k) => escapeRegex(k))
+          .join(".*");
         movie = await Movie.findOne({
           $or: [
             { title: { $regex: new RegExp(importantKeywordRegex, "i") } },
-            { titleNoAccent: { $regex: new RegExp(importantKeywordRegex, "i") } },
+            {
+              titleNoAccent: { $regex: new RegExp(importantKeywordRegex, "i") },
+            },
           ],
         });
 
         if (movie) {
-          console.log(`✅ Found keyword match (important keywords): "${movie.title}"`);
+          console.log(
+            `✅ Found keyword match (important keywords): "${movie.title}"`
+          );
           return movie;
         }
       }
 
       // Bước 3.5: Tìm với normalized title không có dấu gạch ngang
-      const normalizedWithoutHyphens = normalizedInput.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+      const normalizedWithoutHyphens = normalizedInput
+        .replace(/[-_]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
       if (normalizedWithoutHyphens !== normalizedInput) {
         const escapedNoHyphens = escapeRegex(normalizedWithoutHyphens);
         movie = await Movie.findOne({
@@ -1348,38 +1798,54 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
         });
 
         if (movie) {
-          console.log(`✅ Found match (normalized without hyphens): "${movie.title}"`);
+          console.log(
+            `✅ Found match (normalized without hyphens): "${movie.title}"`
+          );
           return movie;
         }
       }
 
       // Bước 4: Tìm tất cả phim và tính điểm dựa trên từ khóa + similarity
       const allMovies = await Movie.find({ isHidden: { $ne: true } });
-      console.log(`🔍 Searching in ${allMovies.length} movies with keyword + similarity matching...`);
+      console.log(
+        `🔍 Searching in ${allMovies.length} movies with keyword + similarity matching...`
+      );
 
       let bestMatch: any = null;
       let bestScore = 0;
 
       for (const m of allMovies) {
         const normalizedDbTitle = ChatbotService.normalizeTitle(m.title);
-        const normalizedDbTitleNoAccent = m.titleNoAccent 
+        const normalizedDbTitleNoAccent = m.titleNoAccent
           ? ChatbotService.normalizeTitle(m.titleNoAccent)
           : normalizedDbTitle;
 
         // Tính điểm từ khóa (0-1)
-        const keywordScore = ChatbotService.calculateKeywordScore(inputKeywords, m.title);
-        
+        const keywordScore = ChatbotService.calculateKeywordScore(
+          inputKeywords,
+          m.title
+        );
+
         // Tính similarity (0-1)
-        const similarity1 = ChatbotService.calculateSimilarity(normalizedInput, normalizedDbTitle);
-        const similarity2 = ChatbotService.calculateSimilarity(normalizedInput, normalizedDbTitleNoAccent);
+        const similarity1 = ChatbotService.calculateSimilarity(
+          normalizedInput,
+          normalizedDbTitle
+        );
+        const similarity2 = ChatbotService.calculateSimilarity(
+          normalizedInput,
+          normalizedDbTitleNoAccent
+        );
         const maxSimilarity = Math.max(similarity1, similarity2);
 
         // Kết hợp điểm: 60% từ khóa + 40% similarity
-        const combinedScore = (keywordScore * 0.6) + (maxSimilarity * 0.4);
+        const combinedScore = keywordScore * 0.6 + maxSimilarity * 0.4;
 
         // Boost nếu là substring
         let finalScore = combinedScore;
-        if (normalizedInput.includes(normalizedDbTitle) || normalizedDbTitle.includes(normalizedInput)) {
+        if (
+          normalizedInput.includes(normalizedDbTitle) ||
+          normalizedDbTitle.includes(normalizedInput)
+        ) {
           finalScore = Math.max(finalScore, 0.85);
         }
 
@@ -1396,13 +1862,24 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
 
       // Chỉ trả về nếu điểm >= 0.6 (60%) - giảm ngưỡng để tìm được nhiều hơn
       if (bestMatch && bestScore >= 0.6) {
-        const keywordScore = ChatbotService.calculateKeywordScore(inputKeywords, bestMatch.title);
+        const keywordScore = ChatbotService.calculateKeywordScore(
+          inputKeywords,
+          bestMatch.title
+        );
         console.log(`✅ Found match: "${bestMatch.title}"`);
-        console.log(`   Combined score: ${(bestScore * 100).toFixed(1)}% (keyword: ${(keywordScore * 100).toFixed(1)}%)`);
+        console.log(
+          `   Combined score: ${(bestScore * 100).toFixed(1)}% (keyword: ${(
+            keywordScore * 100
+          ).toFixed(1)}%)`
+        );
         return bestMatch;
       }
 
-      console.log(`❌ No match found for "${title}" (best score: ${(bestScore * 100).toFixed(1)}%)`);
+      console.log(
+        `❌ No match found for "${title}" (best score: ${(
+          bestScore * 100
+        ).toFixed(1)}%)`
+      );
       return null;
     } catch (error) {
       console.error("Error finding movie by title:", error);
@@ -1414,10 +1891,12 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   getShowtimesForMovie: async (movieId: string): Promise<any[]> => {
     try {
       const showtimes = await showtimeService.getShowtimes();
-      
+
       // Lọc showtimes cho phim cụ thể
       const movieShowtimes = showtimes.filter(
-        (st: any) => st.movieId?._id?.toString() === movieId || st.movieId?.toString() === movieId
+        (st: any) =>
+          st.movieId?._id?.toString() === movieId ||
+          st.movieId?.toString() === movieId
       );
 
       return movieShowtimes;
@@ -1431,10 +1910,7 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
   processPosterUpload: async (
     imageBase64: string,
     mimeType: string = "image/jpeg",
-    options?: {
-      userId?: string;
-      userMessage?: string;
-    }
+    userId?: string
   ): Promise<{
     success: boolean;
     movieTitle?: string;
@@ -1443,40 +1919,17 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     message: string;
   }> => {
     try {
-      const userId = options?.userId;
-      const userMessage = options?.userMessage;
-
-      const detectPosterQuestionIntent = (
-        input?: string
-      ): "content" | "name" | "part" | "showtime" | null => {
-        if (!input) return null;
-        const trimmed = input.trim();
-        if (!trimmed) return null;
-        const normalized = removeAccents(trimmed).toLowerCase();
-        const cleaned = normalized.replace(/[^a-z0-9]/g, "");
-        if (!cleaned) return null;
-        if (/(noi dung|tom tat|story|plot|noi dung phim|ke ve|noi dung cua phim)/.test(normalized)) {
-          return "content";
-        }
-        if (/(phim gi|phim nao|ten phim|ten gi|movie name|what movie|day la phim|poster gi)/.test(normalized)) {
-          return "name";
-        }
-        if (/(phan may|phan nao|season|tap|episode|part|chuong)/.test(normalized)) {
-          return "part";
-        }
-        if (/(suat chieu|lich chieu|gio chieu|showtime|bao gio chieu|khi nao chieu|thoi gian chieu)/.test(normalized)) {
-          return "showtime";
-        }
-        return null;
-      };
-
       // Bước 1: Nhận diện poster với Gemini Vision
-      const recognizedTitle = await ChatbotService.recognizePosterFromImage(imageBase64, mimeType);
+      const recognizedTitle = await ChatbotService.recognizePosterFromImage(
+        imageBase64,
+        mimeType
+      );
 
       if (!recognizedTitle) {
         return {
           success: false,
-          message: "Xin lỗi, tôi không thể nhận diện được poster phim này. Vui lòng thử lại với một poster phim rõ ràng hơn.",
+          message:
+            "Xin lỗi, tôi không thể nhận diện được poster phim này. Vui lòng thử lại với một poster phim rõ ràng hơn.",
         };
       }
 
@@ -1492,97 +1945,70 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       }
 
       // Bước 3: Lấy showtimes cho phim
-      const showtimes = await ChatbotService.getShowtimesForMovie(movie._id.toString());
+      const showtimes = await ChatbotService.getShowtimesForMovie(
+        movie._id.toString()
+      );
 
       // Bước 4: Format response message
       const userInfo = await ChatbotService.getUserInfo(userId);
       const userName = userInfo?.firstName || "bạn";
 
-      const formatMovieDetails = () => {
-        return `📽️ Thông tin phim:\n` +
-          `- Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}\n` +
-          `- Thời lượng: ${movie.duration || "Chưa cập nhật"} phút\n` +
-          `- Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}\n` +
-          `- Trạng thái: ${movie.status || "Chưa cập nhật"}`;
-      };
+      let message = `${userName} ơi, tôi đã nhận diện được poster là phim "${movie.title}"!\n\n`;
+      message += `📽️ Thông tin phim:\n`;
+      message += `- Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}\n`;
+      message += `- Thời lượng: ${movie.duration || "Chưa cập nhật"} phút\n`;
+      message += `- Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}\n`;
+      message += `- Trạng thái: ${movie.status || "Chưa cập nhật"}\n\n`;
 
-      const formatShowtimeDetails = () => {
-        if (showtimes.length === 0) {
-          let noShowtimeMessage = `⚠️ Hiện tại phim này chưa có suất chiếu. Vui lòng kiểm tra lại sau.\n\n`;
-          noShowtimeMessage += `💬 ${userName} có muốn:\n`;
-          noShowtimeMessage += `- Tìm hiểu thêm về nội dung phim?\n`;
-          noShowtimeMessage += `- Xem danh sách các phim khác đang chiếu?\n`;
-          noShowtimeMessage += `- Biết thêm về diễn viên hoặc đạo diễn của phim?`;
-          return noShowtimeMessage;
-        }
-
-        let showtimeText = `🎬 Lịch chiếu:\n`;
+      if (showtimes.length === 0) {
+        message += `⚠️ Hiện tại phim này chưa có suất chiếu. Vui lòng kiểm tra lại sau.\n\n`;
+        message += `💬 ${userName} có muốn:\n`;
+        message += `- Tìm hiểu thêm về nội dung phim?\n`;
+        message += `- Xem danh sách các phim khác đang chiếu?\n`;
+        message += `- Biết thêm về diễn viên hoặc đạo diễn của phim?`;
+      } else {
+        message += `🎬 Lịch chiếu:\n`;
         showtimes.forEach((st: any, index: number) => {
           const theaterName = st.theaterId?.name || "Chưa có tên";
-          showtimeText += `\n${index + 1}. Rạp: ${theaterName}\n`;
+          message += `\n${index + 1}. Rạp: ${theaterName}\n`;
 
+          // Lấy các suất chiếu sắp tới (trong 7 ngày tới)
           const now = new Date();
           const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
           const upcomingShowtimes = st.showTimes
             .filter((showTime: any) => {
               const showDate = new Date(showTime.date);
-              return showDate >= now && showDate <= nextWeek && showTime.status === "active";
+              return (
+                showDate >= now &&
+                showDate <= nextWeek &&
+                showTime.status === "active"
+              );
             })
-            .slice(0, 5);
+            .slice(0, 5); // Chỉ lấy 5 suất gần nhất
 
           if (upcomingShowtimes.length > 0) {
             upcomingShowtimes.forEach((showTime: any) => {
               const date = new Date(showTime.date).toLocaleDateString("vi-VN");
-              const start = new Date(showTime.start).toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+              const start = new Date(showTime.start).toLocaleTimeString(
+                "vi-VN",
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }
+              );
               const roomName = showTime.room?.name || "Chưa có";
-              showtimeText += `   📅 ${date} - ${start} (Phòng ${roomName})\n`;
+              message += `   📅 ${date} - ${start} (Phòng ${roomName})\n`;
             });
           } else {
-            showtimeText += `   Chưa có suất chiếu sắp tới\n`;
+            message += `   Chưa có suất chiếu sắp tới\n`;
           }
         });
-        showtimeText += `\n💡 ${userName} có muốn:\n`;
-        showtimeText += `- Tìm hiểu thêm về nội dung phim?\n`;
-        showtimeText += `- Xem các phim cùng thể loại "${movie.genre?.[0] || "hành động"}"?`;
-        return showtimeText;
-      };
-
-      const intent = detectPosterQuestionIntent(userMessage);
-
-      let message: string;
-
-      if (intent === "content") {
-        const description = movie.description?.trim();
-        message = `${userName} ơi, đây là poster của phim "${movie.title}".\n\n`;
-        if (description) {
-          message += `📖 Nội dung phim:\n${description}\n\n`;
-        } else {
-          message += `📖 CineJoy chưa có mô tả chi tiết cho phim này, nhưng bạn có thể tham khảo thông tin tổng quan bên dưới.\n\n`;
-        }
-        message += `${formatShowtimeDetails()}\n\n${formatMovieDetails()}`;
-      } else if (intent === "name") {
-        message = `${userName} ơi, poster bạn gửi chính là phim "${movie.title}".\n\n`;
-        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
-      } else if (intent === "showtime") {
-        message = `${userName} ơi, đây là lịch chiếu của phim "${movie.title}" mà bạn quan tâm:\n\n`;
-        message += `${formatShowtimeDetails()}\n\n${formatMovieDetails()}`;
-      } else if (intent === "part") {
-        const partInfo =
-          movie.title.match(/(phần\s*\d+|season\s*\d+|part\s*\d+|chapter\s*\d+|tập\s*\d+)/i)?.[0] || null;
-        message = `${userName} ơi, poster này là phim "${movie.title}".`;
-        if (partInfo) {
-          message += ` Đây là ${partInfo} theo tiêu đề mà CineJoy đang lưu trữ.\n\n`;
-        } else {
-          message += ` Tiêu đề hiện tại không ghi rõ số phần, nhưng bạn có thể xem thông tin chi tiết bên dưới.\n\n`;
-        }
-        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
-      } else {
-        message = `${userName} ơi, tôi đã nhận diện được poster là phim "${movie.title}"!\n\n`;
-        message += `${formatMovieDetails()}\n\n${formatShowtimeDetails()}`;
+        message += `\n💡 ${userName} có muốn:\n`;
+        message += `- Tìm hiểu thêm về nội dung phim?\n`;
+        message += `- Xem các phim cùng thể loại "${
+          movie.genre?.[0] || "hành động"
+        }"?`;
       }
 
       return {
@@ -1605,7 +2031,8 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       console.error("Error processing poster upload:", error);
       return {
         success: false,
-        message: "Xin lỗi, đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.",
+        message:
+          "Xin lỗi, đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.",
       };
     }
   },
@@ -1663,6 +2090,111 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       }
     }
   },
+};
+
+export const generatePosterQuestionReply = async ({
+  posterInfo,
+  question,
+  sessionId = "default",
+  userId,
+}: {
+  posterInfo: {
+    success: boolean;
+    movieTitle?: string;
+    movie?: any;
+    showtimes?: any[];
+    message: string;
+  };
+  question: string;
+  sessionId?: string;
+  userId?: string;
+}) => {
+  const userInfo = await ChatbotService.getUserInfo(userId);
+  const userName = userInfo?.firstName || "bạn";
+
+  const movie = posterInfo.movie;
+  const movieSummary = movie
+    ? `Tên phim: ${movie.title}
+Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}
+Thời lượng: ${movie.duration || "Chưa cập nhật"} phút
+Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}
+Trạng thái: ${movie.status || "Chưa cập nhật"}`
+    : `Poster được nhận diện là "${
+        posterInfo.movieTitle || "một phim chưa có trong hệ thống"
+      }".`;
+
+  const showtimeSummary =
+    posterInfo.showtimes && posterInfo.showtimes.length > 0
+      ? posterInfo.showtimes
+          .slice(0, 3)
+          .map((st: any, index: number) => {
+            const theaterName = st.theaterId?.name || "Chưa có tên";
+            const firstShow = st.showTimes?.[0];
+            if (firstShow) {
+              const date = new Date(firstShow.date).toLocaleDateString("vi-VN");
+              const time = new Date(firstShow.start).toLocaleTimeString(
+                "vi-VN",
+                { hour: "2-digit", minute: "2-digit" }
+              );
+              return `${index + 1}. Rạp ${theaterName} - ${date} ${time}`;
+            }
+            return `${index + 1}. Rạp ${theaterName}`;
+          })
+          .join("\n")
+      : "Hiện chưa có suất chiếu sẵn sàng.";
+
+  const prompt = `
+Bạn là CineJoy Assistant. Hệ thống đã phân tích poster với kết quả:
+${posterInfo.message}
+
+Tóm tắt phim:
+${movieSummary}
+
+Lịch chiếu (nếu có):
+${showtimeSummary}
+
+Người dùng (${userName}) hỏi thêm: "${question}"
+
+Nhiệm vụ:
+1. Trả lời duy nhất một đoạn văn (có thể xuống dòng nhưng không được chào hỏi lặp lại nếu đã trả lời trước đó).
+2. Nếu phim chưa có trong hệ thống, giải thích rõ và gợi ý các lựa chọn khác.
+3. Nếu phim có trong hệ thống, kết hợp thông tin poster + câu hỏi để trả lời trực tiếp.
+4. Không nhắc lại thông tin phân tích theo dạng máy móc; hãy diễn đạt lại tự nhiên.
+5. Chỉ trả lời một lần duy nhất.
+`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let reply =
+      response.text() ||
+      "Xin lỗi, tôi chưa thể trả lời ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+    reply = reply.replace(/\*\*/g, "").replace(/\*/g, "");
+
+    ChatbotService.saveMessage(sessionId, { sender: "bot", text: reply });
+    return reply;
+  } catch (error: any) {
+    console.error("Error generating poster question reply:", error);
+    
+    // Xử lý lỗi quota exceeded (429)
+    if (error?.status === 429) {
+      const retryDelay = error?.errorDetails?.find(
+        (detail: any) => detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+      )?.retryDelay || "một lúc";
+      
+      console.error(
+        "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày."
+      );
+      const fallback = `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
+      ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
+      return fallback;
+    }
+    
+    const fallback =
+      "Xin lỗi, hệ thống đang bận nên chưa thể trả lời câu hỏi về poster ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+    ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
+    return fallback;
+  }
 };
 
 export default ChatbotService;

@@ -35,6 +35,9 @@ const Chatbot: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    // Tạo sessionId duy nhất cho mỗi lần mở chatbot
+    const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionIdRef = useRef<string>(generateSessionId());
     
     const defaultBotMessage: Message = {
         sender: 'bot',
@@ -52,6 +55,8 @@ const Chatbot: React.FC = () => {
     useEffect(() => {
         if (isOpen && messages.length === 0) {
             setMessages([defaultBotMessage]);
+            // Tạo sessionId mới mỗi khi mở chatbot
+            sessionIdRef.current = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
@@ -83,7 +88,7 @@ const Chatbot: React.FC = () => {
         });
     };
 
-    const sendTextMessage = async (userMessage: string) => {
+    const sendTextMessage = async (userMessage: string, imageBase64?: string, mimeType?: string) => {
         setMessages(prev => [...prev, { sender: 'user', text: userMessage }]);
         setIsLoading(true);
 
@@ -100,11 +105,20 @@ const Chatbot: React.FC = () => {
                 console.log('⚠️ No token found in localStorage');
             }
 
+            // Gửi cả message và image (nếu có) đến endpoint /chat
+            const requestBody: any = {
+                message: userMessage,
+                sessionId: sessionIdRef.current
+            };
+
+            if (imageBase64 && mimeType) {
+                requestBody.imageBase64 = imageBase64;
+                requestBody.mimeType = mimeType;
+            }
+
             const response = await axios.post<ChatResponse>(
                 'http://localhost:5000/chatbot/chat',
-                {
-                    message: userMessage
-                },
+                requestBody,
                 { headers }
             );
 
@@ -123,11 +137,16 @@ const Chatbot: React.FC = () => {
     const sendImageMessage = async (caption: string) => {
         if (!pendingImage) return;
 
-        const captionText = caption.trim() || 'Mình vừa gửi poster này, bạn hỗ trợ giúp nhé!';
+        const captionText = caption.trim() || '';
         const file = pendingImage.file;
         const preview = pendingImage.preview;
 
-        setMessages(prev => [...prev, { sender: 'user', text: captionText, image: preview }]);
+        // Hiển thị tin nhắn user với image
+        setMessages(prev => [...prev, { 
+            sender: 'user', 
+            text: captionText || 'Mình vừa gửi poster này, bạn hỗ trợ giúp nhé!', 
+            image: preview 
+        }]);
         setPendingImage(null);
         setInputMessage('');
         setIsLoading(true);
@@ -144,20 +163,42 @@ const Chatbot: React.FC = () => {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const response = await axios.post<PosterUploadResponse>(
-                'http://localhost:5000/chatbot/upload-poster',
-                {
-                    imageBase64: base64String,
-                    mimeType: file.type || 'image/jpeg',
-                    userMessage: captionText
-                },
-                { headers }
-            );
+            // Nếu có caption, gửi cả image và message đến /chat endpoint
+            // Nếu không có caption, chỉ gửi image đến /upload-poster endpoint
+            if (captionText) {
+                // Gửi cả image và message đến /chat endpoint
+                const response = await axios.post<ChatResponse>(
+                    'http://localhost:5000/chatbot/chat',
+                    {
+                        message: captionText,
+                        imageBase64: base64String,
+                        mimeType: file.type || 'image/jpeg',
+                        sessionId: sessionIdRef.current
+                    },
+                    { headers }
+                );
 
-            setMessages(prev => [...prev, { 
-                sender: 'bot', 
-                text: response.data.reply 
-            }]);
+                setMessages(prev => [...prev, { 
+                    sender: 'bot', 
+                    text: response.data.reply 
+                }]);
+            } else {
+                // Chỉ gửi image đến /upload-poster endpoint
+                const response = await axios.post<PosterUploadResponse>(
+                    'http://localhost:5000/chatbot/upload-poster',
+                    {
+                        imageBase64: base64String,
+                        mimeType: file.type || 'image/jpeg',
+                        sessionId: sessionIdRef.current
+                    },
+                    { headers }
+                );
+
+                setMessages(prev => [...prev, { 
+                    sender: 'bot', 
+                    text: response.data.reply 
+                }]);
+            }
         } catch (error: any) {
             console.error('Error uploading image:', error);
             setMessages(prev => [...prev, {
