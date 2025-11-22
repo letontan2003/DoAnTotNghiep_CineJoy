@@ -5,10 +5,13 @@ import PaymentService from "../services/PaymentService";
 
 class OrderController {
   // Lấy lịch sử đặt vé của user
-  async getUserBookingHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getUserBookingHistory(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
     try {
       const userId = req.user?._id;
-      
+
       if (!userId) {
         res.status(401).json({
           status: false,
@@ -19,8 +22,10 @@ class OrderController {
         return;
       }
 
-      const orders = await OrderService.getUserBookingHistory(userId.toString());
-      
+      const orders = await OrderService.getUserBookingHistory(
+        userId.toString()
+      );
+
       res.status(200).json({
         status: true,
         error: 0,
@@ -38,11 +43,57 @@ class OrderController {
     }
   }
 
-  async getUserOrderDetails(req: AuthenticatedRequest, res: Response): Promise<void> {
+  async getUserYearlySpending(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const userId = req.user?._id;
+      const yearParam = parseInt(req.query.year as string, 10);
+      const targetYear = Number.isNaN(yearParam)
+        ? new Date().getFullYear()
+        : yearParam;
+
+      if (!userId) {
+        res.status(401).json({
+          status: false,
+          error: 401,
+          message: "Không có quyền truy cập",
+          data: null,
+        });
+        return;
+      }
+
+      const spending = await OrderService.getUserYearlySpending(
+        userId.toString(),
+        targetYear
+      );
+
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: "Lấy tổng chi tiêu theo năm thành công",
+        data: spending,
+      });
+    } catch (error) {
+      console.error("Error getting user yearly spending:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi lấy tổng chi tiêu",
+        data: null,
+      });
+    }
+  }
+
+  async getUserOrderDetails(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
     try {
       const userId = req.user?._id;
       const orderId = req.params.orderId;
-      
+
       if (!userId) {
         res.status(401).json({
           status: false,
@@ -63,8 +114,11 @@ class OrderController {
         return;
       }
 
-      const order = await OrderService.getUserOrderDetails(userId.toString(), orderId);
-      
+      const order = await OrderService.getUserOrderDetails(
+        userId.toString(),
+        orderId
+      );
+
       if (!order) {
         res.status(404).json({
           status: false,

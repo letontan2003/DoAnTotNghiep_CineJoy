@@ -8,11 +8,16 @@ import {
   StatusBar,
   ScrollView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import { useAppSelector } from "@/store/hooks";
+import * as ImagePicker from "expo-image-picker";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { setUser } from "@/store/appSlice";
+import { uploadImageApi, updateUserApi } from "@/services/api";
 import SideMenu from "@/components/SideMenu";
 
 type RootStackParamList = {
@@ -39,9 +44,11 @@ interface MenuItem {
 
 const MemberScreen = () => {
   const navigation = useNavigation<MemberScreenNavigationProp>();
+  const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
   const user = useAppSelector((state) => state.app.user);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Hàm mở/đóng side menu
   const toggleSideMenu = () => {
@@ -76,6 +83,84 @@ const MemberScreen = () => {
     if (itemId === 5) {
       navigation.navigate("BookingHistoryScreen");
       return;
+    }
+  };
+
+  const handlePickImage = async () => {
+    if (!isAuthenticated || !user?._id) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để thay đổi avatar");
+      return;
+    }
+
+    if (isUploadingAvatar) return;
+
+    try {
+      // Yêu cầu quyền truy cập thư viện ảnh
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Quyền truy cập",
+          "CineJoy cần quyền truy cập thư viện ảnh để thay đổi avatar. Hãy cấp quyền trong phần Cài đặt nhé!"
+        );
+        return;
+      }
+
+      // Mở thư viện ảnh
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: false,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert("Lỗi", "Không thể đọc ảnh. Bạn vui lòng thử lại.");
+        return;
+      }
+
+      setIsUploadingAvatar(true);
+
+      // Upload ảnh lên server
+      const uploadResponse = await uploadImageApi(asset.uri);
+      if (!uploadResponse.status || !uploadResponse.data?.url) {
+        Alert.alert(
+          "Lỗi",
+          uploadResponse.message ||
+            "Không thể upload ảnh. Bạn vui lòng thử lại."
+        );
+        setIsUploadingAvatar(false);
+        return;
+      }
+
+      // Cập nhật avatar trong user profile
+      const updateResponse = await updateUserApi(user._id, {
+        avatar: uploadResponse.data.url,
+      });
+
+      if (updateResponse.status && updateResponse.data) {
+        // Cập nhật Redux store
+        dispatch(setUser(updateResponse.data));
+        Alert.alert("Thành công", "Đã cập nhật avatar thành công!");
+      } else {
+        Alert.alert(
+          "Lỗi",
+          updateResponse.message ||
+            "Không thể cập nhật avatar. Bạn vui lòng thử lại."
+        );
+      }
+    } catch (error) {
+      console.error("handlePickImage error", error);
+      Alert.alert(
+        "Lỗi",
+        "Không thể thay đổi avatar. Bạn vui lòng thử lại sau."
+      );
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -131,9 +216,19 @@ const MemberScreen = () => {
                 </View>
               )}
             </View>
-            <TouchableOpacity style={styles.cameraIcon}>
-              <Fontisto name="camera" size={16} color="#666" />
-            </TouchableOpacity>
+            {isAuthenticated && (
+              <TouchableOpacity
+                style={styles.cameraIcon}
+                onPress={handlePickImage}
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#666" />
+                ) : (
+                  <Fontisto name="camera" size={16} color="#666" />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {isAuthenticated ? (

@@ -61,6 +61,12 @@ export interface IFetchAccount {
   user: IUser;
 }
 
+export interface IUserYearlySpending {
+  year: number;
+  totalOrders: number;
+  totalAmount: number;
+}
+
 // Movie types
 export interface IReview {
   userName: string;

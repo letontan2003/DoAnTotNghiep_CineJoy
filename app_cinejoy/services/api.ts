@@ -13,6 +13,7 @@ import {
   IFoodCombo,
   IBlog,
   IUser,
+  IUserYearlySpending,
   IVoucher,
   IUserVoucher,
 } from "types/api";
@@ -527,6 +528,30 @@ export const getUserBookingHistoryApi = async () => {
   }
 };
 
+export const getUserYearlySpendingApi = async (
+  year?: number
+): Promise<IBackendResponse<IUserYearlySpending>> => {
+  try {
+    const response = await axios.get<IBackendResponse<IUserYearlySpending>>(
+      "/v1/api/orders/spending/year",
+      {
+        params: year ? { year } : undefined,
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message =
+      error?.response?.data?.message || error?.message || "Request failed";
+    return {
+      status: false,
+      error: status,
+      message,
+      data: null,
+    };
+  }
+};
+
 export const getVisibleBlogsApi = async () => {
   try {
     const response = await axios.get<IBlog[]>("/blogs/visible");
@@ -621,6 +646,37 @@ export const uploadChatbotImageApi = async (
     }
   );
   return response.data;
+};
+
+export const uploadImageApi = async (imageUri: string) => {
+  try {
+    const formData = new FormData();
+    const filename = imageUri.split("/").pop() || "image.jpg";
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image/jpeg";
+
+    formData.append("image", {
+      uri: imageUri,
+      name: filename,
+      type: type,
+    } as any);
+
+    const response = await axios.post<
+      IBackendResponse<{ url: string; filename: string }>
+    >("/v1/api/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error uploading image:", error);
+    return {
+      status: false,
+      message: "Có lỗi xảy ra khi upload ảnh",
+      data: null,
+    };
+  }
 };
 
 export default axios;

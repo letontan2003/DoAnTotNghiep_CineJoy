@@ -17,7 +17,7 @@ import Fontisto from "@expo/vector-icons/Fontisto";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/appSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { logoutApi } from "services/api";
+import { logoutApi, getUserYearlySpendingApi } from "services/api";
 import logo from "assets/logoCNJ.png";
 import maVach from "assets/maVach.png";
 
@@ -46,11 +46,63 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
   const navigation = useNavigation<SideMenuNavigationProp>();
   const dispatch = useAppDispatch();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSpendingLoading, setIsSpendingLoading] = useState(false);
+  const [yearlySpending, setYearlySpending] = useState<{
+    year: number;
+    totalAmount: number;
+    totalOrders: number;
+  } | null>(null);
   const sideMenuTranslateX = useRef(new Animated.Value(width)).current;
+  const spendingPlaceholderTimer = useRef<NodeJS.Timeout | null>(null);
+  const currentYear = new Date().getFullYear();
+  const [displaySpendingValue, setDisplaySpendingValue] = useState("0 ₫");
 
   // Lấy thông tin authentication từ Redux store
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
   const user = useAppSelector((state) => state.app.user);
+
+  const formatCurrency = (value: number) =>
+    `${(value || 0).toLocaleString("vi-VN")} ₫`;
+
+  const getUserAgeLabel = () => {
+    if (!user?.dateOfBirth) {
+      return "U??";
+    }
+    const birthDate = new Date(user.dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) {
+      return "U??";
+    }
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const dayDiff = today.getDate() - birthDate.getDate();
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age -= 1;
+    }
+    if (age < 0) age = 0;
+    return `U${age}`;
+  };
+
+  const startSpendingAnimation = () => {
+    if (spendingPlaceholderTimer.current) return;
+    let currentValue = 0;
+    spendingPlaceholderTimer.current = setInterval(() => {
+      currentValue += Math.floor(Math.random() * 400000 + 7000);
+      setDisplaySpendingValue(`${currentValue.toLocaleString("vi-VN")} ₫`);
+    }, 150);
+  };
+
+  const stopSpendingAnimation = (finalAmount?: number) => {
+    if (spendingPlaceholderTimer.current) {
+      clearInterval(spendingPlaceholderTimer.current);
+      spendingPlaceholderTimer.current = null;
+    }
+    if (typeof finalAmount === "number") {
+      setDisplaySpendingValue(formatCurrency(finalAmount));
+    } else {
+      setDisplaySpendingValue("0 ₫");
+    }
+  };
 
   // Side menu items data - Grid menu với icons
   const menuGridItems = [
@@ -81,6 +133,56 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
       }).start();
     }
   }, [visible]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSpending = async () => {
+      try {
+        setIsSpendingLoading(true);
+        startSpendingAnimation();
+        const response = await getUserYearlySpendingApi(currentYear);
+        if (!isMounted) return;
+        if (response.status && response.data) {
+          setYearlySpending(response.data);
+          stopSpendingAnimation(response.data.totalAmount);
+        } else {
+          setYearlySpending({
+            year: currentYear,
+            totalAmount: 0,
+            totalOrders: 0,
+          });
+          stopSpendingAnimation(0);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setYearlySpending({
+            year: currentYear,
+            totalAmount: 0,
+            totalOrders: 0,
+          });
+          stopSpendingAnimation(0);
+        }
+      } finally {
+        if (isMounted) {
+          setIsSpendingLoading(false);
+        }
+      }
+    };
+
+    if (visible && isAuthenticated) {
+      fetchSpending();
+    }
+
+    if (!isAuthenticated) {
+      setYearlySpending(null);
+      stopSpendingAnimation(0);
+    }
+
+    return () => {
+      isMounted = false;
+      stopSpendingAnimation();
+    };
+  }, [visible, isAuthenticated, currentYear]);
 
   const handleMenuItemPress = (item: { id: number; title: string }) => {
     if (item.id === 1) {
@@ -266,7 +368,9 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
               <View style={styles.menuMemberCard}>
                 <View style={styles.menuCardHeader}>
                   <View style={styles.menuCardU22Badge}>
-                    <Text style={styles.menuCardU22Text}>U22</Text>
+                    <Text style={styles.menuCardU22Text}>
+                      {getUserAgeLabel()}
+                    </Text>
                   </View>
                   <Text style={styles.menuCardTitle}>ĐẶC QUYỀN</Text>
                   <TouchableOpacity>
@@ -282,8 +386,14 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
               {/* Points Section - chỉ hiển thị khi đã login */}
               <View style={styles.menuPointsSection}>
                 <View style={styles.menuPointItem}>
-                  <Text style={styles.menuPointLabel}>Tổng chi tiêu 2025</Text>
-                  <Text style={styles.menuPointValue}>341.636 ₫</Text>
+                  <Text style={styles.menuPointLabel}>
+                    Tổng chi tiêu {yearlySpending?.year ?? currentYear}
+                  </Text>
+                  <Text style={styles.menuPointValue}>
+                    {isSpendingLoading
+                      ? displaySpendingValue
+                      : formatCurrency(yearlySpending?.totalAmount ?? 0)}
+                  </Text>
                 </View>
                 <View style={styles.menuPointItem}>
                   <Text style={styles.menuPointLabel}>Điểm thưởng</Text>
@@ -296,7 +406,9 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
           )}
 
           {/* Menu Grid */}
-          <View style={styles.menuGrid}>
+          <View
+            style={[styles.menuGrid, !isAuthenticated && { paddingBottom: 25 }]}
+          >
             {menuGridItems.map((item) => (
               <TouchableOpacity
                 key={item.id}
@@ -329,7 +441,12 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
             </TouchableOpacity>
           )}
 
-          <View style={styles.menuFooter}>
+          <View
+            style={[
+              styles.menuFooter,
+              !isAuthenticated && styles.menuFooterAuthenticated,
+            ]}
+          >
             <Image source={logo} style={styles.menuFooterLogo} />
             <Text style={styles.menuFooterText}>CULTUREPLEX</Text>
           </View>
@@ -429,6 +546,11 @@ const styles = StyleSheet.create({
   menuLoginButton: {
     marginTop: 10,
     paddingVertical: 8,
+    paddingBottom: 25,
+    borderBottomWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#333",
+    width: "90%",
   },
   menuLoginButtonText: {
     color: "#E50914",
@@ -557,7 +679,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: 8,
-    paddingBottom: 10,
   },
   menuGridItem: {
     width: "33.33%",
@@ -622,6 +743,13 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     marginBottom: -20,
     tintColor: "#444",
+  },
+  menuFooterAuthenticated: {
+    margin: "auto",
+    borderTopWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#333",
+    width: "90%",
   },
   menuFooterText: {
     color: "#333",

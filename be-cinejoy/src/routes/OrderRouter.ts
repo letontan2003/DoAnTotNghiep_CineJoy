@@ -1,13 +1,22 @@
 import { Router } from "express";
 import OrderController from "../controllers/OrderController";
-import { verifyToken } from '../middlewares/AuthMiddleware';
+import { verifyToken } from "../middlewares/AuthMiddleware";
 
 const router = Router();
 
 // Routes cho Order
 router.post("/", OrderController.createOrder); // Tạo order mới
 router.get("/history", verifyToken, OrderController.getUserBookingHistory);
-router.get("/details/:orderId", verifyToken, OrderController.getUserOrderDetails); // Lấy lịch sử đặt vé của user hiện tại
+router.get(
+  "/spending/year",
+  verifyToken,
+  OrderController.getUserYearlySpending
+);
+router.get(
+  "/details/:orderId",
+  verifyToken,
+  OrderController.getUserOrderDetails
+); // Lấy lịch sử đặt vé của user hiện tại
 router.get("/", OrderController.getAllOrders); // Lấy tất cả orders (Admin)
 router.get("/stats", OrderController.getOrderStats); // Thống kê orders (Admin)
 router.get("/code/:orderCode", OrderController.getOrderByCode); // Lấy order theo orderCode

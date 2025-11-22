@@ -988,6 +988,40 @@ class OrderService {
     return !!result;
   }
 
+  async getUserYearlySpending(
+    userId: string,
+    year: number
+  ): Promise<{ year: number; totalOrders: number; totalAmount: number }> {
+    const startOfYear = new Date(year, 0, 1);
+    startOfYear.setHours(0, 0, 0, 0);
+    const startOfNextYear = new Date(year + 1, 0, 1);
+    startOfNextYear.setHours(0, 0, 0, 0);
+
+    const [result] = await Order.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(userId),
+          createdAt: { $gte: startOfYear, $lt: startOfNextYear },
+          paymentStatus: "PAID",
+          orderStatus: { $nin: ["CANCELLED"] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalAmount: { $sum: "$finalAmount" },
+        },
+      },
+    ]);
+
+    return {
+      year,
+      totalOrders: result?.totalOrders || 0,
+      totalAmount: result?.totalAmount || 0,
+    };
+  }
+
   // Lấy thống kê orders
   async getOrderStats(): Promise<{
     totalOrders: number;
