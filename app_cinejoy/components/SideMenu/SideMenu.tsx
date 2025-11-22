@@ -18,6 +18,7 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { logout } from "@/store/appSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { logoutApi, getUserYearlySpendingApi } from "services/api";
+import AvatarModal from "@/components/AvatarModal";
 import logo from "assets/logoCNJ.png";
 import maVach from "assets/maVach.png";
 
@@ -52,6 +53,7 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
     totalAmount: number;
     totalOrders: number;
   } | null>(null);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const sideMenuTranslateX = useRef(new Animated.Value(width)).current;
   const spendingPlaceholderTimer = useRef<NodeJS.Timeout | null>(null);
   const currentYear = new Date().getFullYear();
@@ -319,7 +321,15 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
                 <Fontisto name="bell" size={26} color="#fff" />
                 {!isAuthenticated && <View style={styles.menuBellBadge} />}
               </TouchableOpacity>
-              <View style={styles.menuAvatarContainer}>
+              <TouchableOpacity
+                style={styles.menuAvatarContainer}
+                onPress={() => {
+                  if (isAuthenticated && user?.avatar) {
+                    setShowAvatarModal(true);
+                  }
+                }}
+                activeOpacity={isAuthenticated && user?.avatar ? 0.7 : 1}
+              >
                 {isAuthenticated && user?.avatar ? (
                   <Image
                     source={{ uri: user.avatar }}
@@ -330,7 +340,7 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
                     <Fontisto name="person" size={50} color="#666" />
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.menuHeaderIcon}>
                 <Fontisto name="player-settings" size={26} color="#fff" />
               </TouchableOpacity>
@@ -452,6 +462,13 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
           </View>
         </ScrollView>
       </Animated.View>
+
+      {/* Avatar Modal */}
+      <AvatarModal
+        visible={showAvatarModal}
+        avatarUri={user?.avatar}
+        onClose={() => setShowAvatarModal(false)}
+      />
     </View>
   );
 };

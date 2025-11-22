@@ -10,8 +10,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Modal,
-  Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -21,6 +19,7 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setUser } from "@/store/appSlice";
 import { uploadImageApi, updateUserApi } from "@/services/api";
 import SideMenu from "@/components/SideMenu";
+import AvatarModal from "@/components/AvatarModal";
 
 type RootStackParamList = {
   HomeScreen: undefined;
@@ -290,40 +289,11 @@ const MemberScreen = () => {
       <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
 
       {/* Avatar Modal */}
-      <Modal
+      <AvatarModal
         visible={showAvatarModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowAvatarModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalCloseArea}
-            activeOpacity={1}
-            onPress={() => setShowAvatarModal(false)}
-          />
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowAvatarModal(false)}
-            >
-              <Fontisto name="close-a" size={24} color="#fff" />
-            </TouchableOpacity>
-            {user?.avatar && (
-              <Image
-                source={{ uri: user.avatar }}
-                style={styles.modalAvatar}
-                resizeMode="contain"
-              />
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.modalCloseArea}
-            activeOpacity={1}
-            onPress={() => setShowAvatarModal(false)}
-          />
-        </View>
-      </Modal>
+        avatarUri={user?.avatar}
+        onClose={() => setShowAvatarModal(false)}
+      />
     </View>
   );
 };
@@ -504,41 +474,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#f0f0f0",
     marginLeft: 72,
-  },
-  // Avatar Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCloseArea: {
-    flex: 1,
-    width: "100%",
-  },
-  modalContent: {
-    width: Dimensions.get("window").width * 0.9,
-    height: Dimensions.get("window").width * 0.9,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  modalCloseButton: {
-    position: "absolute",
-    top: -15,
-    right: -15,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  modalAvatar: {
-    width: "95%",
-    height: "100%",
-    borderRadius: 10,
   },
 });
 
