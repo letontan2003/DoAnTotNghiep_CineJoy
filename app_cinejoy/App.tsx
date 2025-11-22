@@ -32,6 +32,7 @@ import VersionInfoScreen from "@/screens/VersionInfoScreen";
 import TermsOfUseScreen from "@/screens/TermsOfUseScreen";
 import PaymentPolicyScreen from "@/screens/PaymentPolicyScreen";
 import CompanyInfoScreen from "@/screens/CompanyInfoScreen";
+import NotificationScreen from "@/screens/NotificationScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -139,6 +140,10 @@ export default function App() {
                 <Stack.Screen
                   name="CompanyInfoScreen"
                   component={CompanyInfoScreen}
+                />
+                <Stack.Screen
+                  name="NotificationScreen"
+                  component={NotificationScreen}
                 />
               </Stack.Navigator>
             </NavigationContainer>

@@ -35,6 +35,7 @@ type RootStackParamList = {
   VoucherScreen: undefined;
   ChatbotScreen: undefined;
   SettingsScreen: undefined;
+  NotificationScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -318,7 +319,17 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
           {/* User Profile Section */}
           <View style={styles.menuProfileSection}>
             <View style={styles.menuProfileHeader}>
-              <TouchableOpacity style={styles.menuHeaderIcon}>
+              <TouchableOpacity
+                style={styles.menuHeaderIcon}
+                onPress={() => {
+                  onClose();
+                  if (isAuthenticated) {
+                    navigation.navigate("NotificationScreen");
+                  } else {
+                    navigation.navigate("LoginScreen");
+                  }
+                }}
+              >
                 <Fontisto name="bell" size={26} color="#fff" />
                 {!isAuthenticated && <View style={styles.menuBellBadge} />}
               </TouchableOpacity>
