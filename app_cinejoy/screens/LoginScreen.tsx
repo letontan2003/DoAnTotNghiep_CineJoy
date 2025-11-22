@@ -17,6 +17,7 @@ import {
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
+import Feather from "@expo/vector-icons/Feather";
 import { loginApi } from "@/services/api";
 import { useAppDispatch } from "@/store/hooks";
 import { setUser, setIsAuthenticated, setIsDarkMode } from "@/store/appSlice";
@@ -162,7 +163,11 @@ const LoginScreen = () => {
                   style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Fontisto name="eye" size={20} color="#666" />
+                  <Feather
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={20}
+                    color="#666"
+                  />
                 </TouchableOpacity>
                 <View style={styles.inputUnderline} />
               </View>

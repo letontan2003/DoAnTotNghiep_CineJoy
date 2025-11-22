@@ -30,9 +30,6 @@ const AvatarModal = ({ visible, avatarUri, onClose }: AvatarModalProps) => {
           onPress={onClose}
         />
         <View style={styles.modalContent}>
-          <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <Fontisto name="close-a" size={24} color="#fff" />
-          </TouchableOpacity>
           {avatarUri && (
             <Image
               source={{ uri: avatarUri }}
@@ -69,22 +66,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
-  modalCloseButton: {
-    position: "absolute",
-    top: -15,
-    right: -15,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
   modalAvatar: {
-    width: "95%",
+    width: "100%",
     height: "100%",
-    borderRadius: 10,
   },
 });
 

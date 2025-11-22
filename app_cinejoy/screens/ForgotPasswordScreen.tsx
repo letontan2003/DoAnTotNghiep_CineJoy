@@ -16,6 +16,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
+import Feather from "@expo/vector-icons/Feather";
 import bannerBG from "@/assets/bannerBG.png";
 import {
   forgotPasswordApi,
@@ -318,7 +319,11 @@ const ForgotPasswordScreen = () => {
           style={styles.eyeIcon}
           onPress={() => setShowPassword(!showPassword)}
         >
-          <Fontisto name="eye" size={20} color="#666" />
+          <Feather
+            name={showPassword ? "eye" : "eye-off"}
+            size={20}
+            color="#666"
+          />
         </TouchableOpacity>
         <View style={styles.inputUnderline} />
       </View>
@@ -341,7 +346,11 @@ const ForgotPasswordScreen = () => {
           style={styles.eyeIcon}
           onPress={() => setShowConfirmPassword(!showConfirmPassword)}
         >
-          <Fontisto name="eye" size={20} color="#666" />
+          <Feather
+            name={showConfirmPassword ? "eye" : "eye-off"}
+            size={20}
+            color="#666"
+          />
         </TouchableOpacity>
         <View style={styles.inputUnderline} />
       </View>

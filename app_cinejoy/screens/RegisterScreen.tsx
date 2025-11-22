@@ -18,6 +18,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
+import Feather from "@expo/vector-icons/Feather";
 import { registerApi } from "@/services/api";
 import { useAppDispatch } from "@/store/hooks";
 import { setUser, setIsAuthenticated, setIsDarkMode } from "@/store/appSlice";
@@ -59,6 +60,9 @@ const RegisterScreen = () => {
   const [checkbox4, setCheckbox4] = useState(false);
 
   const genders = ["Nam", "Nữ", "Khác"];
+
+  // Kiểm tra xem tất cả checkbox đã được check chưa
+  const allCheckboxesChecked = checkbox1 && checkbox2 && checkbox3 && checkbox4;
 
   const formatDate = (date: Date | null): string => {
     if (!date) return "";
@@ -205,11 +209,7 @@ const RegisterScreen = () => {
     >
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.contentWrapper}>
         {/* Top Section với image */}
         <View style={styles.topSection}>
           <Image
@@ -231,208 +231,232 @@ const RegisterScreen = () => {
 
         {/* Bottom Section với form */}
         <View style={styles.bottomSection}>
-          <View style={styles.formContainer}>
-            {/* Full Name Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>
-                Họ tên <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Họ tên"
-                placeholderTextColor="#999"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-              <View style={styles.inputUnderline} />
-            </View>
-
-            {/* Phone Number Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>
-                Số điện thoại <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Số điện thoại"
-                placeholderTextColor="#999"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                maxLength={10}
-              />
-              <View style={styles.inputUnderline} />
-            </View>
-
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>
-                Email <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <View style={styles.inputUnderline} />
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>
-                Mật khẩu <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Mật khẩu"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Fontisto name="eye" size={20} color="#666" />
-              </TouchableOpacity>
-              <View style={styles.inputUnderline} />
-            </View>
-
-            {/* Date of Birth Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Ngày sinh</Text>
-              <TouchableOpacity
-                style={styles.selectInput}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text
-                  style={[
-                    styles.selectInputText,
-                    !dateOfBirth && styles.placeholder,
-                  ]}
-                >
-                  {dateOfBirth ? formatDate(dateOfBirth) : "Chọn ngày sinh"}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.formContainer}>
+              {/* Full Name Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  Họ tên <Text style={styles.required}>*</Text>
                 </Text>
-                <Fontisto name="angle-down" size={16} color="#666" />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Họ tên"
+                  placeholderTextColor="#999"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                />
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Phone Number Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  Số điện thoại <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Số điện thoại"
+                  placeholderTextColor="#999"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  Email <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  Mật khẩu <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Mật khẩu"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Feather
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={20}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Date of Birth Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Ngày sinh</Text>
+                <TouchableOpacity
+                  style={styles.selectInput}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text
+                    style={[
+                      styles.selectInputText,
+                      !dateOfBirth && styles.placeholder,
+                    ]}
+                  >
+                    {dateOfBirth ? formatDate(dateOfBirth) : "Chọn ngày sinh"}
+                  </Text>
+                  <Fontisto name="angle-down" size={16} color="#666" />
+                </TouchableOpacity>
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Gender Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Giới tính</Text>
+                <TouchableOpacity
+                  style={styles.selectInput}
+                  onPress={() => setShowGenderPicker(true)}
+                >
+                  <Text
+                    style={[
+                      styles.selectInputText,
+                      !gender && styles.placeholder,
+                    ]}
+                  >
+                    {gender || "Chọn giới tính"}
+                  </Text>
+                  <Fontisto name="angle-down" size={16} color="#666" />
+                </TouchableOpacity>
+                <View style={styles.inputUnderline} />
+              </View>
+
+              {/* Checkboxes */}
+              <View style={styles.checkboxContainer}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setCheckbox1(!checkbox1)}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      checkbox1 && styles.checkboxChecked,
+                    ]}
+                  >
+                    {checkbox1 && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép
+                    CNJ Việt Nam thực hiện xử lý dữ liệu cá nhân của tôi phù hợp
+                    với mục đích mà CNJ Việt Nam đã thông báo tại Chính Sách Bảo
+                    Mật.
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setCheckbox2(!checkbox2)}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      checkbox2 && styles.checkboxChecked,
+                    ]}
+                  >
+                    {checkbox2 && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    Thông tin cá nhân cung cấp tại đây là chính xác và trùng
+                    khớp với thông tin tại CMND/CCCD/Thẻ Căn cước và/hoặc Giấy
+                    khai sinh (Giấy tờ tùy thân). Email cung cấp tại đây là
+                    chính xác và thuộc quyền quản lý duy nhất của tôi.
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setCheckbox3(!checkbox3)}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      checkbox3 && styles.checkboxChecked,
+                    ]}
+                  >
+                    {checkbox3 && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    Nếu các thông tin là không trùng khớp, sẽ không thể cập nhật
+                    thay đổi và không được hưởng các{" "}
+                    <Text style={styles.linkText}>Quyền Lợi Thành Viên</Text>.
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setCheckbox4(!checkbox4)}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      checkbox4 && styles.checkboxChecked,
+                    ]}
+                  >
+                    {checkbox4 && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    Tôi đồng ý với{" "}
+                    <Text style={styles.linkText}>Điều Khoản Sử Dụng</Text> của
+                    CNJ Việt Nam.
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Register Button */}
+              <TouchableOpacity
+                style={[
+                  styles.registerButton,
+                  (!allCheckboxesChecked || loading) &&
+                    styles.registerButtonDisabled,
+                ]}
+                onPress={handleRegister}
+                disabled={!allCheckboxesChecked || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.registerButtonText}>ĐĂNG KÝ</Text>
+                )}
               </TouchableOpacity>
-              <View style={styles.inputUnderline} />
             </View>
-
-            {/* Gender Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Giới tính</Text>
-              <TouchableOpacity
-                style={styles.selectInput}
-                onPress={() => setShowGenderPicker(true)}
-              >
-                <Text
-                  style={[
-                    styles.selectInputText,
-                    !gender && styles.placeholder,
-                  ]}
-                >
-                  {gender || "Chọn giới tính"}
-                </Text>
-                <Fontisto name="angle-down" size={16} color="#666" />
-              </TouchableOpacity>
-              <View style={styles.inputUnderline} />
-            </View>
-
-            {/* Checkboxes */}
-            <View style={styles.checkboxContainer}>
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => setCheckbox1(!checkbox1)}
-              >
-                <View
-                  style={[styles.checkbox, checkbox1 && styles.checkboxChecked]}
-                >
-                  {checkbox1 && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxText}>
-                  Bằng việc bấm nút "Đăng Ký" bên dưới. Tôi đồng ý cho phép CNJ
-                  Việt Nam thực hiện xử lý dữ liệu cá nhân của tôi phù hợp với
-                  mục đích mà CNJ Việt Nam đã thông báo tại Chính Sách Bảo Mật.
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => setCheckbox2(!checkbox2)}
-              >
-                <View
-                  style={[styles.checkbox, checkbox2 && styles.checkboxChecked]}
-                >
-                  {checkbox2 && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxText}>
-                  Thông tin cá nhân cung cấp tại đây là chính xác và trùng khớp
-                  với thông tin tại CMND/CCCD/Thẻ Căn cước và/hoặc Giấy khai
-                  sinh (Giấy tờ tùy thân). Email cung cấp tại đây là chính xác
-                  và thuộc quyền quản lý duy nhất của tôi.
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => setCheckbox3(!checkbox3)}
-              >
-                <View
-                  style={[styles.checkbox, checkbox3 && styles.checkboxChecked]}
-                >
-                  {checkbox3 && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxText}>
-                  Nếu các thông tin là không trùng khớp, sẽ không thể cập nhật
-                  thay đổi và không được hưởng các{" "}
-                  <Text style={styles.linkText}>Quyền Lợi Thành Viên</Text>.
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.checkboxRow}
-                onPress={() => setCheckbox4(!checkbox4)}
-              >
-                <View
-                  style={[styles.checkbox, checkbox4 && styles.checkboxChecked]}
-                >
-                  {checkbox4 && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxText}>
-                  Tôi đồng ý với{" "}
-                  <Text style={styles.linkText}>Điều Khoản Sử Dụng</Text> của
-                  CNJ Việt Nam.
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Register Button */}
-            <TouchableOpacity
-              style={[
-                styles.registerButton,
-                loading && styles.registerButtonDisabled,
-              ]}
-              onPress={handleRegister}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.registerButtonText}>ĐĂNG KÝ</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      </View>
 
       {/* Date Picker Modal */}
       <Modal
@@ -519,8 +543,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  contentWrapper: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 30,
   },
   topSection: {
     height: height * 0.3,
@@ -659,7 +687,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   registerButtonDisabled: {
-    opacity: 0.7,
+    backgroundColor: "#ccc",
+    opacity: 0.6,
   },
   registerButtonText: {
     color: "#fff",
