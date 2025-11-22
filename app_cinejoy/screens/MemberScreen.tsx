@@ -10,6 +10,8 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -49,6 +51,7 @@ const MemberScreen = () => {
   const user = useAppSelector((state) => state.app.user);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   // Hàm mở/đóng side menu
   const toggleSideMenu = () => {
@@ -207,7 +210,15 @@ const MemberScreen = () => {
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <View style={styles.avatarWrapper}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={() => {
+                if (isAuthenticated && user?.avatar) {
+                  setShowAvatarModal(true);
+                }
+              }}
+              activeOpacity={isAuthenticated && user?.avatar ? 0.7 : 1}
+            >
               {isAuthenticated && user?.avatar ? (
                 <Image source={{ uri: user.avatar }} style={styles.avatar} />
               ) : (
@@ -215,7 +226,7 @@ const MemberScreen = () => {
                   <Fontisto name="person" size={60} color="#fff" />
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
             {isAuthenticated && (
               <TouchableOpacity
                 style={styles.cameraIcon}
@@ -277,6 +288,42 @@ const MemberScreen = () => {
 
       {/* Side Menu */}
       <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
+
+      {/* Avatar Modal */}
+      <Modal
+        visible={showAvatarModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAvatarModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalCloseArea}
+            activeOpacity={1}
+            onPress={() => setShowAvatarModal(false)}
+          />
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowAvatarModal(false)}
+            >
+              <Fontisto name="close-a" size={24} color="#fff" />
+            </TouchableOpacity>
+            {user?.avatar && (
+              <Image
+                source={{ uri: user.avatar }}
+                style={styles.modalAvatar}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.modalCloseArea}
+            activeOpacity={1}
+            onPress={() => setShowAvatarModal(false)}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -457,6 +504,41 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#f0f0f0",
     marginLeft: 72,
+  },
+  // Avatar Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseArea: {
+    flex: 1,
+    width: "100%",
+  },
+  modalContent: {
+    width: Dimensions.get("window").width * 0.9,
+    height: Dimensions.get("window").width * 0.9,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: -15,
+    right: -15,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  modalAvatar: {
+    width: "95%",
+    height: "100%",
+    borderRadius: 10,
   },
 });
 
