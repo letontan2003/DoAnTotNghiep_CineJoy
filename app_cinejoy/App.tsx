@@ -27,6 +27,11 @@ import MemberCardScreen from "@/screens/MemberCardScreen";
 import CNJPointsScreen from "@/screens/CNJPointsScreen";
 import VoucherScreen from "@/screens/VoucherScreen";
 import ChatbotScreen from "@/screens/ChatbotScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
+import VersionInfoScreen from "@/screens/VersionInfoScreen";
+import TermsOfUseScreen from "@/screens/TermsOfUseScreen";
+import PaymentPolicyScreen from "@/screens/PaymentPolicyScreen";
+import CompanyInfoScreen from "@/screens/CompanyInfoScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 
 const Stack = createStackNavigator();
@@ -115,6 +120,26 @@ export default function App() {
                 />
                 <Stack.Screen name="VoucherScreen" component={VoucherScreen} />
                 <Stack.Screen name="ChatbotScreen" component={ChatbotScreen} />
+                <Stack.Screen
+                  name="SettingsScreen"
+                  component={SettingsScreen}
+                />
+                <Stack.Screen
+                  name="VersionInfoScreen"
+                  component={VersionInfoScreen}
+                />
+                <Stack.Screen
+                  name="TermsOfUseScreen"
+                  component={TermsOfUseScreen}
+                />
+                <Stack.Screen
+                  name="PaymentPolicyScreen"
+                  component={PaymentPolicyScreen}
+                />
+                <Stack.Screen
+                  name="CompanyInfoScreen"
+                  component={CompanyInfoScreen}
+                />
               </Stack.Navigator>
             </NavigationContainer>
           </AppProvider>

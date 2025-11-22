@@ -34,6 +34,7 @@ type RootStackParamList = {
   HotNewsListScreen: undefined;
   VoucherScreen: undefined;
   ChatbotScreen: undefined;
+  SettingsScreen: undefined;
 };
 
 type SideMenuNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -341,7 +342,13 @@ const SideMenu = ({ visible, onClose }: SideMenuProps) => {
                   </View>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuHeaderIcon}>
+              <TouchableOpacity
+                style={styles.menuHeaderIcon}
+                onPress={() => {
+                  onClose();
+                  navigation.navigate("SettingsScreen");
+                }}
+              >
                 <Fontisto name="player-settings" size={26} color="#fff" />
               </TouchableOpacity>
             </View>
