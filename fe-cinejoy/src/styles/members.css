@@ -149,3 +149,56 @@
   color: #6b7280 !important;
   background-color: #f3f4f6 !important;
 }
+
+/* Dark mode password input styling */
+.dark-password-input input {
+  color: #ffffff !important;
+}
+
+.dark-password-input input::placeholder {
+  color: #999 !important;
+  opacity: 1 !important;
+}
+
+.dark-password-input input:focus {
+  color: #ffffff !important;
+}
+
+.dark-password-input .ant-input-password-icon {
+  color: #ccc !important;
+}
+
+.dark-password-input .ant-input-password-icon:hover {
+  color: #fff !important;
+}
+
+.dark-password-input.ant-input-affix-wrapper {
+  background-color: #2d323b !important;
+  border-color: #666 !important;
+}
+
+.dark-password-input.ant-input-affix-wrapper:hover {
+  border-color: #888 !important;
+}
+
+.dark-password-input.ant-input-affix-wrapper-focused {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+/* Dark mode modal close button styling */
+.dark-modal .ant-modal-close {
+  color: #ffffff !important;
+}
+
+.dark-modal .ant-modal-close:hover {
+  color: #ff4d4f !important;
+}
+
+.dark-modal .ant-modal-close-x {
+  color: #ffffff !important;
+}
+
+.dark-modal .ant-modal-close-x:hover {
+  color: #ff4d4f !important;
+}

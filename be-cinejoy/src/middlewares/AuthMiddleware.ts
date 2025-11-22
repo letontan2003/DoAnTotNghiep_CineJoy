@@ -6,7 +6,6 @@ export interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
-// Middleware bắt buộc authentication
 export const verifyToken = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -25,7 +24,9 @@ export const verifyToken = async (
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: string;
+    };
 
     const user: IUser | null = await User.findById(decoded.id);
     if (!user) {
@@ -72,26 +73,30 @@ export const optionalVerifyToken = async (
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
-        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+          id: string;
+        };
+
         const user: IUser | null = await User.findById(decoded.id);
         if (user && user.isActive) {
           req.user = user;
-          console.log('✅ User authenticated in chatbot:', user.fullName, user._id);
         } else {
-          console.log('⚠️ User not found or inactive:', decoded.id);
+          console.log("⚠️ User not found or inactive:", decoded.id);
         }
       } catch (tokenError) {
-        console.log('⚠️ Token verification failed:', (tokenError as Error).message);
+        console.log(
+          "⚠️ Token verification failed:",
+          (tokenError as Error).message
+        );
       }
     } else {
-      console.log('⚠️ No Authorization header found in chatbot request');
+      console.log("⚠️ No Authorization header found in chatbot request");
     }
     // Tiếp tục dù có token hay không
     next();
   } catch (error) {
     // Nếu token không hợp lệ, vẫn tiếp tục nhưng không set user
-    console.log('⚠️ Error in optionalVerifyToken:', (error as Error).message);
+    console.log("⚠️ Error in optionalVerifyToken:", (error as Error).message);
     next();
   }
 };

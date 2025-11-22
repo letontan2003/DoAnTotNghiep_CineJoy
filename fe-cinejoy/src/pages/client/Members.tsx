@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import MemberCard from '@/components/card/memberCard';
 import VoucherTab from '@/components/voucher';
 import CNJPointsTab from '@/components/cnjPoints';
+import ModalChangePassword from '@/components/modal/auth/changePassword';
 import useAppStore from '@/store/app.store';
 import { updateUserApi, uploadAvatarApi } from '@/services/api';
 import { useAlertContextApp } from '@/context/alert.context';
@@ -27,6 +28,7 @@ const MembersPage = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [activeTabKey, setActiveTabKey] = useState<string>('1');
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState<boolean>(false);
   const { user, setUser, isDarkMode, setIsModalOpen } = useAppStore();
   const { messageApi } = useAlertContextApp();
 
@@ -322,7 +324,17 @@ const MembersPage = () => {
                 </Select>
               </Form.Item>
               <div className="md:col-span-2 flex justify-end">
-                <a href="#" className="text-blue-600 hover:underline text-sm">Đổi mật khẩu?</a>
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordModalOpen(true)}
+                  className={clsx(
+                    "text-sm hover:underline cursor-pointer",
+                    isDarkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-700"
+                  )}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Đổi mật khẩu?
+                </button>
               </div>
               <Form.Item className="md:col-span-2 flex justify-center mt-2 mb-0" style={{ marginBottom: 0 }}>
                 <Button type="primary" size="large" style={{ padding: '0px 32px' }} className="font-semibold px-8 text-lg" htmlType="submit" loading={isSubmit}>
@@ -341,6 +353,10 @@ const MembersPage = () => {
           <div className={clsx("text-center py-10 text-xl font-semibold uppercase", isDarkMode ? "text-white" : "text-black")}>Đang phát triển tính năng</div>
         )}
       </div>
+      <ModalChangePassword
+        isOpen={isChangePasswordModalOpen}
+        onClose={(value) => setIsChangePasswordModalOpen(value)}
+      />
     </div>
   );
 };
