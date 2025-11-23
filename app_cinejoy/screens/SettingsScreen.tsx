@@ -11,8 +11,10 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { setChatbotEnabled } from "@/store/appSlice";
 import SideMenu from "@/components/SideMenu";
+import { Switch } from "react-native";
 
 type RootStackParamList = {
   SettingsScreen: undefined;
@@ -22,6 +24,7 @@ type RootStackParamList = {
   TermsOfUseScreen: undefined;
   PaymentPolicyScreen: undefined;
   CompanyInfoScreen: undefined;
+  LoginScreen: undefined;
 };
 
 type SettingsScreenNavigationProp = StackNavigationProp<
@@ -31,8 +34,10 @@ type SettingsScreenNavigationProp = StackNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.app.user);
   const isAuthenticated = useAppSelector((state) => state.app.isAuthenticated);
+  const chatbotEnabled = useAppSelector((state) => state.app.chatbotEnabled);
   const [showSideMenu, setShowSideMenu] = useState(false);
 
   const APP_VERSION = "2.9.12";
@@ -40,6 +45,8 @@ const SettingsScreen = () => {
   const handleAccountPress = () => {
     if (isAuthenticated) {
       navigation.navigate("AccountInfoScreen");
+    } else {
+      navigation.navigate("LoginScreen");
     }
   };
 
@@ -57,6 +64,10 @@ const SettingsScreen = () => {
 
   const handleCompanyInfoPress = () => {
     navigation.navigate("CompanyInfoScreen");
+  };
+
+  const handleChatbotToggle = (value: boolean) => {
+    dispatch(setChatbotEnabled(value));
   };
 
   return (
@@ -90,7 +101,6 @@ const SettingsScreen = () => {
           <TouchableOpacity
             style={styles.accountItem}
             onPress={handleAccountPress}
-            disabled={!isAuthenticated}
           >
             <Text style={styles.accountLabel}>Tài khoản</Text>
             <View style={styles.accountRight}>
@@ -102,6 +112,20 @@ const SettingsScreen = () => {
               <Fontisto name="angle-right" size={18} color="#999" />
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* CNJ Hỗ trợ Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>CNJ HỖ TRỢ</Text>
+          <View style={styles.menuItem}>
+            <Text style={styles.menuItemText}>CNJ hỗ trợ</Text>
+            <Switch
+              value={chatbotEnabled}
+              onValueChange={handleChatbotToggle}
+              trackColor={{ false: "#d1d5db", true: "#f97316" }}
+              thumbColor={chatbotEnabled ? "#fff" : "#f3f4f6"}
+            />
+          </View>
         </View>
 
         {/* KHÁC... Section */}

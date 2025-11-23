@@ -12,14 +12,16 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
 import SideMenu from "@/components/SideMenu";
 import { sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
+import { useAppDispatch } from "@/store/hooks";
+import { setChatbotScreenOpen } from "@/store/appSlice";
 
 type RootStackParamList = {
   ChatbotScreen: undefined;
@@ -100,6 +102,7 @@ const TypingIndicator = () => {
 
 const ChatbotScreen = () => {
   const navigation = useNavigation<ChatbotScreenNavigationProp>();
+  const dispatch = useAppDispatch();
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputMessage, setInputMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -110,6 +113,17 @@ const ChatbotScreen = () => {
   } | null>(null);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Set state khi screen được focus (mở)
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(setChatbotScreenOpen(true));
+      return () => {
+        // Cleanup khi screen bị unfocus (thoát)
+        dispatch(setChatbotScreenOpen(false));
+      };
+    }, [dispatch])
+  );
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
