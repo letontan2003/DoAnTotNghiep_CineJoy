@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import {
   Alert,
   Modal,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { IMovie } from "@/types/api";
@@ -21,6 +25,7 @@ import {
   getSeatsForShowtimeApi,
   getSeatsWithReservationStatusApi,
   reserveSeatsApi,
+  releaseSeatsApi,
   getCurrentPriceListApi,
   IPriceList,
 } from "services/api";
@@ -168,6 +173,10 @@ const SelectSeatScreen = () => {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
+  // Lưu lại các ghế đã reserve để giải phóng khi quay lại
+  const reservedSeatsRef = useRef<string[]>([]);
+  const hasReservedSeatsRef = useRef<boolean>(false);
+
   const roomId = typeof room === "object" ? room._id : room;
   const roomName = typeof room === "object" ? room.name : room || "Rạp";
   const roomTypeLabel = resolveRoomTypeFromParam(room);
@@ -244,136 +253,248 @@ const SelectSeatScreen = () => {
     setTotalTicketPrice(total);
   }, [selectedSeats, seatTypeMap, ticketPrices]);
 
-  // Load seats from API
-  useEffect(() => {
-    const loadSeats = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadSeats = useCallback(async () => {
+    console.log("[SelectSeatScreen] loadSeats called");
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Backend so sánh room bằng room.name, không phải room._id
-        const response = await getSeatsForShowtimeApi(
+      // Backend so sánh room bằng room.name, không phải room._id
+      const response = await getSeatsForShowtimeApi(
+        showtimeId,
+        date,
+        startTime,
+        roomName
+      );
+
+      if (!response) {
+        console.log("[SelectSeatScreen] loadSeats - empty response");
+        setError("Không nhận được phản hồi từ server");
+        return;
+      }
+
+      if (!response.status) {
+        console.log(
+          "[SelectSeatScreen] loadSeats - response.status false:",
+          response?.message
+        );
+        const errorMsg = response.message || "Không thể tải dữ liệu ghế";
+        setError(errorMsg);
+        return;
+      }
+
+      if (response.status && response.data) {
+        const { seats, seatLayout } = response.data;
+
+        if (!seats || !Array.isArray(seats)) {
+          console.log("[SelectSeatScreen] loadSeats - invalid seats payload");
+          setError("Dữ liệu ghế không hợp lệ");
+          return;
+        }
+
+        if (!seatLayout) {
+          console.log("[SelectSeatScreen] loadSeats - invalid seat layout");
+          setError("Dữ liệu layout ghế không hợp lệ");
+          return;
+        }
+
+        setLayoutCols(seatLayout.cols || 10);
+        setLayoutRows(seatLayout.rows || 8);
+
+        // Build seat map
+        const newSeatMap: Record<string, SeatData> = {};
+        const newSeatTypeMap: Record<string, SeatType> = {};
+        const occupiedSeats: string[] = [];
+
+        seats.forEach((seat) => {
+          if (!seat || !seat.seatId) return;
+
+          newSeatMap[seat.seatId] = {
+            seatId: seat.seatId,
+            status: (seat.status || "available") as SeatStatus,
+            type: (seat.type || "normal") as SeatType,
+            price: seat.price,
+          };
+          newSeatTypeMap[seat.seatId] = (seat.type || "normal") as SeatType;
+
+          if (seat.status === "occupied" || seat.status === "selected") {
+            occupiedSeats.push(seat.seatId);
+          }
+        });
+
+        setSeatMap(newSeatMap);
+        setSeatTypeMap(newSeatTypeMap);
+        setSoldSeats(occupiedSeats);
+        setHas4dx(Object.values(newSeatTypeMap).some((t) => t === "4dx"));
+
+        // Load reservation status if authenticated
+        if (isAuthenticated && user?._id) {
+          try {
+            const reservationResponse = await getSeatsWithReservationStatusApi(
+              showtimeId,
+              date,
+              startTime,
+              roomName,
+              false
+            );
+
+            if (
+              reservationResponse &&
+              reservationResponse.status &&
+              reservationResponse.data &&
+              Array.isArray(reservationResponse.data)
+            ) {
+              const updatedMap = { ...newSeatMap };
+              const myReservedSeats: string[] = [];
+
+              reservationResponse.data.forEach((seatItem) => {
+                if (
+                  seatItem &&
+                  seatItem.seatId &&
+                  updatedMap[seatItem.seatId]
+                ) {
+                  if (seatItem.isReservedByMe) {
+                    updatedMap[seatItem.seatId].status = "selected";
+                    updatedMap[seatItem.seatId].isReservedByMe = true;
+                    // Lưu lại các ghế đang được reserve bởi user
+                    myReservedSeats.push(seatItem.seatId);
+                  } else if (
+                    seatItem.status === "reserved" ||
+                    seatItem.status === "selected"
+                  ) {
+                    updatedMap[seatItem.seatId].status = "reserved";
+                    updatedMap[seatItem.seatId].isReservedByMe = false;
+                  }
+                }
+              });
+
+              setSeatMap(updatedMap);
+
+              // Lưu danh sách ghế đang được reserve để giải phóng khi quay lại
+              if (myReservedSeats.length > 0) {
+                console.log(
+                  "[SelectSeatScreen] loadSeats - myReservedSeats:",
+                  myReservedSeats
+                );
+                reservedSeatsRef.current = myReservedSeats;
+                hasReservedSeatsRef.current = true;
+              } else {
+                console.log(
+                  "[SelectSeatScreen] loadSeats - no reserved seats for user"
+                );
+                reservedSeatsRef.current = [];
+                hasReservedSeatsRef.current = false;
+              }
+            }
+          } catch (reservationError) {
+            console.error(
+              "[SelectSeatScreen] loadSeats - reservation status error:",
+              reservationError
+            );
+            // Silently fail - reservation status is optional
+          }
+        }
+      } else {
+        setError(
+          response?.message || "Không thể tải dữ liệu ghế. Vui lòng thử lại."
+        );
+      }
+    } catch (err: any) {
+      console.error("[SelectSeatScreen] loadSeats - error:", err);
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Lỗi kết nối khi tải dữ liệu ghế. Vui lòng thử lại.";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [showtimeId, date, startTime, roomName, isAuthenticated, user]);
+
+  const releaseReservedSeats = useCallback(async (): Promise<boolean> => {
+    let seatsToRelease: string[] = [];
+
+    if (hasReservedSeatsRef.current && reservedSeatsRef.current.length > 0) {
+      console.log(
+        "[SelectSeatScreen] releaseReservedSeats - using reservedSeatsRef",
+        reservedSeatsRef.current
+      );
+      seatsToRelease = [...reservedSeatsRef.current];
+    } else if (isAuthenticated && user?._id) {
+      try {
+        const reservationResponse = await getSeatsWithReservationStatusApi(
           showtimeId,
           date,
           startTime,
-          roomName
+          roomName,
+          false
         );
 
-        if (!response) {
-          setError("Không nhận được phản hồi từ server");
-          return;
-        }
+        if (
+          reservationResponse &&
+          reservationResponse.status &&
+          reservationResponse.data &&
+          Array.isArray(reservationResponse.data)
+        ) {
+          const myReservedSeats = reservationResponse.data
+            .filter((seatItem) => seatItem.isReservedByMe && seatItem.seatId)
+            .map((seatItem) => seatItem.seatId);
 
-        if (!response.status) {
-          const errorMsg = response.message || "Không thể tải dữ liệu ghế";
-          setError(errorMsg);
-          return;
-        }
-
-        if (response.status && response.data) {
-          const { seats, seatLayout } = response.data;
-
-          if (!seats || !Array.isArray(seats)) {
-            setError("Dữ liệu ghế không hợp lệ");
-            return;
+          if (myReservedSeats.length > 0) {
+            console.log(
+              "[SelectSeatScreen] releaseReservedSeats - reserved seats from API",
+              myReservedSeats
+            );
+            seatsToRelease = myReservedSeats;
+          } else {
+            console.log(
+              "[SelectSeatScreen] releaseReservedSeats - no reserved seats from API"
+            );
           }
-
-          if (!seatLayout) {
-            setError("Dữ liệu layout ghế không hợp lệ");
-            return;
-          }
-
-          setLayoutCols(seatLayout.cols || 10);
-          setLayoutRows(seatLayout.rows || 8);
-
-          // Build seat map
-          const newSeatMap: Record<string, SeatData> = {};
-          const newSeatTypeMap: Record<string, SeatType> = {};
-          const occupiedSeats: string[] = [];
-
-          seats.forEach((seat) => {
-            if (!seat || !seat.seatId) return;
-
-            newSeatMap[seat.seatId] = {
-              seatId: seat.seatId,
-              status: (seat.status || "available") as SeatStatus,
-              type: (seat.type || "normal") as SeatType,
-              price: seat.price,
-            };
-            newSeatTypeMap[seat.seatId] = (seat.type || "normal") as SeatType;
-
-            if (seat.status === "occupied" || seat.status === "selected") {
-              occupiedSeats.push(seat.seatId);
-            }
-          });
-
-          setSeatMap(newSeatMap);
-          setSeatTypeMap(newSeatTypeMap);
-          setSoldSeats(occupiedSeats);
-          setHas4dx(Object.values(newSeatTypeMap).some((t) => t === "4dx"));
-
-          // Load reservation status if authenticated
-          if (isAuthenticated && user?._id) {
-            try {
-              const reservationResponse =
-                await getSeatsWithReservationStatusApi(
-                  showtimeId,
-                  date,
-                  startTime,
-                  roomName,
-                  false
-                );
-
-              if (
-                reservationResponse &&
-                reservationResponse.status &&
-                reservationResponse.data &&
-                Array.isArray(reservationResponse.data)
-              ) {
-                const updatedMap = { ...newSeatMap };
-                reservationResponse.data.forEach((seatItem) => {
-                  if (
-                    seatItem &&
-                    seatItem.seatId &&
-                    updatedMap[seatItem.seatId]
-                  ) {
-                    if (seatItem.isReservedByMe) {
-                      updatedMap[seatItem.seatId].status = "selected";
-                      updatedMap[seatItem.seatId].isReservedByMe = true;
-                    } else if (
-                      seatItem.status === "reserved" ||
-                      seatItem.status === "selected"
-                    ) {
-                      updatedMap[seatItem.seatId].status = "reserved";
-                      updatedMap[seatItem.seatId].isReservedByMe = false;
-                    }
-                  }
-                });
-                setSeatMap(updatedMap);
-              }
-            } catch (reservationError) {
-              // Silently fail - reservation status is optional
-            }
-          }
-        } else {
-          setError(
-            response?.message || "Không thể tải dữ liệu ghế. Vui lòng thử lại."
-          );
         }
-      } catch (err: any) {
-        console.error("Error loading seats:", err);
-        const errorMessage =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Lỗi kết nối khi tải dữ liệu ghế. Vui lòng thử lại.";
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error(
+          "[SelectSeatScreen] releaseReservedSeats - error checking reserved seats",
+          error
+        );
       }
-    };
+    }
 
-    loadSeats();
-  }, [showtimeId, date, startTime, roomId, isAuthenticated, user]);
+    if (seatsToRelease.length === 0) {
+      console.log(
+        "[SelectSeatScreen] releaseReservedSeats - nothing to release"
+      );
+      return false;
+    }
+
+    console.log(
+      "[SelectSeatScreen] releaseReservedSeats - releasing seats",
+      seatsToRelease
+    );
+    reservedSeatsRef.current = [];
+    hasReservedSeatsRef.current = false;
+
+    try {
+      await releaseSeatsApi(
+        showtimeId,
+        date,
+        startTime,
+        roomName,
+        seatsToRelease
+      );
+      console.log("[SelectSeatScreen] releaseReservedSeats - release success");
+    } catch (error) {
+      console.error(
+        "[SelectSeatScreen] releaseReservedSeats - release error",
+        error
+      );
+      // Vẫn tiếp tục loadSeats để đảm bảo UI cập nhật
+    }
+
+    setSelectedSeats([]);
+    setSelectedSeatType(null);
+    return true;
+  }, [date, isAuthenticated, roomName, showtimeId, startTime, user]);
 
   // Validate seat type selection
   const validateSeatTypeSelection = useCallback(
@@ -758,6 +879,10 @@ const SelectSeatScreen = () => {
         selectedSeats
       );
 
+      // Lưu lại các ghế đã reserve để giải phóng khi quay lại
+      reservedSeatsRef.current = [...selectedSeats];
+      hasReservedSeatsRef.current = true;
+
       setConfirmVisible(false);
       const seatTypeCounts = buildSeatTypeCounts();
       navigation.navigate("ComboSelectionScreen", {
@@ -785,6 +910,24 @@ const SelectSeatScreen = () => {
       setConfirmLoading(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const syncSeats = async () => {
+        await releaseReservedSeats();
+        if (!isActive) return;
+        await loadSeats();
+      };
+
+      syncSeats();
+
+      return () => {
+        isActive = false;
+      };
+    }, [releaseReservedSeats, loadSeats])
+  );
 
   if (loading) {
     return (

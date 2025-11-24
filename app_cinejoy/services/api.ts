@@ -280,6 +280,26 @@ export const reserveSeatsApi = async (
   return response.data;
 };
 
+export const releaseSeatsApi = async (
+  showtimeId: string,
+  date: string,
+  startTime: string,
+  room: string,
+  seatIds: string[]
+) => {
+  const response = await axios.post<IBackendResponse<{ released: boolean }>>(
+    `/v1/api/showtimes/release-by-user`,
+    {
+      showtimeId,
+      date,
+      startTime,
+      room,
+      seatIds,
+    }
+  );
+  return response.data;
+};
+
 // Price List APIs
 export interface IPriceListLine {
   type: "ticket" | "combo" | "single";
