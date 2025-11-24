@@ -31,6 +31,7 @@ import {
 } from "services/api";
 import { useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
+import SeatSelectionSkeleton from "@/components/Skeleton/SeatSelectionSkeleton";
 
 const { width, height } = Dimensions.get("window");
 
@@ -894,15 +895,6 @@ const SelectSeatScreen = () => {
     }, [releaseReservedSeats, loadSeats])
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E50914" />
-        <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
-      </View>
-    );
-  }
-
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -958,7 +950,7 @@ const SelectSeatScreen = () => {
           contentContainerStyle={styles.seatsContent}
           showsVerticalScrollIndicator={false}
         >
-          {renderRows()}
+          {loading ? <SeatSelectionSkeleton /> : renderRows()}
         </ScrollView>
 
         {/* Legend */}
