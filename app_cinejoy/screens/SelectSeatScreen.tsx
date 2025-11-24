@@ -254,7 +254,6 @@ const SelectSeatScreen = () => {
   }, [selectedSeats, seatTypeMap, ticketPrices]);
 
   const loadSeats = useCallback(async () => {
-    console.log("[SelectSeatScreen] loadSeats called");
     try {
       setLoading(true);
       setError(null);
@@ -268,16 +267,11 @@ const SelectSeatScreen = () => {
       );
 
       if (!response) {
-        console.log("[SelectSeatScreen] loadSeats - empty response");
         setError("Không nhận được phản hồi từ server");
         return;
       }
 
       if (!response.status) {
-        console.log(
-          "[SelectSeatScreen] loadSeats - response.status false:",
-          response?.message
-        );
         const errorMsg = response.message || "Không thể tải dữ liệu ghế";
         setError(errorMsg);
         return;
@@ -287,13 +281,11 @@ const SelectSeatScreen = () => {
         const { seats, seatLayout } = response.data;
 
         if (!seats || !Array.isArray(seats)) {
-          console.log("[SelectSeatScreen] loadSeats - invalid seats payload");
           setError("Dữ liệu ghế không hợp lệ");
           return;
         }
 
         if (!seatLayout) {
-          console.log("[SelectSeatScreen] loadSeats - invalid seat layout");
           setError("Dữ liệu layout ghế không hợp lệ");
           return;
         }
@@ -372,16 +364,9 @@ const SelectSeatScreen = () => {
 
               // Lưu danh sách ghế đang được reserve để giải phóng khi quay lại
               if (myReservedSeats.length > 0) {
-                console.log(
-                  "[SelectSeatScreen] loadSeats - myReservedSeats:",
-                  myReservedSeats
-                );
                 reservedSeatsRef.current = myReservedSeats;
                 hasReservedSeatsRef.current = true;
               } else {
-                console.log(
-                  "[SelectSeatScreen] loadSeats - no reserved seats for user"
-                );
                 reservedSeatsRef.current = [];
                 hasReservedSeatsRef.current = false;
               }
@@ -415,10 +400,6 @@ const SelectSeatScreen = () => {
     let seatsToRelease: string[] = [];
 
     if (hasReservedSeatsRef.current && reservedSeatsRef.current.length > 0) {
-      console.log(
-        "[SelectSeatScreen] releaseReservedSeats - using reservedSeatsRef",
-        reservedSeatsRef.current
-      );
       seatsToRelease = [...reservedSeatsRef.current];
     } else if (isAuthenticated && user?._id) {
       try {
@@ -441,15 +422,7 @@ const SelectSeatScreen = () => {
             .map((seatItem) => seatItem.seatId);
 
           if (myReservedSeats.length > 0) {
-            console.log(
-              "[SelectSeatScreen] releaseReservedSeats - reserved seats from API",
-              myReservedSeats
-            );
             seatsToRelease = myReservedSeats;
-          } else {
-            console.log(
-              "[SelectSeatScreen] releaseReservedSeats - no reserved seats from API"
-            );
           }
         }
       } catch (error) {
@@ -461,16 +434,9 @@ const SelectSeatScreen = () => {
     }
 
     if (seatsToRelease.length === 0) {
-      console.log(
-        "[SelectSeatScreen] releaseReservedSeats - nothing to release"
-      );
       return false;
     }
 
-    console.log(
-      "[SelectSeatScreen] releaseReservedSeats - releasing seats",
-      seatsToRelease
-    );
     reservedSeatsRef.current = [];
     hasReservedSeatsRef.current = false;
 
@@ -482,7 +448,6 @@ const SelectSeatScreen = () => {
         roomName,
         seatsToRelease
       );
-      console.log("[SelectSeatScreen] releaseReservedSeats - release success");
     } catch (error) {
       console.error(
         "[SelectSeatScreen] releaseReservedSeats - release error",
