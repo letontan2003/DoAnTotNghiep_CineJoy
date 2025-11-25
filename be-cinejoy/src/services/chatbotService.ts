@@ -8,11 +8,13 @@ import priceListService from "./PriceListService";
 import VoucherService from "./VoucherService";
 import UserVoucherService from "./UserVoucherService";
 import OrderService from "./OrderService";
+import BlogService from "./BlogService";
 
 const { model, cache, conversationCache, PROMPT_CONFIG } = chatbotConfig;
 const showtimeService = new ShowtimeService();
 const voucherService = new VoucherService();
 const userVoucherService = new UserVoucherService();
+const blogService = new BlogService();
 
 const ChatbotService = {
   // Lưu tin nhắn vào lịch sử trò chuyện
@@ -115,43 +117,99 @@ const ChatbotService = {
 
   getShowtimeInfo: async () => {
     try {
-      const response = await axios.get("http://localhost:5000/showtimes");
-      const showtimes = response.data;
+      // Sử dụng showtimeService thay vì gọi API trực tiếp để đảm bảo dữ liệu đầy đủ
+      const showtimes = await showtimeService.getShowtimes();
 
-      if (!showtimes || !Array.isArray(showtimes)) {
+      if (!showtimes || !Array.isArray(showtimes) || showtimes.length === 0) {
         return "Hiện không có thông tin suất chiếu.";
       }
 
       return showtimes
         .slice(0, 10)
-        .map((showtime) => {
-          const { movieId, theaterId, showDate, showTimes } = showtime;
+        .map((showtime: any) => {
+          const { movieId, theaterId, showTimes } = showtime;
 
           const movieTitle = movieId?.title || "Chưa có";
           const theaterName = theaterId?.name || "Chưa có";
-          const dateRange = showDate
-            ? `Từ ${new Date(showDate.start).toLocaleDateString(
-                "vi-VN"
-              )} đến ${new Date(showDate.end).toLocaleDateString("vi-VN")}`
-            : "Chưa cập nhật";
 
-          const timesDetails = showTimes
-            .map((time: { start: string; end: string; room?: string }) => {
-              const startTime = new Date(time.start).toLocaleTimeString(
-                "vi-VN"
+          let dateInfo = "Chưa cập nhật";
+          let startDateStr = "";
+          let endDateStr = "";
+
+          // Tính toán ngày bắt đầu và kết thúc từ mảng showTimes
+          if (showTimes && Array.isArray(showTimes) && showTimes.length > 0) {
+            // Lọc các showTime có date hợp lệ và status active
+            const validShowTimes = showTimes.filter(
+              (st: any) => st.date && (st.status === "active" || !st.status)
+            );
+
+            if (validShowTimes.length > 0) {
+              // Tìm ngày nhỏ nhất (bắt đầu) và lớn nhất (kết thúc)
+              const dates = validShowTimes.map((st: any) => {
+                const date = new Date(st.date);
+                // Reset về đầu ngày để so sánh chính xác
+                date.setHours(0, 0, 0, 0);
+                return date;
+              });
+
+              const minDate = new Date(
+                Math.min(...dates.map((d: Date) => d.getTime()))
               );
-              const endTime = new Date(time.end).toLocaleTimeString("vi-VN");
-              const room = time.room || "Chưa cập nhật";
+              const maxDate = new Date(
+                Math.max(...dates.map((d: Date) => d.getTime()))
+              );
 
-              return `  - Phòng: ${room}, Giờ: ${startTime} - ${endTime}`;
-            })
-            .join("\n");
+              startDateStr = minDate.toLocaleDateString("vi-VN");
+              endDateStr = maxDate.toLocaleDateString("vi-VN");
+
+              if (startDateStr === endDateStr) {
+                dateInfo = startDateStr;
+              } else {
+                dateInfo = `Từ ${startDateStr} đến ${endDateStr}`;
+              }
+            }
+          }
+
+          const timesDetails =
+            showTimes
+              ?.filter((time: any) => time.status === "active" || !time.status)
+              .slice(0, 5) // Chỉ lấy 5 suất đầu tiên để không quá dài
+              .map(
+                (time: {
+                  date?: string | Date;
+                  start: string | Date;
+                  end: string | Date;
+                  room?: any;
+                }) => {
+                  const date = time.date
+                    ? new Date(time.date).toLocaleDateString("vi-VN")
+                    : "Chưa có";
+                  const startTime = new Date(time.start).toLocaleTimeString(
+                    "vi-VN",
+                    { hour: "2-digit", minute: "2-digit" }
+                  );
+                  const endTime = new Date(time.end).toLocaleTimeString(
+                    "vi-VN",
+                    { hour: "2-digit", minute: "2-digit" }
+                  );
+                  const roomName =
+                    time.room?.name ||
+                    (typeof time.room === "string"
+                      ? time.room
+                      : "Chưa cập nhật");
+
+                  return `  - Ngày: ${date}, Phòng: ${roomName}, Giờ: ${startTime} - ${endTime}`;
+                }
+              )
+              .join("\n") || "Chưa có suất chiếu";
 
           return `
 - Phim: ${movieTitle}
 - Rạp: ${theaterName}
-- Ngày chiếu: ${dateRange}
-Chi tiết giờ chiếu:
+- Ngày bắt đầu chiếu: ${startDateStr || "Chưa cập nhật"}
+- Ngày kết thúc chiếu: ${endDateStr || "Chưa cập nhật"}
+- Khoảng thời gian chiếu: ${dateInfo}
+Chi tiết giờ chiếu (5 suất đầu tiên):
 ${timesDetails}
             `;
         })
@@ -587,6 +645,105 @@ ${timesDetails}
     }
   },
 
+  // Lấy thông tin blog/tin tức
+  getBlogInfo: async () => {
+    try {
+      const blogs = await blogService.getVisibleBlogs();
+
+      if (!blogs || blogs.length === 0) {
+        return "Hiện không có tin tức nào.";
+      }
+
+      // Lấy 10 blog mới nhất
+      const recentBlogs = blogs.slice(0, 10);
+
+      return recentBlogs
+        .map((blog: any, index: number) => {
+          return `${index + 1}. ${blog.title || "Chưa có tiêu đề"}`;
+        })
+        .join("\n");
+    } catch (error) {
+      console.error("Error fetching blog info:", error);
+      return "Không thể lấy thông tin tin tức do lỗi hệ thống.";
+    }
+  },
+
+  // Lấy thông tin cách tích điểm
+  getPointsAccumulationInfo: async (userId?: string) => {
+    let birthdayInfo = "";
+
+    if (userId) {
+      try {
+        const user = await User.findById(userId).select("dateOfBirth");
+        if (user && user.dateOfBirth) {
+          const today = new Date();
+          const birthday = new Date(user.dateOfBirth);
+          const currentYear = today.getFullYear();
+
+          // Tạo ngày sinh nhật năm nay
+          const thisYearBirthday = new Date(
+            currentYear,
+            birthday.getMonth(),
+            birthday.getDate()
+          );
+
+          // Nếu sinh nhật đã qua trong năm nay, tính cho năm sau
+          let nextBirthday = thisYearBirthday;
+          if (today > thisYearBirthday) {
+            nextBirthday = new Date(
+              currentYear + 1,
+              birthday.getMonth(),
+              birthday.getDate()
+            );
+          }
+
+          // Tính số ngày còn lại
+          const daysUntilBirthday = Math.ceil(
+            (nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          const birthdayDateStr = birthday.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+          });
+
+          birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Sinh nhật của bạn: ${birthdayDateStr}
+   - Còn ${daysUntilBirthday} ngày nữa đến sinh nhật để được cộng điểm`;
+        } else {
+          birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Bạn chưa cập nhật ngày sinh nhật trong tài khoản`;
+        }
+      } catch (error) {
+        console.error("Error getting birthday info:", error);
+        birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn`;
+      }
+    } else {
+      birthdayInfo = `\n3. Sự kiện sinh nhật:
+   - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
+   - Bạn cần đăng nhập để xem thông tin sinh nhật của mình`;
+    }
+
+    return `Các cách tích lũy điểm CNJ tại CineJoy:
+
+1. Mua vé xem phim:
+   - Mỗi vé xem phim: +5 điểm CNJ
+   - Ví dụ: Mua 2 vé = +10 điểm CNJ
+
+2. Mua combo đồ ăn/nước uống:
+   - Mỗi combo (loại combo): +5 điểm CNJ
+   - Ví dụ: Mua 2 combo = +10 điểm CNJ
+   - Lưu ý: Sản phẩm đơn lẻ (single) không được cộng điểm${birthdayInfo}
+
+Lưu ý:
+- Điểm chỉ được cộng khi đơn hàng có trạng thái "Đã xác nhận" (CONFIRMED)
+- Điểm tích lũy có thể dùng để đổi voucher giảm giá
+- Để kiểm tra điểm hiện có, bạn có thể hỏi "điểm của tôi" hoặc "tôi có bao nhiêu điểm"`;
+  },
+
   // Lấy lịch sử giao dịch của người dùng
   getOrderHistory: async (userId?: string, filterDate?: string) => {
     try {
@@ -747,6 +904,8 @@ CÁC CHỦ ĐỀ ĐƯỢC CHẤP NHẬN (ON-TOPIC):
 - Câu hỏi chào hỏi thông thường: xin chào, cảm ơn, tạm biệt
 - Câu hỏi về tài khoản: điểm tích lũy, thông tin cá nhân, lịch sử giao dịch, đơn hàng, vé đã mua (nếu có trong hệ thống)
 - Câu hỏi về thông tin liên hệ: email, hotline, số điện thoại, cách liên hệ với CineJoy
+- Câu hỏi về tin tức/blog của CineJoy: tin tức, blog, bài viết của rạp chiếu phim CineJoy
+- Câu hỏi về cách tích lũy điểm: làm sao để có điểm, cách tích điểm, cách kiếm điểm CNJ
 
 CÁC CHỦ ĐỀ KHÔNG ĐƯỢC CHẤP NHẬN (OFF-TOPIC):
 - Toán học: phép tính, giải bài tập toán
@@ -894,6 +1053,18 @@ Trả lời:`;
       "email của cinejoy",
       "hotline của cinejoy",
       "contact",
+      "tin tức",
+      "blog",
+      "bài viết",
+      "tin tức cinejoy",
+      "tin tức mới",
+      "làm sao để có điểm",
+      "cách tích điểm",
+      "làm thế nào để có điểm",
+      "cách kiếm điểm",
+      "cách tích lũy điểm",
+      "làm sao để có điểm CNJ",
+      "cách tích lũy điểm CNJ",
     ];
 
     // Từ khóa từ chối (off-topic)
@@ -1099,6 +1270,10 @@ Trả lời:`;
       const priceInfo = await ChatbotService.getPriceInfo();
       // Lấy thông tin khuyến mãi đang hoạt động
       const promotionInfo = await ChatbotService.getPromotionInfo();
+      // Lấy thông tin blog/tin tức
+      const blogInfo = await ChatbotService.getBlogInfo();
+      // Lấy thông tin cách tích điểm
+      const pointsAccumulationInfo = ChatbotService.getPointsAccumulationInfo();
       // Lấy thông tin người dùng (nếu có)
       const userInfo = await ChatbotService.getUserInfo(userId);
       // Lấy thông tin điểm và voucher của người dùng (nếu có userId)
@@ -1197,10 +1372,28 @@ Trả lời:`;
             ${theaterInfo}
             Danh sách suất chiếu hiện có:
             ${showtimeInfo}
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về suất chiếu và ngày chiếu:
+            - Khi người dùng hỏi về "suất chiếu", "lịch chiếu", "giờ chiếu", "chiếu từ ngày nào", "ngày bắt đầu chiếu", "phim X chiếu từ ngày nào", v.v., bạn PHẢI sử dụng thông tin từ "Danh sách suất chiếu hiện có" ở trên
+            - Trả lời CHI TIẾT và ĐẦY ĐỦ thông tin suất chiếu, bao gồm:
+              + Tên phim
+              + Tên rạp
+              + Ngày bắt đầu chiếu (nếu có trong thông tin)
+              + Ngày kết thúc chiếu (nếu có trong thông tin)
+              + Khoảng thời gian chiếu (từ ngày X đến ngày Y)
+              + Chi tiết giờ chiếu (giờ bắt đầu - giờ kết thúc) và phòng chiếu
+            - Khi người dùng hỏi "chiếu từ ngày nào" hoặc "phim X chiếu từ ngày nào", bạn PHẢI trả lời ngày bắt đầu chiếu cụ thể từ thông tin "Ngày bắt đầu chiếu" trong danh sách suất chiếu
+            - Nếu thông tin ngày chiếu là "Chưa cập nhật", hãy thông báo rõ ràng cho người dùng
+            - Khi liệt kê suất chiếu, hãy sắp xếp theo phim và rạp để dễ đọc
+            
             Thông tin giá vé và combo hiện tại:
             ${priceInfo}
             Thông tin các chương trình khuyến mãi đang hoạt động:
             ${promotionInfo}
+            Danh sách tin tức/blog hiện có:
+            ${blogInfo}
+            Thông tin cách tích lũy điểm CNJ:
+            ${pointsAccumulationInfo}
             ${
               userPointsAndVouchers
                 ? `Thông tin điểm và voucher của người dùng:\n${userPointsAndVouchers}`
@@ -1247,6 +1440,30 @@ Trả lời:`;
             - Trả lời chính xác: Email: cinejoy@gmail.com và Hotline: 1900 1999
             - Nếu người dùng hỏi "làm sao để liên hệ", "cách liên hệ với cinejoy", v.v., hãy cung cấp đầy đủ thông tin liên hệ (email và hotline)
             - Có thể gợi ý người dùng liên hệ qua email hoặc gọi hotline tùy theo nhu cầu của họ
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về tin tức/blog:
+            - Khi người dùng hỏi về "tin tức", "blog", "bài viết", "tin tức mới", "có tin tức gì", "tin tức cinejoy", v.v., bạn PHẢI sử dụng thông tin từ "Danh sách tin tức/blog hiện có" ở trên
+            - CHỈ liệt kê TIÊU ĐỀ của các tin tức (KHÔNG nêu ngày đăng, KHÔNG nêu chi tiết nội dung)
+            - Sau khi liệt kê tiêu đề, bạn PHẢI nhắc người dùng: "Bạn có thể vào trang tin tức trên website để xem chi tiết các tin tức này"
+            - KHÔNG được nêu chi tiết nội dung của các tin tức, chỉ nêu tiêu đề và hướng dẫn vào trang tin tức
+            - Nếu không có tin tức nào, hãy thông báo rõ ràng
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về cách tích lũy điểm:
+            - Khi người dùng hỏi về "làm sao để có điểm", "cách tích điểm", "làm thế nào để có điểm tích lũy", "cách kiếm điểm", "làm sao để có điểm CNJ", "cách tích lũy điểm CNJ", v.v., bạn PHẢI sử dụng thông tin từ "Thông tin cách tích lũy điểm CNJ" ở trên
+            - Trả lời CHI TIẾT và ĐẦY ĐỦ các cách tích điểm:
+              + Mua vé xem phim: mỗi vé = +5 điểm
+              + Mua combo đồ ăn/nước uống: mỗi combo = +5 điểm (chỉ loại combo, không phải single)
+              + Sự kiện sinh nhật: +100 điểm vào ngày sinh nhật
+            - Nếu người dùng đã đăng nhập và có thông tin sinh nhật trong "Thông tin cách tích lũy điểm CNJ", bạn PHẢI trả lời:
+              + Số điểm được cộng vào sinh nhật: +100 điểm CNJ
+              + Ngày sinh nhật của họ (nếu có)
+              + Còn bao nhiêu ngày nữa đến sinh nhật để được cộng điểm (nếu có)
+            - Khi người dùng hỏi "sinh nhật tôi được cộng bao nhiêu điểm" hoặc "sinh nhật được cộng bao nhiêu điểm", bạn PHẢI trả lời: +100 điểm CNJ vào ngày sinh nhật
+            - Khi người dùng hỏi "còn bao nhiêu ngày nữa đến sinh nhật tôi" hoặc "còn bao nhiêu ngày nữa đến sinh nhật để được cộng điểm", bạn PHẢI sử dụng thông tin từ "Thông tin cách tích lũy điểm CNJ" để trả lời số ngày còn lại (nếu người dùng đã đăng nhập và có thông tin sinh nhật)
+            - Nếu người dùng chưa đăng nhập hoặc chưa cập nhật ngày sinh nhật, hãy nhắc họ cần đăng nhập và cập nhật thông tin
+            - Giải thích rõ: điểm chỉ được cộng khi đơn hàng có trạng thái "Đã xác nhận" (CONFIRMED)
+            - Có thể gợi ý người dùng dùng điểm để đổi voucher giảm giá
+            - Nếu người dùng hỏi cụ thể về một cách tích điểm, hãy giải thích chi tiết cách đó
             
             QUAN TRỌNG - Hướng dẫn gọi tên và ngữ cảnh:
             1. CÁCH GỌI TÊN NGƯỜI DÙNG (nếu có thông tin user):
@@ -1349,6 +1566,20 @@ Trả lời:`;
         return "Xin lỗi, hệ thống chatbot đang gặp vấn đề về cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.";
       }
 
+      // Xử lý lỗi quota exceeded (429)
+      if (error?.status === 429) {
+        const retryDelay =
+          error?.errorDetails?.find(
+            (detail: any) =>
+              detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+          )?.retryDelay || "một lúc";
+
+        console.error(
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
+        );
+        return `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
+      }
+
       return "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
     }
   },
@@ -1418,8 +1649,16 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       }
 
       return cleanTitle;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error recognizing poster from image:", error);
+
+      // Xử lý lỗi quota exceeded (429)
+      if (error?.status === 429) {
+        console.error(
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests khi nhận diện poster."
+        );
+      }
+
       return null;
     }
   },
@@ -2019,8 +2258,25 @@ Nhiệm vụ:
 
     ChatbotService.saveMessage(sessionId, { sender: "bot", text: reply });
     return reply;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating poster question reply:", error);
+
+    // Xử lý lỗi quota exceeded (429)
+    if (error?.status === 429) {
+      const retryDelay =
+        error?.errorDetails?.find(
+          (detail: any) =>
+            detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+        )?.retryDelay || "một lúc";
+
+      console.error(
+        "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày."
+      );
+      const fallback = `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
+      ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
+      return fallback;
+    }
+
     const fallback =
       "Xin lỗi, hệ thống đang bận nên chưa thể trả lời câu hỏi về poster ngay lúc này. Bạn vui lòng thử lại sau nhé!";
     ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
