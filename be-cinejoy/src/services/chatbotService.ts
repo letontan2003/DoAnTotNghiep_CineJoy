@@ -117,43 +117,83 @@ const ChatbotService = {
 
   getShowtimeInfo: async () => {
     try {
-      const response = await axios.get("http://localhost:5000/showtimes");
-      const showtimes = response.data;
+      // Sử dụng showtimeService thay vì gọi API trực tiếp để đảm bảo dữ liệu đầy đủ
+      const showtimes = await showtimeService.getShowtimes();
 
-      if (!showtimes || !Array.isArray(showtimes)) {
+      if (!showtimes || !Array.isArray(showtimes) || showtimes.length === 0) {
         return "Hiện không có thông tin suất chiếu.";
       }
 
       return showtimes
         .slice(0, 10)
-        .map((showtime) => {
-          const { movieId, theaterId, showDate, showTimes } = showtime;
+        .map((showtime: any) => {
+          const { movieId, theaterId, showTimes } = showtime;
 
           const movieTitle = movieId?.title || "Chưa có";
           const theaterName = theaterId?.name || "Chưa có";
-          const dateRange = showDate
-            ? `Từ ${new Date(showDate.start).toLocaleDateString(
-                "vi-VN"
-              )} đến ${new Date(showDate.end).toLocaleDateString("vi-VN")}`
-            : "Chưa cập nhật";
+          
+          let dateInfo = "Chưa cập nhật";
+          let startDateStr = "";
+          let endDateStr = "";
+          
+          // Tính toán ngày bắt đầu và kết thúc từ mảng showTimes
+          if (showTimes && Array.isArray(showTimes) && showTimes.length > 0) {
+            // Lọc các showTime có date hợp lệ và status active
+            const validShowTimes = showTimes.filter((st: any) => 
+              st.date && (st.status === 'active' || !st.status)
+            );
+            
+            if (validShowTimes.length > 0) {
+              // Tìm ngày nhỏ nhất (bắt đầu) và lớn nhất (kết thúc)
+              const dates = validShowTimes.map((st: any) => {
+                const date = new Date(st.date);
+                // Reset về đầu ngày để so sánh chính xác
+                date.setHours(0, 0, 0, 0);
+                return date;
+              });
+              
+              const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
+              const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
+              
+              startDateStr = minDate.toLocaleDateString("vi-VN");
+              endDateStr = maxDate.toLocaleDateString("vi-VN");
+              
+              if (startDateStr === endDateStr) {
+                dateInfo = startDateStr;
+              } else {
+                dateInfo = `Từ ${startDateStr} đến ${endDateStr}`;
+              }
+            }
+          }
 
           const timesDetails = showTimes
-            .map((time: { start: string; end: string; room?: string }) => {
+            ?.filter((time: any) => time.status === 'active' || !time.status)
+            .slice(0, 5) // Chỉ lấy 5 suất đầu tiên để không quá dài
+            .map((time: { date?: string | Date; start: string | Date; end: string | Date; room?: any }) => {
+              const date = time.date 
+                ? new Date(time.date).toLocaleDateString("vi-VN")
+                : "Chưa có";
               const startTime = new Date(time.start).toLocaleTimeString(
-                "vi-VN"
+                "vi-VN",
+                { hour: "2-digit", minute: "2-digit" }
               );
-              const endTime = new Date(time.end).toLocaleTimeString("vi-VN");
-              const room = time.room || "Chưa cập nhật";
+              const endTime = new Date(time.end).toLocaleTimeString(
+                "vi-VN",
+                { hour: "2-digit", minute: "2-digit" }
+              );
+              const roomName = time.room?.name || (typeof time.room === 'string' ? time.room : "Chưa cập nhật");
 
-              return `  - Phòng: ${room}, Giờ: ${startTime} - ${endTime}`;
+              return `  - Ngày: ${date}, Phòng: ${roomName}, Giờ: ${startTime} - ${endTime}`;
             })
-            .join("\n");
+            .join("\n") || "Chưa có suất chiếu";
 
           return `
 - Phim: ${movieTitle}
 - Rạp: ${theaterName}
-- Ngày chiếu: ${dateRange}
-Chi tiết giờ chiếu:
+- Ngày bắt đầu chiếu: ${startDateStr || "Chưa cập nhật"}
+- Ngày kết thúc chiếu: ${endDateStr || "Chưa cập nhật"}
+- Khoảng thời gian chiếu: ${dateInfo}
+Chi tiết giờ chiếu (5 suất đầu tiên):
 ${timesDetails}
             `;
         })
@@ -1303,6 +1343,20 @@ Trả lời:`;
             ${theaterInfo}
             Danh sách suất chiếu hiện có:
             ${showtimeInfo}
+            
+            QUAN TRỌNG - Hướng dẫn trả lời về suất chiếu và ngày chiếu:
+            - Khi người dùng hỏi về "suất chiếu", "lịch chiếu", "giờ chiếu", "chiếu từ ngày nào", "ngày bắt đầu chiếu", "phim X chiếu từ ngày nào", v.v., bạn PHẢI sử dụng thông tin từ "Danh sách suất chiếu hiện có" ở trên
+            - Trả lời CHI TIẾT và ĐẦY ĐỦ thông tin suất chiếu, bao gồm:
+              + Tên phim
+              + Tên rạp
+              + Ngày bắt đầu chiếu (nếu có trong thông tin)
+              + Ngày kết thúc chiếu (nếu có trong thông tin)
+              + Khoảng thời gian chiếu (từ ngày X đến ngày Y)
+              + Chi tiết giờ chiếu (giờ bắt đầu - giờ kết thúc) và phòng chiếu
+            - Khi người dùng hỏi "chiếu từ ngày nào" hoặc "phim X chiếu từ ngày nào", bạn PHẢI trả lời ngày bắt đầu chiếu cụ thể từ thông tin "Ngày bắt đầu chiếu" trong danh sách suất chiếu
+            - Nếu thông tin ngày chiếu là "Chưa cập nhật", hãy thông báo rõ ràng cho người dùng
+            - Khi liệt kê suất chiếu, hãy sắp xếp theo phim và rạp để dễ đọc
+            
             Thông tin giá vé và combo hiện tại:
             ${priceInfo}
             Thông tin các chương trình khuyến mãi đang hoạt động:
