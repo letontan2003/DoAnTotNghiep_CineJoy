@@ -17,6 +17,8 @@ import {
   Platform,
   AppState,
 } from "react-native";
+import WebView from "react-native-webview";
+import { WebViewNavigation } from "react-native-webview/lib/WebViewTypes";
 import {
   useNavigation,
   useRoute,
@@ -167,10 +169,18 @@ const PaymentScreen = () => {
     /\/$/,
     ""
   );
-  const paymentSuccessUrl =
+  const webPaymentSuccessUrl =
     config.WEB_PAYMENT_SUCCESS_URL || `${normalizedApiBase}/payment/success`;
-  const paymentCancelUrl =
+  const webPaymentCancelUrl =
     config.WEB_PAYMENT_CANCEL_URL || `${normalizedApiBase}/payment/cancel`;
+  const appPaymentSuccessUrl =
+    config.APP_PAYMENT_SUCCESS_URL || "cinejoy://payment/success";
+  const appPaymentCancelUrl =
+    config.APP_PAYMENT_CANCEL_URL || "cinejoy://payment/cancel";
+  const webSuccessUrlBase = webPaymentSuccessUrl.split("?")[0];
+  const webCancelUrlBase = webPaymentCancelUrl.split("?")[0];
+  const appSuccessUrlBase = appPaymentSuccessUrl.split("?")[0];
+  const appCancelUrlBase = appPaymentCancelUrl.split("?")[0];
 
   const [ticketPriceMap, setTicketPriceMap] = useState<Record<string, number>>(
     {}
@@ -222,6 +232,10 @@ const PaymentScreen = () => {
   const [checkingOrderStatus, setCheckingOrderStatus] = useState(false);
   const handledOrderIdRef = useRef<string | null>(null);
   const appStateRef = useRef(AppState.currentState);
+  const [paymentWebViewVisible, setPaymentWebViewVisible] = useState(false);
+  const [paymentWebViewUrl, setPaymentWebViewUrl] = useState<string | null>(
+    null
+  );
 
   const loadCombos = useCallback(async () => {
     try {
@@ -447,6 +461,80 @@ const PaymentScreen = () => {
     }, [checkPendingOrderStatus])
   );
 
+  const closePaymentWebView = useCallback(() => {
+    setPaymentWebViewVisible(false);
+    setPaymentWebViewUrl(null);
+  }, []);
+
+  const handlePaymentNavigationChange = useCallback(
+    (navState: WebViewNavigation) => {
+      const url = navState.url || "";
+      if (!url) return;
+      const normalizedUrl = url.split("#")[0];
+      if (webSuccessUrlBase && normalizedUrl.startsWith(webSuccessUrlBase)) {
+        closePaymentWebView();
+        checkPendingOrderStatus();
+        return;
+      }
+      if (webCancelUrlBase && normalizedUrl.startsWith(webCancelUrlBase)) {
+        closePaymentWebView();
+        handleOrderFailed(
+          "Thanh toán chưa hoàn tất. Bạn có thể thử lại ngay bây giờ."
+        );
+      }
+    },
+    [
+      webSuccessUrlBase,
+      webCancelUrlBase,
+      closePaymentWebView,
+      checkPendingOrderStatus,
+      handleOrderFailed,
+    ]
+  );
+
+  const handleClosePaymentWebView = useCallback(() => {
+    closePaymentWebView();
+    handleOrderFailed("Bạn đã đóng cửa sổ thanh toán.");
+  }, [closePaymentWebView, handleOrderFailed]);
+
+  const handleIncomingDeepLink = useCallback(
+    (incomingUrl?: string | null) => {
+      if (!incomingUrl) return;
+      const normalizedUrl = incomingUrl.split("#")[0];
+      if (appSuccessUrlBase && normalizedUrl.startsWith(appSuccessUrlBase)) {
+        closePaymentWebView();
+        checkPendingOrderStatus();
+        return;
+      }
+      if (appCancelUrlBase && normalizedUrl.startsWith(appCancelUrlBase)) {
+        closePaymentWebView();
+        handleOrderFailed("Thanh toán chưa hoàn tất hoặc đã bị hủy.");
+      }
+    },
+    [
+      appSuccessUrlBase,
+      appCancelUrlBase,
+      closePaymentWebView,
+      checkPendingOrderStatus,
+      handleOrderFailed,
+    ]
+  );
+
+  const openPaymentGateway = useCallback((url: string) => {
+    if (!url) return;
+    if (/^https?:\/\//i.test(url)) {
+      setPaymentWebViewUrl(url);
+      setPaymentWebViewVisible(true);
+      return;
+    }
+    Linking.openURL(url).catch(() => {
+      Alert.alert(
+        "Thông báo",
+        "Không thể mở cổng thanh toán bên ngoài. Vui lòng thử lại."
+      );
+    });
+  }, []);
+
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (appStateRef.current !== "active" && nextState === "active") {
@@ -456,6 +544,18 @@ const PaymentScreen = () => {
     });
     return () => subscription.remove();
   }, [checkPendingOrderStatus]);
+
+  useEffect(() => {
+    const linkingSubscription = Linking.addEventListener("url", ({ url }) => {
+      handleIncomingDeepLink(url);
+    });
+    Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl) {
+        handleIncomingDeepLink(initialUrl);
+      }
+    });
+    return () => linkingSubscription.remove();
+  }, [handleIncomingDeepLink]);
 
   const openComboModal = useCallback(
     (
@@ -851,10 +951,15 @@ const PaymentScreen = () => {
 
       setPendingOrderId(orderId);
 
+      const successRedirectUrl =
+        paymentMethod === "MOMO" ? appPaymentSuccessUrl : webPaymentSuccessUrl;
+      const cancelRedirectUrl =
+        paymentMethod === "MOMO" ? appPaymentCancelUrl : webPaymentCancelUrl;
+
       const paymentResult = await processPaymentApi(orderId, {
         paymentMethod,
-        returnUrl: paymentSuccessUrl,
-        cancelUrl: paymentCancelUrl,
+        returnUrl: successRedirectUrl,
+        cancelUrl: cancelRedirectUrl,
       });
 
       const paymentUrl =
@@ -862,7 +967,7 @@ const PaymentScreen = () => {
         (paymentResult as any)?.paymentUrl;
 
       if (paymentUrl) {
-        Linking.openURL(paymentUrl);
+        openPaymentGateway(paymentUrl);
       } else {
         Alert.alert(
           "Thông báo",
@@ -1234,6 +1339,46 @@ const PaymentScreen = () => {
             </Text>
           </TouchableOpacity>
         </ScrollView>
+        <Modal
+          visible={paymentWebViewVisible}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={handleClosePaymentWebView}
+        >
+          <View style={styles.paymentWebContainer}>
+            <View style={styles.paymentWebHeader}>
+              <TouchableOpacity
+                style={styles.paymentWebClose}
+                onPress={handleClosePaymentWebView}
+              >
+                <Text style={styles.paymentWebCloseText}>×</Text>
+              </TouchableOpacity>
+              <Text style={styles.paymentWebTitle}>Thanh toán</Text>
+              <View style={{ width: 40 }} />
+            </View>
+            {paymentWebViewUrl ? (
+              <WebView
+                source={{ uri: paymentWebViewUrl }}
+                onNavigationStateChange={handlePaymentNavigationChange}
+                startInLoadingState
+                renderLoading={() => (
+                  <View style={styles.paymentWebLoading}>
+                    <ActivityIndicator color="#E50914" size="large" />
+                    <Text style={styles.paymentWebLoadingText}>
+                      Đang tải cổng thanh toán...
+                    </Text>
+                  </View>
+                )}
+              />
+            ) : (
+              <View style={styles.paymentWebLoading}>
+                <Text style={styles.paymentWebLoadingText}>
+                  Đang chuẩn bị liên kết thanh toán...
+                </Text>
+              </View>
+            )}
+          </View>
+        </Modal>
         <Modal
           visible={comboModalVisible}
           transparent
@@ -1712,6 +1857,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
+  },
+  paymentWebContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  paymentWebHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 25,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  paymentWebTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111",
+  },
+  paymentWebClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paymentWebCloseText: {
+    fontSize: 28,
+    color: "#111",
+    fontWeight: "600",
+  },
+  paymentWebLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  paymentWebLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#555",
+    textAlign: "center",
   },
   comboModalCard: {
     width: "100%",

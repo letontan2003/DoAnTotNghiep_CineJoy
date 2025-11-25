@@ -1,22 +1,28 @@
 // Environment configuration for React Native
 const ENV = {
   development: {
-    API_URL: "http://172.20.10.12:5000",
-    WEB_PAYMENT_SUCCESS_URL: "http://172.20.10.12:3000/payment/success",
-    WEB_PAYMENT_CANCEL_URL: "http://172.20.10.12:3000/payment/cancel",
-    WEB_BOOKING_HISTORY_URL: "http://172.20.10.12:3000/booking-history",
+    API_URL: "http://192.168.1.25:5000",
+    WEB_PAYMENT_SUCCESS_URL: "http://192.168.1.25:3000/payment/success",
+    WEB_PAYMENT_CANCEL_URL: "http://192.168.1.25:3000/payment/cancel",
+    WEB_BOOKING_HISTORY_URL: "http://192.168.1.25:3000/booking-history",
+    APP_PAYMENT_SUCCESS_URL: "cinejoy://payment/success",
+    APP_PAYMENT_CANCEL_URL: "cinejoy://payment/cancel",
   },
   staging: {
     API_URL: "https://staging-api.cinejoy.com",
     WEB_PAYMENT_SUCCESS_URL: "https://staging.cinejoy.com/payment/success",
     WEB_PAYMENT_CANCEL_URL: "https://staging.cinejoy.com/payment/cancel",
     WEB_BOOKING_HISTORY_URL: "https://staging.cinejoy.com/booking-history",
+    APP_PAYMENT_SUCCESS_URL: "cinejoy://payment/success",
+    APP_PAYMENT_CANCEL_URL: "cinejoy://payment/cancel",
   },
   production: {
     API_URL: "https://api.cinejoy.com",
     WEB_PAYMENT_SUCCESS_URL: "https://cinejoy.vn/payment/success",
     WEB_PAYMENT_CANCEL_URL: "https://cinejoy.vn/payment/cancel",
     WEB_BOOKING_HISTORY_URL: "https://cinejoy.vn/booking-history",
+    APP_PAYMENT_SUCCESS_URL: "cinejoy://payment/success",
+    APP_PAYMENT_CANCEL_URL: "cinejoy://payment/cancel",
   },
 };
 
