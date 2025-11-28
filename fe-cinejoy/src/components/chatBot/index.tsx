@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import tuongtacIcon from 'assets/tuongtac.png';
 import Logo from 'assets/CineJoyLogo.png'
 import { FaFacebookF } from 'react-icons/fa';
+import useAppStore from '@/store/app.store';
 
 interface Message {
     sender: 'user' | 'bot';
@@ -39,10 +40,18 @@ const Chatbot: React.FC = () => {
     const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const sessionIdRef = useRef<string>(generateSessionId());
     
-    const defaultBotMessage: Message = {
+    const { user } = useAppStore();
+    const greetingText = useMemo(() => {
+        const fullName = user?.fullName?.trim();
+        const displayName = fullName
+            ? fullName.split(/\s+/).slice(-1).join(' ') || fullName
+            : 'Bạn';
+        return `CineJoy xin chào! ${displayName} cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?`;
+    }, [user?.fullName]);
+    const defaultBotMessage = useMemo<Message>(() => ({
         sender: 'bot',
-        text: 'CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?',
-    };
+        text: greetingText,
+    }), [greetingText]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,7 +70,7 @@ const Chatbot: React.FC = () => {
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
         }
-    }, [isOpen]);
+    }, [isOpen, defaultBotMessage, messages.length]);
 
     useEffect(() => {
         const handleScroll = () => {
