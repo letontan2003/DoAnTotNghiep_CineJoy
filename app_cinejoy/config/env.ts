@@ -1,10 +1,10 @@
 // Environment configuration for React Native
 const ENV = {
   development: {
-    API_URL: "http://192.168.1.25:5000",
-    WEB_PAYMENT_SUCCESS_URL: "http://192.168.1.25:3000/payment/success",
-    WEB_PAYMENT_CANCEL_URL: "http://192.168.1.25:3000/payment/cancel",
-    WEB_BOOKING_HISTORY_URL: "http://192.168.1.25:3000/booking-history",
+    API_URL: "http://192.168.1.30:5000",
+    WEB_PAYMENT_SUCCESS_URL: "http://192.168.1.30:3000/payment/success",
+    WEB_PAYMENT_CANCEL_URL: "http://192.168.1.30:3000/payment/cancel",
+    WEB_BOOKING_HISTORY_URL: "http://192.168.1.30:3000/booking-history",
     APP_PAYMENT_SUCCESS_URL: "cinejoy://payment/success",
     APP_PAYMENT_CANCEL_URL: "cinejoy://payment/cancel",
   },

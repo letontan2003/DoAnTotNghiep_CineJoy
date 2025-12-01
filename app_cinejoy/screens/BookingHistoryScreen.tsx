@@ -61,6 +61,14 @@ const statusMap: Record<
 
 const PAGE_SIZE = 6;
 
+type BookingTabKey = "upcoming" | "watched" | "refunded";
+
+const TAB_CONFIG: { key: BookingTabKey; label: string }[] = [
+  { key: "upcoming", label: "Phim sắp xem" },
+  { key: "watched", label: "Phim đã xem" },
+  { key: "refunded", label: "Trả vé" },
+];
+
 const BookingHistoryScreen = () => {
   const navigation = useNavigation<BookingHistoryNavProp>();
   const [orders, setOrders] = useState<any[]>([]);
@@ -68,6 +76,7 @@ const BookingHistoryScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [activeTab, setActiveTab] = useState<BookingTabKey>("upcoming");
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -94,11 +103,34 @@ const BookingHistoryScreen = () => {
     }, [fetchHistory])
   );
 
-  const displayedOrders = useMemo(() => {
-    return orders.slice(0, page * PAGE_SIZE);
-  }, [orders, page]);
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const status = order?.orderStatus;
+      const showDateTime = dayjs(
+        `${order?.showDate} ${order?.showTime}`,
+        "YYYY-MM-DD HH:mm"
+      );
+      const isReturned = status === "RETURNED";
+      const isCancelled = status === "CANCELLED";
+      if (activeTab === "refunded") {
+        return isReturned;
+      }
+      if (isReturned) return false;
+      if (activeTab === "upcoming") {
+        return (
+          !isCancelled &&
+          (showDateTime.isSame(dayjs()) || showDateTime.isAfter(dayjs()))
+        );
+      }
+      return showDateTime.isBefore(dayjs()) || isCancelled;
+    });
+  }, [orders, activeTab]);
 
-  const hasMore = displayedOrders.length < orders.length;
+  const displayedOrders = useMemo(() => {
+    return filteredOrders.slice(0, page * PAGE_SIZE);
+  }, [filteredOrders, page]);
+
+  const hasMore = displayedOrders.length < filteredOrders.length;
 
   const handleLoadMore = () => {
     if (!hasMore || loading || isFetchingMore) return;
@@ -203,9 +235,15 @@ const BookingHistoryScreen = () => {
         </View>
       );
     }
+    const emptyMessage =
+      activeTab === "refunded"
+        ? "Chưa có giao dịch trả vé"
+        : activeTab === "watched"
+        ? "Chưa có phim đã xem"
+        : "Chưa có phim sắp xem";
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>Chưa có giao dịch</Text>
+        <Text style={styles.emptyTitle}>{emptyMessage}</Text>
         <Text style={styles.emptySubtitle}>
           Hãy tiếp tục đặt vé để lịch sử hiển thị tại đây nhé!
         </Text>
@@ -217,7 +255,7 @@ const BookingHistoryScreen = () => {
         </TouchableOpacity>
       </View>
     );
-  }, [loading, error, fetchHistory, navigation]);
+  }, [loading, error, fetchHistory, navigation, activeTab]);
 
   const renderContent = () => {
     if (loading && orders.length === 0) {
@@ -264,6 +302,27 @@ const BookingHistoryScreen = () => {
         <Text style={styles.headerTitle}>Vé của tôi</Text>
         <View style={{ width: 24 }} />
       </View>
+      <View style={styles.tabRow}>
+        {TAB_CONFIG.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tabButton, isActive && styles.tabButtonActive]}
+              onPress={() => {
+                setActiveTab(tab.key);
+                setPage(1);
+              }}
+            >
+              <Text
+                style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
       {renderContent()}
     </View>
   );
@@ -298,6 +357,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   listContent: { padding: 16, paddingBottom: 40 },
+  tabRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#fff",
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  tabButtonActive: {
+    borderBottomColor: "#E50914",
+  },
+  tabLabel: {
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+  tabLabelActive: {
+    color: "#E50914",
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
