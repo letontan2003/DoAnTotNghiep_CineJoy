@@ -20,7 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import SideMenu from "@/components/SideMenu";
 import { sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setChatbotScreenOpen } from "@/store/appSlice";
 
 type RootStackParamList = {
@@ -40,11 +40,14 @@ type Message = {
   imageUri?: string;
 };
 
-const WELCOME_MESSAGE: Message = {
-  id: "bot-welcome",
-  sender: "bot",
-  text: "CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?",
-  timestamp: Date.now(),
+const getWelcomeText = (fullName?: string | null) => {
+  const raw = fullName?.trim();
+  if (raw && raw.length > 0) {
+    const parts = raw.split(/\s+/);
+    const firstName = parts[parts.length - 1];
+    return `CineJoy xin chào ${firstName}! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?`;
+  }
+  return "CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?";
 };
 
 const quickSuggestions = [
@@ -103,7 +106,15 @@ const TypingIndicator = () => {
 const ChatbotScreen = () => {
   const navigation = useNavigation<ChatbotScreenNavigationProp>();
   const dispatch = useAppDispatch();
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const user = useAppSelector((state) => state.app.user);
+  const [messages, setMessages] = useState<Message[]>(() => [
+    {
+      id: "bot-welcome",
+      sender: "bot",
+      text: getWelcomeText(user?.fullName || (user as any)?.name),
+      timestamp: Date.now(),
+    },
+  ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingImage, setPendingImage] = useState<{

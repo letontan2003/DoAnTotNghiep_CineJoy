@@ -40,10 +40,12 @@ import {
   getAmountDiscountApi,
   getFoodCombosApi,
   getOrderByIdApi,
+  getMyVouchersApi,
 } from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
 import comboPlaceholder from "assets/Combo.png";
 import config from "@/config/env";
+import dayjs from "dayjs";
 
 const parseMinAgeFromRating = (rating?: string): number | null => {
   if (!rating) return null;
@@ -236,6 +238,9 @@ const PaymentScreen = () => {
   const [paymentWebViewUrl, setPaymentWebViewUrl] = useState<string | null>(
     null
   );
+  const [myVouchers, setMyVouchers] = useState<any[]>([]);
+  const [loadingMyVouchers, setLoadingMyVouchers] = useState(false);
+  const [voucherModalVisible, setVoucherModalVisible] = useState(false);
 
   const loadCombos = useCallback(async () => {
     try {
@@ -284,6 +289,30 @@ const PaymentScreen = () => {
   useEffect(() => {
     loadCombos();
   }, [loadCombos]);
+
+  useEffect(() => {
+    const fetchMyVouchers = async () => {
+      if (!isAuthenticated || !user?._id) {
+        setMyVouchers([]);
+        return;
+      }
+      setLoadingMyVouchers(true);
+      try {
+        const res = await getMyVouchersApi();
+        if (res?.status && res.data) {
+          setMyVouchers(res.data || []);
+        } else {
+          setMyVouchers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching my vouchers:", error);
+        setMyVouchers([]);
+      } finally {
+        setLoadingMyVouchers(false);
+      }
+    };
+    fetchMyVouchers();
+  }, [isAuthenticated, user?._id]);
 
   const amountDiscountValue = amountDiscount?.discountAmount || 0;
   const percentDiscountTotal = appliedPercentPromotions.reduce(
@@ -829,25 +858,24 @@ const PaymentScreen = () => {
     fetchAmountDiscount();
   }, [ticketTotal, comboTotal]);
 
-  const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
-      setVoucherError("Vui lòng nhập mã voucher");
+  const applyVoucherByCode = async (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) {
+      setVoucherError("Vui lòng chọn voucher");
       return;
     }
+    setVoucherCode(code.toUpperCase());
     setVoucherLoading(true);
     setVoucherError("");
     try {
-      const validation = await validateVoucherApi(
-        voucherCode.trim(),
-        user?._id
-      );
+      const validation = await validateVoucherApi(code, user?._id);
       if (!validation?.status) {
         setVoucherError(validation?.message || "Mã voucher không hợp lệ");
         setAppliedVoucher(null);
         return;
       }
       const applyResult = await applyVoucherApi(
-        voucherCode.trim(),
+        code,
         ticketTotal + comboTotal,
         user?._id
       );
@@ -857,7 +885,7 @@ const PaymentScreen = () => {
         return;
       }
       setAppliedVoucher({
-        code: voucherCode.trim(),
+        code: code.toUpperCase(),
         discountAmount: applyResult.data.discountAmount || 0,
         userVoucherId: applyResult.data.userVoucherId,
       });
@@ -868,6 +896,10 @@ const PaymentScreen = () => {
     } finally {
       setVoucherLoading(false);
     }
+  };
+
+  const handleApplyVoucher = async () => {
+    await applyVoucherByCode(voucherCode);
   };
 
   const handleRemoveVoucher = () => {
@@ -998,6 +1030,19 @@ const PaymentScreen = () => {
     if (minAge === 0) return "Phim được phổ biến đến mọi lứa tuổi (P).";
     return `Phim được phổ biến đến người xem từ đủ ${minAge} tuổi trở lên (${movie.ageRating}).`;
   })();
+
+  const validMyVouchers = useMemo(
+    () =>
+      myVouchers.filter((voucher: any) => {
+        const statusOk = voucher.status === "unused";
+        const voucherIdObj =
+          typeof voucher.voucherId === "object" ? voucher.voucherId : null;
+        const end = voucherIdObj?.validityPeriod?.endDate;
+        const dateOk = !end || dayjs(end).isAfter(dayjs());
+        return statusOk && dateOk;
+      }),
+    [myVouchers]
+  );
 
   return (
     <KeyboardAvoidingView
@@ -1173,16 +1218,24 @@ const PaymentScreen = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Giảm giá</Text>
             <View style={styles.voucherRow}>
-              <TextInput
-                style={styles.voucherInput}
-                placeholder="Nhập mã CNJ Voucher"
-                value={voucherCode}
-                onChangeText={(text) => {
-                  setVoucherCode(text.toUpperCase());
-                  if (!text) setVoucherError("");
+              <TouchableOpacity
+                style={styles.voucherSelectField}
+                onPress={() => {
+                  if (!isAuthenticated || !user?._id) {
+                    Alert.alert(
+                      "Thông báo",
+                      "Vui lòng đăng nhập để chọn voucher."
+                    );
+                    return;
+                  }
+                  setVoucherModalVisible(true);
                 }}
-                placeholderTextColor="#aaa"
-              />
+                activeOpacity={0.8}
+              >
+                <Text style={styles.voucherSelectText}>
+                  {appliedVoucher?.code || voucherCode || "Chọn CNJ Voucher"}
+                </Text>
+              </TouchableOpacity>
               {appliedVoucher ? (
                 <TouchableOpacity
                   style={styles.voucherRemoveButton}
@@ -1192,17 +1245,19 @@ const PaymentScreen = () => {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[
-                    styles.voucherButton,
-                    (!voucherCode.trim() || voucherLoading) &&
-                      styles.voucherButtonDisabled,
-                  ]}
-                  disabled={!voucherCode.trim() || voucherLoading}
-                  onPress={handleApplyVoucher}
+                  style={styles.voucherButton}
+                  onPress={() => {
+                    if (!isAuthenticated || !user?._id) {
+                      Alert.alert(
+                        "Thông báo",
+                        "Vui lòng đăng nhập để chọn voucher."
+                      );
+                      return;
+                    }
+                    setVoucherModalVisible(true);
+                  }}
                 >
-                  <Text style={styles.voucherButtonText}>
-                    {voucherLoading ? "Đang kiểm tra..." : "Áp dụng"}
-                  </Text>
+                  <Text style={styles.voucherButtonText}>Chọn</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1461,6 +1516,70 @@ const PaymentScreen = () => {
             </View>
           </View>
         </Modal>
+        <Modal
+          visible={voucherModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setVoucherModalVisible(false)}
+        >
+          <View style={styles.comboModalOverlay}>
+            <View style={styles.voucherModalCard}>
+              <View style={styles.voucherModalHeader}>
+                <Text style={styles.voucherModalTitle}>Chọn voucher</Text>
+                <TouchableOpacity onPress={() => setVoucherModalVisible(false)}>
+                  <Text style={styles.voucherModalClose}>×</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.voucherModalBody}>
+                {loadingMyVouchers ? (
+                  <View style={styles.voucherModalLoading}>
+                    <ActivityIndicator color="#E50914" />
+                    <Text style={styles.voucherModalLoadingText}>
+                      Đang tải voucher...
+                    </Text>
+                  </View>
+                ) : validMyVouchers.length === 0 ? (
+                  <Text style={styles.voucherModalEmpty}>
+                    Hiện chưa có voucher khả dụng.
+                  </Text>
+                ) : (
+                  <ScrollView style={styles.voucherModalList}>
+                    {validMyVouchers.map((voucher: any) => (
+                      <TouchableOpacity
+                        key={voucher._id}
+                        style={styles.voucherModalItem}
+                        onPress={() => {
+                          const code = voucher.code || "";
+                          applyVoucherByCode(code);
+                          setVoucherModalVisible(false);
+                        }}
+                      >
+                        <Text style={styles.voucherModalCode}>
+                          {voucher.code}
+                        </Text>
+                        <Text style={styles.voucherModalDesc} numberOfLines={2}>
+                          {typeof voucher.voucherId === "object"
+                            ? voucher.voucherId?.description ||
+                              voucher.voucherId?.name ||
+                              "Voucher"
+                            : "Voucher"}
+                        </Text>
+                        {voucher.voucherId?.validityPeriod?.endDate && (
+                          <Text style={styles.voucherModalExpiry}>
+                            Hạn dùng:{" "}
+                            {dayjs(
+                              voucher.voucherId.validityPeriod.endDate
+                            ).format("DD/MM/YYYY")}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -1705,16 +1824,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     alignItems: "center",
-  },
-  voucherInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: "#111",
   },
   voucherButton: {
     backgroundColor: "#E50914",
@@ -2008,6 +2117,85 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  voucherSelectField: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: "center",
+  },
+  voucherSelectText: {
+    fontSize: 13,
+    color: "#111",
+  },
+  voucherModalCard: {
+    width: "100%",
+    maxHeight: "70%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  voucherModalHeader: {
+    backgroundColor: "#c53030",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  voucherModalTitle: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  voucherModalClose: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  voucherModalBody: {
+    padding: 16,
+  },
+  voucherModalLoading: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  voucherModalLoadingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#555",
+  },
+  voucherModalEmpty: {
+    fontSize: 13,
+    color: "#777",
+    textAlign: "center",
+  },
+  voucherModalList: {
+    maxHeight: 300,
+  },
+  voucherModalItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  voucherModalCode: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#E50914",
+  },
+  voucherModalDesc: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#444",
+  },
+  voucherModalExpiry: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#666",
   },
 });
 

@@ -32,11 +32,14 @@ type Message = {
   imageUri?: string;
 };
 
-const WELCOME_MESSAGE: Message = {
-  id: "bot-welcome",
-  sender: "bot",
-  text: "CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?",
-  timestamp: Date.now(),
+const getWelcomeText = (fullName?: string | null) => {
+  const raw = fullName?.trim();
+  if (raw && raw.length > 0) {
+    const parts = raw.split(/\s+/);
+    const firstName = parts[parts.length - 1];
+    return `CineJoy xin chào ${firstName}! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?`;
+  }
+  return "CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?";
 };
 
 const quickSuggestions = [
@@ -102,6 +105,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
     (state) => state.app.isChatbotScreenOpen
   );
   const currentScreen = useAppSelector((state) => state.app.currentScreen);
+  const user = useAppSelector((state) => state.app.user);
 
   // Danh sách các screen không nên hiển thị bong bóng chat
   const hiddenScreens = ["LoadingScreen", "PosterScreen"];
@@ -110,7 +114,14 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>(() => [
+    {
+      id: "bot-welcome",
+      sender: "bot",
+      text: getWelcomeText(),
+      timestamp: Date.now(),
+    },
+  ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingImage, setPendingImage] = useState<{
@@ -146,6 +157,27 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  // Cập nhật lại câu chào khi thông tin user (tên) thay đổi
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: "bot-welcome",
+            sender: "bot",
+            text: getWelcomeText(user?.fullName || (user as any)?.name),
+            timestamp: Date.now(),
+          },
+        ];
+      }
+      const [first, ...rest] = prev;
+      if (first.sender !== "bot") return prev;
+      const newText = getWelcomeText(user?.fullName || (user as any)?.name);
+      if (first.text === newText) return prev;
+      return [{ ...first, text: newText }, ...rest];
+    });
+  }, [user?.fullName]);
 
   // Đóng modal khi disabled
   useEffect(() => {

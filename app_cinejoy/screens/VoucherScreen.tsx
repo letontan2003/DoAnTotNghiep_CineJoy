@@ -371,18 +371,9 @@ const VoucherScreen = () => {
                         {endDate ? dayjs(endDate).format("DD/MM/YYYY") : ""}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.voucherButton,
-                        isExpired && styles.voucherButtonDisabled,
-                      ]}
-                      disabled={isExpired}
-                      onPress={() => handleShowCode(voucher)}
-                    >
-                      <Text style={styles.voucherButtonText}>
-                        {isExpired ? "Đã hết hạn" : "Sử dụng"}
-                      </Text>
-                    </TouchableOpacity>
+                    <Text style={styles.voucherAvailableText}>
+                      Voucher khả dụng
+                    </Text>
                   </View>
                 );
               })}
@@ -726,6 +717,12 @@ const styles = StyleSheet.create({
   voucherCardValue: {
     fontSize: 14,
     color: "#333",
+  },
+  voucherAvailableText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10b981",
   },
   pointsValue: {
     color: "#f97316",

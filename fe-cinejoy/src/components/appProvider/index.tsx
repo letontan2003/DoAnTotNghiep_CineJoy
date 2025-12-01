@@ -9,11 +9,7 @@ interface Props {
 }
 
 const AppProvider: React.FC<Props> = ({ children }) => {
-  const {
-    isAppLoading,
-    fetchAccount,
-    isAuthenticated,
-  } = useAppStore();
+  const { isAppLoading, fetchAccount, isAuthenticated } = useAppStore();
   const { contextHolder, contextNotifiHolder } = useAlertContextApp();
 
   useEffect(() => {
@@ -26,15 +22,19 @@ const AppProvider: React.FC<Props> = ({ children }) => {
   }, [isAppLoading, isAuthenticated, fetchAccount]);
 
   if (isAppLoading) {
-
     return (
       <>
         {contextHolder}
         {contextNotifiHolder}
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-50">
           <Spin
-            indicator={<LoadingOutlined style={{ fontSize: 48, color: "#A51717" }} spin />}
-          />  
+            indicator={
+              <LoadingOutlined
+                style={{ fontSize: 48, color: "#A51717" }}
+                spin
+              />
+            }
+          />
         </div>
       </>
     );
