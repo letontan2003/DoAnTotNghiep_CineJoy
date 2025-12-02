@@ -1411,27 +1411,31 @@ const PaymentScreen = () => {
               <Text style={styles.paymentWebTitle}>Thanh toán</Text>
               <View style={{ width: 40 }} />
             </View>
-            {paymentWebViewUrl ? (
-              <WebView
-                source={{ uri: paymentWebViewUrl }}
-                onNavigationStateChange={handlePaymentNavigationChange}
-                startInLoadingState
-                renderLoading={() => (
-                  <View style={styles.paymentWebLoading}>
-                    <ActivityIndicator color="#E50914" size="large" />
-                    <Text style={styles.paymentWebLoadingText}>
-                      Đang tải cổng thanh toán...
-                    </Text>
-                  </View>
-                )}
-              />
-            ) : (
-              <View style={styles.paymentWebLoading}>
-                <Text style={styles.paymentWebLoadingText}>
-                  Đang chuẩn bị liên kết thanh toán...
-                </Text>
-              </View>
-            )}
+            <View style={styles.paymentWebBody}>
+              {paymentWebViewUrl ? (
+                <WebView
+                  style={styles.paymentWebView}
+                  source={{ uri: paymentWebViewUrl }}
+                  onNavigationStateChange={handlePaymentNavigationChange}
+                  startInLoadingState
+                  renderLoading={() => (
+                    <View style={styles.paymentWebLoadingOverlay}>
+                      <ActivityIndicator color="#E50914" size="large" />
+                      <Text style={styles.paymentWebLoadingText}>
+                        Đang tải cổng thanh toán...
+                      </Text>
+                    </View>
+                  )}
+                />
+              ) : (
+                <View style={styles.paymentWebPlaceholder}>
+                  <ActivityIndicator color="#E50914" size="large" />
+                  <Text style={styles.paymentWebLoadingText}>
+                    Đang chuẩn bị liên kết thanh toán...
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </Modal>
         <Modal
@@ -1975,7 +1979,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 25,
+    paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight - 40 : 25,
     paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -1998,7 +2002,21 @@ const styles = StyleSheet.create({
     color: "#111",
     fontWeight: "600",
   },
-  paymentWebLoading: {
+  paymentWebBody: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  paymentWebView: {
+    flex: 1,
+  },
+  paymentWebLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    backgroundColor: "#fff",
+  },
+  paymentWebPlaceholder: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",

@@ -1014,15 +1014,7 @@ const SelectSeatScreen = () => {
               </View>
               <View style={styles.legendItem}>
                 <View
-                  style={[
-                    styles.legendColor,
-                    {
-                      backgroundColor: "#4b5563",
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    },
-                  ]}
+                  style={[styles.legendColor, styles.maintenanceLegendColor]}
                 >
                   <Text style={styles.maintenanceIconSmall}>✕</Text>
                 </View>
@@ -1261,9 +1253,12 @@ const styles = StyleSheet.create({
     color: "#ef4444",
   },
   maintenanceIconSmall: {
-    fontSize: 24,
+    fontSize: 18,
+    lineHeight: 18,
     fontWeight: "bold",
     color: "#ef4444",
+    textAlign: "center",
+    includeFontPadding: false,
   },
   legend: {
     display: "flex",
@@ -1274,6 +1269,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#333",
   },
   legendSection: {
+    width: "100%",
     marginBottom: 20,
   },
   legendTitle: {
@@ -1286,11 +1282,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   legendColor: {
     width: 24,
@@ -1298,6 +1298,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#666",
+  },
+  maintenanceLegendColor: {
+    backgroundColor: "#4b5563",
+    alignItems: "center",
+    justifyContent: "center",
   },
   legendText: {
     fontSize: 12,

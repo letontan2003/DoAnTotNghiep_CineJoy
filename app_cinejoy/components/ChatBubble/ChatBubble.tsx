@@ -129,6 +129,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
     base64: string;
     mimeType: string;
   } | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   // Khởi tạo vị trí ban đầu (góc phải trên)
   const initialX = SCREEN_WIDTH - 80; // 60 (bubble size) + 20 (margin)
@@ -651,13 +653,30 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
                         message.sender === "user"
                           ? styles.bubbleUser
                           : styles.bubbleBot,
+                        message.imageUri && styles.messageBubbleWithImage,
+                        !message.text &&
+                          message.imageUri &&
+                          styles.messageBubbleImageOnly,
                       ]}
+                      pointerEvents="box-none"
                     >
                       {message.imageUri && (
-                        <Image
-                          source={{ uri: message.imageUri }}
-                          style={styles.messageImage}
-                        />
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          onPress={() => {
+                            setSelectedImageUri(message.imageUri || null);
+                            setShowImageModal(true);
+                          }}
+                          style={styles.imageTouchable}
+                        >
+                          <Image
+                            source={{ uri: message.imageUri }}
+                            style={[
+                              styles.messageImage,
+                              !message.text && styles.messageImageOnly,
+                            ]}
+                          />
+                        </TouchableOpacity>
                       )}
                       {!!message.text && (
                         <Text
@@ -781,6 +800,34 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
+        {/* Image Viewer Overlay - Render bên trong Modal chat */}
+        {showImageModal && selectedImageUri && (
+          <View style={styles.imageViewerOverlay}>
+            <TouchableOpacity
+              style={styles.imageViewerCloseArea}
+              activeOpacity={1}
+              onPress={() => {
+                setShowImageModal(false);
+                setSelectedImageUri(null);
+              }}
+            />
+            <View style={styles.imageViewerContent}>
+              <Image
+                source={{ uri: selectedImageUri }}
+                style={styles.imageViewerImage}
+                resizeMode="contain"
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.imageViewerCloseArea}
+              activeOpacity={1}
+              onPress={() => {
+                setShowImageModal(false);
+                setSelectedImageUri(null);
+              }}
+            />
+          </View>
+        )}
       </Modal>
     </>
   );
@@ -901,6 +948,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
   },
+  messageBubbleWithImage: {
+    maxWidth: "85%",
+    minWidth: 200,
+  },
+  messageBubbleImageOnly: {
+    overflow: "hidden",
+  },
   bubbleUser: {
     backgroundColor: "#2563eb",
     borderBottomRightRadius: 4,
@@ -920,12 +974,22 @@ const styles = StyleSheet.create({
   messageTextBot: {
     color: "#e2e8f0",
   },
+  imageTouchable: {
+    width: "100%",
+  },
   messageImage: {
     width: "100%",
     height: 200,
     resizeMode: "cover",
     borderRadius: 12,
     marginBottom: 8,
+  },
+  messageImageOnly: {
+    borderRadius: 12,
+    marginBottom: 0,
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
   },
   typingDots: {
     flexDirection: "row",
@@ -1043,6 +1107,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10000,
     pointerEvents: "none",
+  },
+  imageViewerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10004,
+    elevation: 10004,
+  },
+  imageViewerCloseArea: {
+    flex: 1,
+    width: "100%",
+  },
+  imageViewerContent: {
+    width: Dimensions.get("window").width * 0.9,
+    height: Dimensions.get("window").width * 0.9,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  imageViewerImage: {
+    width: "100%",
+    height: "100%",
   },
   closeZone: {
     width: 70,

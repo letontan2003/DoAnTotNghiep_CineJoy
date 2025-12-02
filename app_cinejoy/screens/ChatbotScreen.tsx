@@ -22,6 +22,7 @@ import { sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setChatbotScreenOpen } from "@/store/appSlice";
+import AvatarModal from "@/components/AvatarModal";
 
 type RootStackParamList = {
   ChatbotScreen: undefined;
@@ -123,6 +124,8 @@ const ChatbotScreen = () => {
     mimeType: string;
   } | null>(null);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Set state khi screen được focus (mở)
@@ -289,13 +292,26 @@ const ChatbotScreen = () => {
                     message.sender === "user"
                       ? styles.bubbleUser
                       : styles.bubbleBot,
+                    message.imageUri && styles.messageBubbleWithImage,
+                    !message.text && message.imageUri && styles.messageBubbleImageOnly,
                   ]}
                 >
                   {message.imageUri && (
-                    <Image
-                      source={{ uri: message.imageUri }}
-                      style={styles.messageImage}
-                    />
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => {
+                        setSelectedImageUri(message.imageUri || null);
+                        setShowImageModal(true);
+                      }}
+                    >
+                      <Image
+                        source={{ uri: message.imageUri }}
+                        style={[
+                          styles.messageImage,
+                          !message.text && styles.messageImageOnly,
+                        ]}
+                      />
+                    </TouchableOpacity>
                   )}
                   {!!message.text && (
                     <Text
@@ -388,6 +404,16 @@ const ChatbotScreen = () => {
       </KeyboardAvoidingView>
 
       <SideMenu visible={showSideMenu} onClose={closeSideMenu} />
+
+      {/* Image Modal */}
+      <AvatarModal
+        visible={showImageModal}
+        avatarUri={selectedImageUri}
+        onClose={() => {
+          setShowImageModal(false);
+          setSelectedImageUri(null);
+        }}
+      />
     </View>
   );
 };
@@ -468,6 +494,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
   },
+  messageBubbleWithImage: {
+    maxWidth: "85%",
+    minWidth: 200,
+  },
+  messageBubbleImageOnly: {
+    overflow: "hidden",
+  },
   bubbleUser: {
     backgroundColor: "#2563eb",
     borderBottomRightRadius: 4,
@@ -493,6 +526,13 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     borderRadius: 12,
     marginBottom: 8,
+  },
+  messageImageOnly: {
+    borderRadius: 12,
+    marginBottom: 0,
+    width: "100%",
+    height: 200,
+    resizeMode: "cover",
   },
   typingDots: {
     flexDirection: "row",
