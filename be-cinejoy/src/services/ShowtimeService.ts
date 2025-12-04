@@ -189,9 +189,6 @@ class ShowtimeService {
             if (startMin < (sessionStartMin as number) || startMin >= (sessionEndMin as number)) {
               throw new Error("Thời gian bắt đầu không nằm trong khoảng của ca chiếu đã chọn");
             }
-            if (endMin > (sessionEndMin as number)) {
-              throw new Error("Thời gian kết thúc vượt quá thời gian của ca chiếu");
-            }
           }
           const inThisSession = doc.showTimes.filter((st: any) => {
             const sameDate = this.dateKeyUTC(st.date) === dateStr;
