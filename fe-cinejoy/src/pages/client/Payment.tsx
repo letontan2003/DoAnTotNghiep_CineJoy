@@ -1,7 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Modal, Button, Typography, Row, Col, message } from "antd";
+import {
+  Modal,
+  Button,
+  Typography,
+  Row,
+  Col,
+  message,
+  Spin,
+  Empty,
+} from "antd";
 import {
   validateVoucherApi,
   applyVoucherApi,
@@ -11,6 +20,7 @@ import {
   getActiveItemPromotionsApi,
   applyItemPromotionsApi,
   applyPercentPromotionsApi,
+  getMyVouchersApi,
 } from "@/services/api";
 import { getFoodCombos } from "@/apiservice/apiFoodCombo";
 import { getCurrentPriceList } from "@/apiservice/apiPriceList";
@@ -18,6 +28,12 @@ import type { IPriceList, IPriceListLine } from "@/apiservice/apiPriceList";
 import useAppStore from "@/store/app.store";
 import momoLogo from "@/assets/momo.png";
 import vnpayLogo from "@/assets/vnpay.png";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(utc);
+dayjs.extend(customParseFormat);
 
 const { Title, Text } = Typography;
 
@@ -51,6 +67,7 @@ const PaymentPage = () => {
     theaterId = "",
     showtimeId = "",
   } = location.state || {};
+  const userId = user?._id;
 
   // Kiểu dữ liệu hiển thị cho Dịch vụ kèm (tên/mô tả từ FoodCombo, giá từ bảng giá)
   interface UIComboItem {
@@ -111,7 +128,32 @@ const PaymentPage = () => {
     discountAmount: number;
   } | null>(null);
   const [voucherLoading, setVoucherLoading] = useState<boolean>(false);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [voucherListLoading, setVoucherListLoading] = useState(false);
+  const [userVouchers, setUserVouchers] = useState<IUserVoucher[]>([]);
   const [voucherError, setVoucherError] = useState<string>("");
+  const availableUserVouchers = useMemo(() => {
+    const now = Date.now();
+    return userVouchers
+      .filter((voucher) => {
+        if (!voucher || voucher.status !== "unused") return false;
+        const endDate = (voucher as IUserVoucher)?.voucherId?.validityPeriod
+          ?.endDate;
+        if (!endDate) return true;
+        return new Date(endDate).getTime() > now;
+      })
+      .sort((a, b) => {
+        const endA =
+          new Date(
+            a?.voucherId?.validityPeriod?.endDate || "9999-12-31"
+          ).getTime() || Number.MAX_SAFE_INTEGER;
+        const endB =
+          new Date(
+            b?.voucherId?.validityPeriod?.endDate || "9999-12-31"
+          ).getTime() || Number.MAX_SAFE_INTEGER;
+        return endA - endB;
+      });
+  }, [userVouchers]);
   const [isModalPaymentOpen, setIsModalPaymentOpen] = useState<boolean>(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<"MOMO" | "VNPAY">("MOMO");
@@ -284,18 +326,77 @@ const PaymentPage = () => {
     }
   };
 
-  const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
-      setVoucherError("Vui lòng nhập mã voucher");
+  const voucherDateFormats = [
+    "DD/MM/YYYY",
+    "D/M/YYYY",
+    "YYYY-MM-DD",
+    "YYYY/MM/DD",
+  ];
+
+  const normalizeVoucherDateString = (value: string) => {
+    const weirdPattern = value.match(
+      /^(\d{1,2})T([\d:.]+)(?:Z)?\/(\d{1,2})\/(\d{4})$/i
+    );
+    if (!weirdPattern) return value;
+    const [, dayStr, timeStr, monthStr, yearStr] = weirdPattern;
+    const isoCandidate = `${yearStr.padStart(4, "0")}-${monthStr.padStart(
+      2,
+      "0"
+    )}-${dayStr.padStart(2, "0")}T${timeStr}${
+      timeStr.endsWith("Z") ? "" : "Z"
+    }`;
+    return isoCandidate;
+  };
+
+  const parseVoucherDateString = (value: string) => {
+    for (const format of voucherDateFormats) {
+      const parsed = dayjs(value, format, true);
+      if (parsed.isValid()) {
+        return parsed;
+      }
+    }
+    const normalized = normalizeVoucherDateString(value);
+    const normalizedParsed = dayjs(normalized);
+    if (normalizedParsed.isValid()) {
+      return normalizedParsed;
+    }
+    const isoParsed = dayjs(value);
+    return isoParsed.isValid() ? isoParsed : null;
+  };
+
+  const formatVoucherExpiry = (rawDate?: string | Date) => {
+    if (!rawDate) return "";
+
+    if (rawDate instanceof Date) {
+      const parsed = dayjs(rawDate);
+      return parsed.isValid() ? parsed.local().format("DD/MM/YYYY") : "";
+    }
+
+    const input = rawDate.trim();
+    const parsed =
+      parseVoucherDateString(input) ||
+      parseVoucherDateString(input.replace(/\s+/g, " ")) ||
+      dayjs(input);
+
+    return parsed && parsed.isValid()
+      ? parsed.local().format("DD/MM/YYYY")
+      : input;
+  };
+
+  const handleApplyVoucher = async (codeOverride?: string) => {
+    const normalizedCode = (codeOverride ?? voucherCode).trim().toUpperCase();
+    if (!normalizedCode) {
+      setVoucherError("Vui lòng chọn voucher để áp dụng");
       return;
     }
 
     setVoucherLoading(true);
     setVoucherError("");
+    setVoucherCode(normalizedCode);
 
     try {
       // B1: kiểm tra hợp lệ cơ bản
-      const response = await validateVoucherApi(voucherCode, user?._id);
+      const response = await validateVoucherApi(normalizedCode, userId);
       if (!response || !(response as VoucherResponse).status) {
         setVoucherError(
           (response as VoucherResponse)?.message || "Mã voucher không hợp lệ"
@@ -306,9 +407,9 @@ const PaymentPage = () => {
 
       // B2: áp dụng theo tổng hiện tại để tính đúng phần trăm và trần tối đa
       const applyRes = await applyVoucherApi(
-        voucherCode,
+        normalizedCode,
         currentSubTotal,
-        user?._id
+        userId
       );
       if (!applyRes || !applyRes.status || !applyRes.data) {
         setVoucherError(applyRes?.message || "Không áp dụng được voucher");
@@ -319,11 +420,10 @@ const PaymentPage = () => {
       const percent = (response as VoucherResponse)?.data?.discount || 0;
       const cap =
         Number(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (response as any)?.data?.voucher?.maxDiscountValue ?? undefined
         ) || undefined;
       setAppliedVoucher({
-        code: voucherCode,
+        code: normalizedCode,
         discountPercent: percent,
         discountAmount: applyRes.data.discountAmount || 0,
         maxCap: cap,
@@ -342,6 +442,52 @@ const PaymentPage = () => {
     setAppliedVoucher(null);
     setVoucherCode("");
     setVoucherError("");
+  };
+
+  const fetchUserVouchers = useCallback(async () => {
+    if (!userId) return;
+    setVoucherListLoading(true);
+    try {
+      const response = await getMyVouchersApi();
+      if (response.status && Array.isArray(response.data)) {
+        setUserVouchers(response.data || []);
+      } else {
+        setUserVouchers([]);
+      }
+    } catch (error) {
+      console.error("Error loading user vouchers:", error);
+      setUserVouchers([]);
+      message.error("Không thể tải danh sách voucher, vui lòng thử lại.");
+    } finally {
+      setVoucherListLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserVouchers();
+    } else {
+      setUserVouchers([]);
+    }
+  }, [userId, fetchUserVouchers]);
+
+  const handleOpenVoucherModal = () => {
+    if (!userId) {
+      message.info("Vui lòng đăng nhập để xem voucher của bạn.");
+      setIsModalOpen(true);
+      return;
+    }
+    setIsVoucherModalOpen(true);
+    fetchUserVouchers();
+  };
+
+  const handleSelectVoucher = async (voucher: IUserVoucher) => {
+    if (!voucher?.code) {
+      message.error("Voucher không hợp lệ, vui lòng chọn voucher khác.");
+      return;
+    }
+    setIsVoucherModalOpen(false);
+    await handleApplyVoucher(voucher.code);
   };
 
   // Load danh sách khuyến mãi hàng đang hoạt động
@@ -490,7 +636,7 @@ const PaymentPage = () => {
     try {
       // Chuẩn bị dữ liệu cho API tạo order
       const orderData = {
-        userId: user?._id || "",
+        userId: userId || "",
         movieId: movie._id,
         theaterId: theaterId || movie.theaterId,
         showtimeId: showtimeId || movie.showtimeId,
@@ -531,7 +677,6 @@ const PaymentPage = () => {
         const orderResult = await createOrderApi(orderData);
         // orderResult theo chuẩn IBackendResponse
         // Nếu backend trả status=false hoặc không có data → hiển thị message cụ thể và dừng
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orderOk =
           !!orderResult &&
           (orderResult as any)?.status !== false &&
@@ -552,7 +697,6 @@ const PaymentPage = () => {
           cancelUrl: "http://localhost:3000/payment/cancel",
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orderId =
           (orderResult.data as any)?.orderId ||
           (orderResult.data as any)?._id ||
@@ -570,7 +714,6 @@ const PaymentPage = () => {
 
         const paymentResult = await processPaymentApi(orderId, paymentData);
         // Redirect đến URL thanh toán
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const paymentUrl =
           (paymentResult as any)?.data?.paymentUrl ||
           (paymentResult as any)?.paymentUrl;
@@ -592,7 +735,6 @@ const PaymentPage = () => {
         }
       } catch (apiError) {
         // Hiển thị thông điệp chi tiết từ backend nếu có (ví dụ ghế không khả dụng)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const backendMsg =
           (apiError as any)?.response?.data?.message ||
           (apiError as any)?.message ||
@@ -675,7 +817,7 @@ const PaymentPage = () => {
         const applyRes = await applyVoucherApi(
           appliedVoucher.code,
           currentSubTotal,
-          user?._id
+          userId
         );
         if (applyRes?.status && applyRes.data) {
           setAppliedVoucher((prev) =>
@@ -752,7 +894,7 @@ const PaymentPage = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, navigate]);
+  }, [timeLeft, navigate, setIsModalOpen]);
 
   // Load khuyến mãi hàng khi component mount
   useEffect(() => {
@@ -1254,37 +1396,33 @@ const PaymentPage = () => {
                     Giảm giá
                   </h4>
                   {!appliedVoucher ? (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={voucherCode}
-                          onChange={(e) => {
-                            setVoucherCode(e.target.value.toUpperCase());
-                            if (e.target.value.trim() === "") {
-                              setVoucherError("");
-                            }
-                          }}
-                          placeholder="Nhập mã voucher"
-                          className={`flex-1 border rounded-md px-2.5 py-2 h-10 ${
-                            isDarkMode
-                              ? "bg-[#232c3b] text-white border-[#3a3d46] placeholder-gray-400"
-                              : "border-gray-300"
-                          }`}
-                        />
-                        <button
-                          onClick={handleApplyVoucher}
-                          disabled={voucherLoading || !voucherCode.trim()}
-                          className={`px-2 py-2 rounded font-semibold transition-all duration-200 h-10 whitespace-nowrap ${
-                            voucherLoading || !voucherCode.trim()
-                              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                              : isDarkMode
-                              ? "bg-cyan-600 hover:bg-cyan-500 text-white cursor-pointer"
-                              : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                    <div className="mb-3 flex flex-col gap-2">
+                      <button
+                        onClick={handleOpenVoucherModal}
+                        className={`w-full px-6 py-2 rounded-md font-semibold transition-all duration-200 cursor-pointer ${
+                          isDarkMode
+                            ? "bg-cyan-400 hover:bg-cyan-300 text-[#23272f]"
+                            : "bg-blue-300 hover:bg-blue-200 text-black"
+                        }`}
+                      >
+                        {voucherLoading ? "Đang áp dụng..." : "Chọn voucher"}
+                      </button>
+                      {voucherCode && !voucherLoading && (
+                        <div
+                          className={`text-sm text-center font-semibold ${
+                            isDarkMode ? "text-cyan-200" : "text-blue-600"
                           }`}
                         >
-                          {voucherLoading ? "Check..." : "Áp dụng"}
-                        </button>
+                          Voucher đã chọn:{" "}
+                          <span className="uppercase">{voucherCode}</span>
+                        </div>
+                      )}
+                      <div className="text-xs text-center text-gray-400">
+                        {userId
+                          ? availableUserVouchers.length > 0
+                            ? `Bạn có ${availableUserVouchers.length} voucher khả dụng`
+                            : "Hiện chưa có voucher khả dụng"
+                          : "Đăng nhập để xem voucher của bạn"}
                       </div>
                       {voucherError && (
                         <div className="text-red-500 text-xs mt-2 select-none">
@@ -1786,6 +1924,110 @@ const PaymentPage = () => {
             (Khi bấm xác nhận sẽ chuyển đến trang thanh toán {paymentMethod})
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        title={
+          <div className="text-center font-semibold text-base">
+            Chọn voucher
+          </div>
+        }
+        open={isVoucherModalOpen}
+        onCancel={() => setIsVoucherModalOpen(false)}
+        footer={null}
+        centered
+        width={640}
+        destroyOnClose
+      >
+        {voucherListLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Spin />
+          </div>
+        ) : availableUserVouchers.length > 0 ? (
+          <div
+            className="flex flex-col gap-3"
+            style={{
+              maxHeight: "55vh",
+              overflowY: "auto",
+              paddingRight: "4px",
+            }}
+          >
+            {availableUserVouchers.map((voucher) => {
+              const voucherDetail = (voucher?.voucherId ||
+                {}) as IUserVoucher["voucherId"] & {
+                description?: string;
+              };
+              const title =
+                voucherDetail?.description ||
+                voucherDetail?.name ||
+                "Voucher ưu đãi";
+              const discountPercent = voucherDetail?.discountPercent;
+              const expiry = voucherDetail?.validityPeriod?.endDate;
+              return (
+                <div
+                  key={voucher._id}
+                  className={`flex flex-col gap-2 rounded-lg border p-4 ${
+                    isDarkMode
+                      ? "bg-[#1b2433] border-[#2d3748] text-white"
+                      : "bg-[#f7f9fc] border-gray-200 text-gray-900"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-base font-semibold">🎟️ {title}</p>
+                      <p
+                        className={`text-sm mt-1 ${
+                          isDarkMode ? "text-gray-300" : "text-gray-500"
+                        }`}
+                      >
+                        Hạn dùng:{" "}
+                        {expiry
+                          ? formatVoucherExpiry(expiry as string | Date)
+                          : "—"}
+                      </p>
+                      <p
+                        className={`text-xs ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Mã: {voucher.code}
+                      </p>
+                    </div>
+                    {typeof discountPercent === "number" && (
+                      <span
+                        className={`text-lg font-bold ${
+                          isDarkMode ? "text-cyan-300" : "text-green-600"
+                        }`}
+                      >
+                        -{discountPercent}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div />
+                    <Button
+                      type="primary"
+                      className={`${
+                        isDarkMode
+                          ? "bg-cyan-600 hover:bg-cyan-500"
+                          : "bg-blue-600 hover:bg-blue-500"
+                      }`}
+                      onClick={() => handleSelectVoucher(voucher)}
+                      loading={voucherLoading}
+                    >
+                      Sử dụng
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty
+            description="Hiện chưa có voucher khả dụng!"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        )}
       </Modal>
     </>
   );

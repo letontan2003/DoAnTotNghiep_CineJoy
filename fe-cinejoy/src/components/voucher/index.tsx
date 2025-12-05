@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import clsx from 'clsx';
 import dayjs from "dayjs";
@@ -12,8 +13,7 @@ const VoucherTab = () => {
     const [loadingMyVouchers, setLoadingMyVouchers] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedVoucher, setSelectedVoucher] = useState<IUserVoucher | null>(null);
-    const [modalType, setModalType] = useState<'redeem' | 'showCode' | null>(null);
-    const [voucherCode, setVoucherCode] = useState<string | null>(null);
+    const [modalType, setModalType] = useState<'redeem' | null>(null);
     const [myVouchers, setMyVouchers] = useState<IUserVoucher[]>([]);
     const [loadingRedeem, setLoadingRedeem] = useState(false);
     const { isDarkMode, user, setIsModalOpen, setUser } = useAppStore();
@@ -53,17 +53,8 @@ const VoucherTab = () => {
 
     // Khi bấm Đổi ngay
     const handleRedeemVoucher = (voucher: IVoucher) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSelectedVoucher(voucher as any);
         setModalType('redeem');
-        setIsModalVisible(true);
-    };
-
-    // Khi bấm Sử dụng
-    const handleShowCode = (voucher: IUserVoucher) => {
-        setSelectedVoucher(voucher);
-        setVoucherCode(voucher.code || '');
-        setModalType('showCode');
         setIsModalVisible(true);
     };
 
@@ -71,7 +62,6 @@ const VoucherTab = () => {
         if (!selectedVoucher) return;
         try {
             setLoadingRedeem(true);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const voucherId = (selectedVoucher as any)._id || (selectedVoucher as any).voucherId?._id;
             // Nếu selectedVoucher là entry line, nó sẽ có detailId; nếu là header (IUserVoucher) thì không
             const detailId: string | undefined = (selectedVoucher as any).detailId;
@@ -129,7 +119,6 @@ const VoucherTab = () => {
         setSelectedVoucher(null);
         setIsModalOpen(false);
         setModalType(null);
-        setVoucherCode(null);
     };
 
     return (
@@ -176,16 +165,19 @@ const VoucherTab = () => {
                                     endDate = line?.validityPeriod?.endDate || owner?.endDate;
                                 }
                                 return (
-                                    <div key={voucher._id} className={clsx(
-                                        'rounded-xl shadow-lg p-5 flex flex-col gap-2 relative',
-                                        isExpired
-                                            ? (isDarkMode
-                                                ? 'bg-gray-800 border border-gray-700 text-gray-500'
-                                                : 'bg-[#e9ecef] border border-gray-300 text-gray-500')
-                                            : (isDarkMode
-                                                ? 'bg-[#23272f] border border-gray-700 text-white'
-                                                : 'bg-white border border-orange-200 text-gray-900')
-                                    )}>
+                                    <div
+                                        key={voucher._id}
+                                        className={clsx(
+                                            'rounded-xl shadow-lg p-5 flex flex-col gap-2 relative',
+                                            isExpired
+                                                ? (isDarkMode
+                                                    ? 'bg-gray-800 border border-gray-700 text-gray-500'
+                                                    : 'bg-[#e9ecef] border border-gray-300 text-gray-500')
+                                                : (isDarkMode
+                                                    ? 'bg-[#23272f] border border-gray-700 text-white'
+                                                    : 'bg-white border border-orange-200 text-gray-900')
+                                        )}
+                                    >
                                         <div className="flex items-start justify-between mb-2">
                                             <span className="font-bold text-lg flex-1 mr-2">🎟️ {title}</span>
                                             <span className={clsx(
@@ -201,18 +193,11 @@ const VoucherTab = () => {
                                             <span className="font-semibold">Hạn dùng:</span>
                                             <span>{endDate ? dayjs(endDate).format('DD/MM/YYYY') : ''}</span>
                                         </div>
-                                        <button
-                                            disabled={isExpired}
-                                            onClick={() => handleShowCode(voucher)}
-                                            className={clsx(
-                                                "mt-2 px-4 py-2 rounded font-bold transition",
-                                                isExpired
-                                                    ? "bg-gray-300 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                                                    : "bg-gradient-to-r from-green-400 to-green-600 text-white hover:brightness-110 shadow-lg cursor-pointer"
-                                            )}
-                                        >
-                                            {isExpired ? "Đã hết hạn" : "Sử dụng"}
-                                        </button>
+                                        {!isExpired && (
+                                            <div className="mt-2 text-xs font-semibold text-green-500 dark:text-green-300">
+                                                Voucher khả dụng
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -314,30 +299,20 @@ const VoucherTab = () => {
             </div>
 
             <Modal
-                title={<div className="w-full text-center font-bold">{modalType === 'redeem' ? 'Xác nhận đổi voucher' : 'Mã voucher của bạn'}</div>}
-                open={isModalVisible}
-                onOk={modalType === 'redeem' ? handleConfirmRedeem : handleCancelModal}
+                title={<div className="w-full text-center font-bold">Xác nhận đổi voucher</div>}
+                open={isModalVisible && modalType === 'redeem'}
+                onOk={handleConfirmRedeem}
                 onCancel={handleCancelModal}
-                okText={modalType === 'redeem' ? 'Xác nhận' : 'Đóng'}
-                cancelText={modalType === 'redeem' ? 'Hủy' : ''}
+                okText="Xác nhận"
+                cancelText="Hủy"
                 okButtonProps={{
                     className: "bg-orange-500 hover:bg-orange-600 border-orange-500"
                 }}
                 getContainer={false}
                 centered
-                footer={modalType === 'showCode' ? null : undefined}
-                confirmLoading={modalType === 'redeem' ? loadingRedeem : false}
+                confirmLoading={loadingRedeem}
             >
-                {modalType === 'redeem' && (
-                    <p>Bạn có chắc chắn muốn đổi voucher này không?</p>
-                )}
-                {modalType === 'showCode' && (
-                    <div className="flex flex-col items-center justify-center py-3">
-                        <span className="text-2xl font-mono bg-gray-100 dark:bg-gray-800 px-6 py-3 rounded-lg border border-dashed border-orange-400 text-orange-600 dark:text-orange-300 select-all">
-                            {voucherCode}
-                        </span>
-                    </div>
-                )}
+                <p>Bạn có chắc chắn muốn đổi voucher này không?</p>
             </Modal>
         </>
     );

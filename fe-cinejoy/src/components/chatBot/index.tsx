@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import axios from "axios";
 import tuongtacIcon from "assets/tuongtac.png";
 import Logo from "assets/CineJoyLogo.png";
 import { FaFacebookF } from "react-icons/fa";
+import useAppStore from "@/store/app.store";
 
 interface Message {
   sender: "user" | "bot";
@@ -29,14 +30,33 @@ const Chatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [pendingImage, setPendingImage] = useState<{
+    file: File;
+    preview: string; // base64 data url for display
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tạo sessionId duy nhất cho mỗi lần mở chatbot
+  const generateSessionId = () =>
+    `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const sessionIdRef = useRef<string>(generateSessionId());
 
-  const defaultBotMessage: Message = {
-    sender: "bot",
-    text: "CineJoy xin chào! Bạn cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?",
-  };
+  const { user } = useAppStore();
+  const greetingText = useMemo(() => {
+    const fullName = user?.fullName?.trim();
+    const displayName = fullName
+      ? fullName.split(/\s+/).slice(-1).join(" ") || fullName
+      : "Bạn";
+    return `CineJoy xin chào! ${displayName} cần thông tin gì về phim, lịch chiếu, giá vé hay các dịch vụ của rạp không ạ?`;
+  }, [user?.fullName]);
+  const defaultBotMessage = useMemo<Message>(
+    () => ({
+      sender: "bot",
+      text: greetingText,
+    }),
+    [greetingText]
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,11 +69,15 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([defaultBotMessage]);
+      // Tạo sessionId mới mỗi khi mở chatbot
+      sessionIdRef.current = `session_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
     }
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, defaultBotMessage, messages.length]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -71,22 +95,29 @@ const Chatbot: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-    const userMessage = inputMessage;
-    setInputMessage("");
+  const sendTextMessage = async (
+    userMessage: string,
+    imageBase64?: string,
+    mimeType?: string
+  ) => {
     setMessages((prev) => [...prev, { sender: "user", text: userMessage }]);
     setIsLoading(true);
 
     try {
-      // Lấy token từ localStorage nếu có
       const token = localStorage.getItem("accessToken");
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
 
-      // Thêm Authorization header nếu có token
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
         console.log("🔑 Sending token with chatbot request");
@@ -94,11 +125,20 @@ const Chatbot: React.FC = () => {
         console.log("⚠️ No token found in localStorage");
       }
 
+      // Gửi cả message và image (nếu có) đến endpoint /chat
+      const requestBody: any = {
+        message: userMessage,
+        sessionId: sessionIdRef.current,
+      };
+
+      if (imageBase64 && mimeType) {
+        requestBody.imageBase64 = imageBase64;
+        requestBody.mimeType = mimeType;
+      }
+
       const response = await axios.post<ChatResponse>(
         "http://localhost:5000/chatbot/chat",
-        {
-          message: userMessage,
-        },
+        requestBody,
         { headers }
       );
 
@@ -118,6 +158,112 @@ const Chatbot: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendImageMessage = async (caption: string) => {
+    if (!pendingImage) return;
+
+    const captionText = caption.trim() || "";
+    const file = pendingImage.file;
+    const preview = pendingImage.preview;
+
+    // Hiển thị tin nhắn user với image
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: "user",
+        text: captionText || "Mình vừa gửi poster này, bạn hỗ trợ giúp nhé!",
+        image: preview,
+      },
+    ]);
+    setPendingImage(null);
+    setInputMessage("");
+    setIsLoading(true);
+
+    try {
+      const dataUrl = await convertFileToBase64(file);
+      const base64String = dataUrl.split(",")[1];
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      // Nếu có caption, gửi cả image và message đến /chat endpoint
+      // Nếu không có caption, chỉ gửi image đến /upload-poster endpoint
+      if (captionText) {
+        // Gửi cả image và message đến /chat endpoint
+        const response = await axios.post<ChatResponse>(
+          "http://localhost:5000/chatbot/chat",
+          {
+            message: captionText,
+            imageBase64: base64String,
+            mimeType: file.type || "image/jpeg",
+            sessionId: sessionIdRef.current,
+          },
+          { headers }
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "bot",
+            text: response.data.reply,
+          },
+        ]);
+      } else {
+        // Chỉ gửi image đến /upload-poster endpoint
+        const response = await axios.post<PosterUploadResponse>(
+          "http://localhost:5000/chatbot/upload-poster",
+          {
+            imageBase64: base64String,
+            mimeType: file.type || "image/jpeg",
+            sessionId: sessionIdRef.current,
+          },
+          { headers }
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "bot",
+            text: response.data.reply,
+          },
+        ]);
+      }
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text:
+            error.response?.data?.error ||
+            "Xin lỗi, đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (isLoading) return;
+
+    const trimmedMessage = inputMessage.trim();
+
+    if (pendingImage) {
+      await sendImageMessage(trimmedMessage);
+      return;
+    }
+
+    if (!trimmedMessage) return;
+
+    setInputMessage("");
+    await sendTextMessage(trimmedMessage);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -143,78 +289,23 @@ const Chatbot: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPendingImage({
+        file,
+        preview: reader.result as string,
+      });
+      inputRef.current?.focus();
+    };
+    reader.onerror = () => {
+      alert("Lỗi khi đọc file!");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = (reader.result as string).split(",")[1]; // Remove data:image/...;base64, prefix
-        const mimeType = file.type;
-
-        // Lấy token từ localStorage nếu có
-        const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        // Gọi API upload poster
-        const response = await axios.post<PosterUploadResponse>(
-          "http://localhost:5000/chatbot/upload-poster",
-          {
-            imageBase64: base64String,
-            mimeType: mimeType,
-          },
-          { headers }
-        );
-
-        // Hiển thị image trong message user
-        const imageUrl = URL.createObjectURL(file);
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "user",
-            text: "📷 [Đã upload poster phim]",
-            image: imageUrl,
-          },
-        ]);
-
-        // Hiển thị response từ bot
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "bot",
-            text: response.data.reply,
-          },
-        ]);
-      };
-
-      reader.onerror = () => {
-        alert("Lỗi khi đọc file!");
-        setIsLoading(false);
-      };
-
-      reader.readAsDataURL(file);
-    } catch (error: any) {
-      console.error("Error uploading image:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "bot",
-          text:
-            error.response?.data?.error ||
-            "Xin lỗi, đã có lỗi xảy ra khi xử lý poster. Vui lòng thử lại sau.",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-      // Reset input
-      e.target.value = "";
-    }
+  const handleRemovePendingImage = () => {
+    setPendingImage(null);
   };
 
   return (
@@ -300,34 +391,46 @@ const Chatbot: React.FC = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-gray-50">
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${
-                    message.sender === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
+              {messages.map((message, index) => {
+                const isUser = message.sender === "user";
+                const hasImage = Boolean(message.image);
+                const bubbleClasses = hasImage
+                  ? "bg-gray-100 text-gray-800 border border-gray-200 px-2 py-2"
+                  : isUser
+                  ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3"
+                  : "bg-white text-gray-800 border border-gray-200 px-4 py-3";
+
+                return (
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                      message.sender === "user"
-                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white"
-                        : "bg-white text-gray-800 border border-gray-200"
+                    key={index}
+                    className={`flex ${
+                      isUser ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {message.image && (
-                      <div className="mb-2">
-                        <img
-                          src={message.image}
-                          alt="Uploaded poster"
-                          className="max-w-full h-auto rounded-lg"
-                          style={{ maxHeight: "200px" }}
-                        />
+                    <div
+                      className={`max-w-[85%] rounded-2xl shadow-sm ${bubbleClasses}`}
+                    >
+                      {hasImage && (
+                        <div className="mb-2 rounded-2xl overflow-hidden bg-black/5">
+                          <img
+                            src={message.image}
+                            alt="Uploaded poster"
+                            className="w-full h-full object-cover"
+                            style={{ maxHeight: "320px" }}
+                          />
+                        </div>
+                      )}
+                      <div
+                        className={`whitespace-pre-line leading-relaxed ${
+                          hasImage ? "text-gray-700 font-medium" : ""
+                        }`}
+                      >
+                        {message.text}
                       </div>
-                    )}
-                    <div className="whitespace-pre-line">{message.text}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="bg-white text-gray-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-200">
@@ -344,6 +447,57 @@ const Chatbot: React.FC = () => {
 
             {/* Input */}
             <div className="border-t border-gray-200 bg-gray-50 p-4 rounded-b-xl">
+              {pendingImage && (
+                <div className="mb-3 p-3 rounded-2xl bg-white border border-gray-200 shadow-sm">
+                  <div className="flex gap-3">
+                    {/* Ảnh preview */}
+                    <div className="w-24 h-24 rounded-xl overflow-hidden shadow-inner bg-gray-100">
+                      <img
+                        src={pendingImage.preview}
+                        alt="Poster preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    {/* Text + nút X bên ngoài */}
+                    <div className="text-sm text-gray-600 flex-1">
+                      <div className="flex items-start justify-between">
+                        <p className="font-semibold text-gray-800">
+                          Hình ảnh đính kèm
+                        </p>
+                        <button
+                          onClick={handleRemovePendingImage}
+                          className="ml-2 text-gray-500 hover:text-gray-700 cursor-pointer"
+                          aria-label="Xóa hình đính kèm"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <p>
+                        Nhập câu hỏi hoặc yêu cầu cho poster này trước khi gửi.
+                      </p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        Hệ thống sẽ tự động phân tích và trả lời dựa trên hình
+                        ảnh.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center space-x-2">
                 {/* Nút upload image */}
                 <input
@@ -352,7 +506,7 @@ const Chatbot: React.FC = () => {
                   id="poster-upload"
                   className="hidden"
                   onChange={handleImageUpload}
-                  disabled={isLoading}
+                  disabled={isLoading || !!pendingImage}
                 />
                 <label
                   htmlFor="poster-upload"
@@ -380,7 +534,11 @@ const Chatbot: React.FC = () => {
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Nhập tin nhắn..."
+                  placeholder={
+                    pendingImage
+                      ? "Nhập câu hỏi cho poster..."
+                      : "Nhập tin nhắn..."
+                  }
                   className="flex-1 bg-white border border-gray-300 rounded-xl px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 />
                 <button

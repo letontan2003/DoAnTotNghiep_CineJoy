@@ -67,6 +67,27 @@ export const resetPasswordApi = async (data: {
   return response.data;
 };
 
+export const verifyCurrentPasswordApi = async (data: {
+  password: string;
+}) => {
+  const response = await axios.post<IBackendResponse<null>>(
+    "/v1/api/auth/verify-password",
+    data
+  );
+  return response.data;
+};
+
+export const changePasswordApi = async (data: {
+  currentPassword: string;
+  newPassword: string;
+}) => {
+  const response = await axios.post<IBackendResponse<null>>(
+    "/v1/api/auth/change-password",
+    data
+  );
+  return response.data;
+};
+
 export const fetchAccountApi = async () => {
   const response = await axios.get<IBackendResponse<IFetchAccount>>(
     "/v1/api/auth/account",

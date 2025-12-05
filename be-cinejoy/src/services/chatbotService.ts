@@ -671,7 +671,6 @@ ${timesDetails}
   // Lấy thông tin cách tích điểm
   getPointsAccumulationInfo: async (userId?: string) => {
     let birthdayInfo = "";
-
     if (userId) {
       try {
         const user = await User.findById(userId).select("dateOfBirth");
@@ -679,7 +678,6 @@ ${timesDetails}
           const today = new Date();
           const birthday = new Date(user.dateOfBirth);
           const currentYear = today.getFullYear();
-
           // Tạo ngày sinh nhật năm nay
           const thisYearBirthday = new Date(
             currentYear,
@@ -1573,7 +1571,6 @@ Trả lời:`;
             (detail: any) =>
               detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
           )?.retryDelay || "một lúc";
-
         console.error(
           "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
         );

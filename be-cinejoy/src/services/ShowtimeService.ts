@@ -142,11 +142,6 @@ class ShowtimeService {
                 "Thời gian bắt đầu không nằm trong khoảng của ca chiếu đã chọn"
               );
             }
-            if (endMin > sessionEndMin) {
-              throw new Error(
-                "Thời gian kết thúc vượt quá thời gian của ca chiếu"
-              );
-            }
           }
 
           // Đếm số suất trong cùng ca của cùng ngày/phòng trong batch
@@ -218,11 +213,6 @@ class ShowtimeService {
           ) {
             throw new Error(
               "Thời gian bắt đầu không nằm trong khoảng của ca chiếu đã chọn"
-            );
-          }
-          if (endMin > (sessionEndMin as number)) {
-            throw new Error(
-              "Thời gian kết thúc vượt quá thời gian của ca chiếu"
             );
           }
         }

@@ -148,9 +148,11 @@ const SalesChartReport: React.FC = () => {
     });
 
     // Convert to array and sort
-    const result = Array.from(dataMap.values()).sort((a, b) => {
-      return a.label.localeCompare(b.label);
-    });
+    const result = Array.from(dataMap.entries())
+      .sort((a, b) => {
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([, value]) => value);
 
     // Return all data (biểu đồ có scroll ngang nên không cần giới hạn)
     return result;
