@@ -1323,11 +1323,11 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
       if (selectedVoucher) {
         // Cập nhật
         await updateVoucher(selectedVoucher._id!, voucherData as IVoucher);
-        toast.success("Cập nhật voucher thành công!");
+        toast.success("Cập nhật khuyến mãi thành công!");
       } else {
         // Thêm mới
         await addVoucher(voucherData as IVoucher);
-        toast.success("Thêm voucher thành công!");
+        toast.success("Thêm khuyến mãi thành công!");
       }
       // Reload dữ liệu sau khi thêm/sửa
       await loadVouchers();
@@ -1335,7 +1335,7 @@ const handleOverlappingVouchers = async (vouchers: IVoucher[]) => {
       setSelectedVoucher(undefined);
     } catch (error) {
       console.error("Error submitting voucher:", error);
-      toast.error(selectedVoucher ? "Cập nhật voucher thất bại!" : "Thêm voucher thất bại!");
+      toast.error(selectedVoucher ? "Cập nhật khuyến mãi thất bại!" : "Thêm khuyến mãi thất bại!");
     }
   };
 
