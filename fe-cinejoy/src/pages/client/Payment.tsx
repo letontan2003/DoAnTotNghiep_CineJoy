@@ -624,10 +624,12 @@ const PaymentPage = () => {
       return;
     }
     setIsModalPaymentOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalPaymentOpen(false);
+    setIsModalOpen(false);
   };
 
   const handlePayment = async () => {

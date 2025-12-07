@@ -180,6 +180,7 @@ const MoviesListCarousel = (props: IProps) => {
                           if (movie.trailer) {
                             setCurrentMovieForModal(movie);
                             setIsTrailerModalOpen(true);
+                            setIsModalOpen(true);
                           }
                         }}
                         style={{ zIndex: 10 }} // Đảm bảo nút play nằm trên Link
@@ -235,7 +236,10 @@ const MoviesListCarousel = (props: IProps) => {
       <Modal
         title={null}
         open={isTrailerModalOpen}
-        onCancel={() => setIsTrailerModalOpen(false)}
+        onCancel={() => {
+          setIsTrailerModalOpen(false);
+          setIsModalOpen(false);
+        }}
         footer={null}
         centered
         width={800}
@@ -278,7 +282,10 @@ const MoviesListCarousel = (props: IProps) => {
             <div className="text-center mt-4">
               <button
                 className="bg-gray-200 text-gray-800 px-6 py-2 rounded-full hover:bg-gray-300 transition cursor-pointer"
-                onClick={() => setIsTrailerModalOpen(false)}
+                onClick={() => {
+                  setIsTrailerModalOpen(false);
+                  setIsModalOpen(false);
+                }}
               >
                 Đóng
               </button>
