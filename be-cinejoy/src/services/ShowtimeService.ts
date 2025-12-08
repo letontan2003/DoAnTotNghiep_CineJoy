@@ -600,12 +600,13 @@ class ShowtimeService {
             60000;
         } else {
           // Nếu startTime chỉ là thời gian (HH:mm) 24-hour format
+          // Chuẩn hóa về múi giờ VN (UTC+7) để khớp với thời gian FE gửi lên
           const showStartTime = new Date(st.start);
-          // Convert UTC time to local time for comparison
-          const showTimeHour = showStartTime.getHours(); // Use getHours() instead of getUTCHours()
-          const showTimeMin = showStartTime.getMinutes(); // Use getMinutes() instead of getUTCMinutes()
+          const showTimeHourVN = (showStartTime.getUTCHours() + 7) % 24;
+          const showTimeMinVN = showStartTime.getUTCMinutes();
           const [targetHour, targetMin] = startTime.split(":").map(Number);
-          timeMatch = showTimeHour === targetHour && showTimeMin === targetMin;
+          timeMatch =
+            showTimeHourVN === targetHour && showTimeMinVN === targetMin;
         }
 
         // So sánh phòng - st.room đã được populate thành object có name
