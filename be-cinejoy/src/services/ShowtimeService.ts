@@ -600,10 +600,10 @@ class ShowtimeService {
             60000;
         } else {
           // Nếu startTime chỉ là thời gian (HH:mm) 24-hour format
+          // Dùng UTC để tránh lệch giờ giữa local dev (GMT+7) và server (UTC)
           const showStartTime = new Date(st.start);
-          // Convert UTC time to local time for comparison
-          const showTimeHour = showStartTime.getHours(); // Use getHours() instead of getUTCHours()
-          const showTimeMin = showStartTime.getMinutes(); // Use getMinutes() instead of getUTCMinutes()
+          const showTimeHour = showStartTime.getUTCHours();
+          const showTimeMin = showStartTime.getUTCMinutes();
           const [targetHour, targetMin] = startTime.split(":").map(Number);
           timeMatch = showTimeHour === targetHour && showTimeMin === targetMin;
         }
