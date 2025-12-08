@@ -256,9 +256,7 @@ class PriceListService {
   }
 
   // Kiểm tra và filter các line còn tồn tại khi sao chép
-  private async validateAndFilterLines(
-    lines: IPriceListLine[]
-  ): Promise<{
+  private async validateAndFilterLines(lines: IPriceListLine[]): Promise<{
     validLines: IPriceListLine[];
     skippedCount: number;
     skippedItems: string[];
@@ -365,14 +363,30 @@ class PriceListService {
       const current = priceLists[i];
       const next = priceLists[i + 1];
 
-      // Nếu có khoảng trống giữa endDate của bảng giá hiện tại và startDate của bảng giá tiếp theo
-      const timeDiff = next.startDate.getTime() - current.endDate.getTime();
-      if (timeDiff > 24 * 60 * 60 * 1000) {
-        // Khoảng trống lớn hơn 1 ngày
-        const endStr = current.endDate.toLocaleDateString("vi-VN");
-        const startStr = next.startDate.toLocaleDateString("vi-VN");
+      // Chuẩn hóa ngày về đầu ngày để so sánh chính xác (tránh timezone issues)
+      const currentEndDate = new Date(current.endDate);
+      currentEndDate.setHours(0, 0, 0, 0);
+
+      const nextStartDate = new Date(next.startDate);
+      nextStartDate.setHours(0, 0, 0, 0);
+
+      // Tính ngày kế tiếp sau endDate (ngày hợp lệ tiếp theo)
+      const dayAfterEndDate = new Date(currentEndDate);
+      dayAfterEndDate.setDate(dayAfterEndDate.getDate() + 1);
+
+      // Nếu nextStartDate > dayAfterEndDate thì có khoảng trống
+      // Ví dụ: endDate = 31/1, dayAfterEndDate = 1/2, nextStartDate = 1/2 => không có gap
+      // Ví dụ: endDate = 31/1, dayAfterEndDate = 1/2, nextStartDate = 3/2 => có gap từ 1/2 đến 2/2
+      if (nextStartDate.getTime() > dayAfterEndDate.getTime()) {
+        // Tính ngày bắt đầu và kết thúc của khoảng trống
+        const gapStartDate = new Date(dayAfterEndDate);
+        const gapEndDate = new Date(nextStartDate);
+        gapEndDate.setDate(gapEndDate.getDate() - 1); // Ngày trước startDate
+
+        const gapStartStr = gapStartDate.toLocaleDateString("vi-VN");
+        const gapEndStr = gapEndDate.toLocaleDateString("vi-VN");
         gaps.push(
-          `Khoảng trống từ ${endStr} đến ${startStr} (giữa bảng giá "${current.name}" và "${next.name}")`
+          `Khoảng trống từ ${gapStartStr} đến ${gapEndStr} (giữa bảng giá "${current.name}" và "${next.name}")`
         );
       }
     }

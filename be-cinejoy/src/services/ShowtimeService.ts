@@ -14,7 +14,20 @@ class ShowtimeService {
   }
   async getShowtimes(): Promise<IShowtime[]> {
     try {
-      const showtimes = await Showtime.find()
+      // Tối ưu: Chỉ lấy showtimes có ít nhất 1 showTime trong tương lai hoặc hôm nay
+      // Tránh load quá nhiều dữ liệu showtimes đã qua
+      const now = new Date();
+      const todayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+
+      const showtimes = await Showtime.find({
+        "showTimes.date": { $gte: todayStart },
+        "showTimes.status": { $in: ["active", null, undefined] },
+      })
+
         .populate("movieId", "title")
         .populate("theaterId", "name")
         .populate({
@@ -24,15 +37,19 @@ class ShowtimeService {
         .populate({
           path: "showTimes.showSessionId",
           select: "name startTime endTime",
-        });
+        })
+        .lean(); // Sử dụng lean() để tăng performance
 
-      // Lọc chỉ lấy showtime có trạng thái active
+      // Lọc chỉ lấy showtime có trạng thái active và trong tương lai/hôm nay
       const activeShowtimes = showtimes
         .map((showtime) => ({
-          ...showtime.toObject(),
-          showTimes: showtime.showTimes.filter(
-            (st: any) => st.status === "active" || !st.status
-          ), // Bao gồm cả showtime chưa có status (backward compatibility)
+          ...showtime,
+          showTimes: showtime.showTimes.filter((st: any) => {
+            const stDate = new Date(st.date);
+            const isFutureOrToday = stDate >= todayStart;
+            const isActive = st.status === "active" || !st.status;
+            return isFutureOrToday && isActive;
+          }),
         }))
         .filter((showtime) => showtime.showTimes.length > 0);
 
@@ -710,53 +727,67 @@ class ShowtimeService {
       const { layoutRows: derivedRows, layoutCols: derivedCols } =
         deriveLayout();
 
-      // Populate seat information with type and other details
-      const populatedSeats = await Promise.all(
-        seatData.map(async (seatItem: any, index: number) => {
-          const seatInfo = await SeatModel.findById(seatItem.seat).select(
-            "type status seatId"
-          );
-
-          // Compute seatId by index as fallback (row-major order)
-          const cols = derivedCols;
-          const rowIndex = Math.floor(index / cols);
-          const colIndex = index % cols;
-          const computedSeatId = `${String.fromCharCode(65 + rowIndex)}${
-            colIndex + 1
-          }`;
-
-          const sid = seatInfo?.seatId || computedSeatId;
-          const fromRoom = roomSeatMap[sid];
-
-          // Status priority: SeatModel.maintenance -> RoomLayout.maintenance -> seatItem.status
-          const finalStatus =
-            seatInfo?.status === "maintenance" ||
-            fromRoom?.status === "maintenance"
-              ? "maintenance"
-              : seatItem.status;
-
-          // Debug logging
-          if (sid === "A7" || sid === "A8" || sid === "H9" || sid === "H10") {
-            console.log(`🔍 Seat ${sid} status check:`, {
-              seatInfoStatus: seatInfo?.status,
-              fromRoomStatus: fromRoom?.status,
-              seatItemStatus: seatItem.status,
-              finalStatus,
-            });
-          }
-
-          // Type priority: RoomLayout.type (most up-to-date from admin) -> SeatModel.type -> 'normal'
-          const finalType = fromRoom?.type || seatInfo?.type || "normal";
-
-          return {
-            seat: seatItem.seat,
-            seatId: sid,
-            status: finalStatus,
-            type: finalType,
-            _id: seatItem._id,
-          };
+      // Tối ưu: Batch query tất cả seats một lần thay vì query từng cái (tránh N+1 query problem)
+      const seatIds = seatData
+        .map((seatItem: any) => {
+          const seatId = seatItem.seat;
+          return typeof seatId === "object" && seatId?._id
+            ? seatId._id
+            : seatId;
         })
-      );
+        .filter(Boolean);
+
+      // Query tất cả seats một lần
+      const allSeatInfos = await SeatModel.find({
+        _id: { $in: seatIds },
+      })
+        .select("_id type status seatId")
+        .lean();
+
+      // Tạo map để lookup nhanh: seatId -> seatInfo
+      const seatInfoMap = new Map();
+      allSeatInfos.forEach((seat: any) => {
+        seatInfoMap.set(seat._id.toString(), seat);
+      });
+
+      // Populate seat information với dữ liệu đã query batch
+      const populatedSeats = seatData.map((seatItem: any, index: number) => {
+        const seatId = seatItem.seat;
+        const seatIdStr =
+          typeof seatId === "object" && seatId?._id
+            ? seatId._id.toString()
+            : seatId?.toString();
+        const seatInfo = seatInfoMap.get(seatIdStr);
+
+        // Compute seatId by index as fallback (row-major order)
+        const cols = derivedCols;
+        const rowIndex = Math.floor(index / cols);
+        const colIndex = index % cols;
+        const computedSeatId = `${String.fromCharCode(65 + rowIndex)}${
+          colIndex + 1
+        }`;
+
+        const sid = seatInfo?.seatId || computedSeatId;
+        const fromRoom = roomSeatMap[sid];
+
+        // Status priority: SeatModel.maintenance -> RoomLayout.maintenance -> seatItem.status
+        const finalStatus =
+          seatInfo?.status === "maintenance" ||
+          fromRoom?.status === "maintenance"
+            ? "maintenance"
+            : seatItem.status;
+
+        // Type priority: RoomLayout.type (most up-to-date from admin) -> SeatModel.type -> 'normal'
+        const finalType = fromRoom?.type || seatInfo?.type || "normal";
+
+        return {
+          seat: seatItem.seat,
+          seatId: sid,
+          status: finalStatus,
+          type: finalType,
+          _id: seatItem._id,
+        };
+      });
 
       return {
         showtimeInfo: {
@@ -1452,9 +1483,20 @@ class ShowtimeService {
 
   // Release all expired reservations (selected/reserved but exceed reservedUntil)
   async releaseExpiredReservations(): Promise<{ released: number }> {
-    const docs = await Showtime.find({});
-    let released = 0;
     const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // Chỉ query showtimes có ngày trong khoảng 24h qua và 24h tới
+    // Vì reservations chỉ tồn tại trong 8 phút, nên chỉ cần check showtimes gần đây
+    const docs = await Showtime.find({
+      "showTimes.date": {
+        $gte: yesterday,
+        $lte: tomorrow,
+      },
+    });
+
+    let released = 0;
 
     for (const doc of docs) {
       let changed = false;
@@ -1470,12 +1512,6 @@ class ShowtimeService {
             seat.reservedBy = undefined;
             released++;
             changed = true;
-
-            console.log(
-              `🕐 Released expired reservation for seat ${
-                seat.seat?.seatId || "unknown"
-              }`
-            );
           }
         }
       }
@@ -1490,7 +1526,18 @@ class ShowtimeService {
   async releaseUserReservedSeats(
     userId: string
   ): Promise<{ released: number; releasedSeats: string[] }> {
-    const docs = await Showtime.find({});
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // Chỉ query showtimes có ngày trong khoảng 24h qua và 24h tới
+    const docs = await Showtime.find({
+      "showTimes.date": {
+        $gte: yesterday,
+        $lte: tomorrow,
+      },
+    });
+
     let released = 0;
     const releasedSeats: string[] = [];
 
@@ -1510,10 +1557,6 @@ class ShowtimeService {
             released++;
             releasedSeats.push(seatId);
             changed = true;
-
-            console.log(
-              `🔄 Released user reservation for seat ${seatId} (user: ${userId})`
-            );
           }
         }
       }
@@ -1668,7 +1711,18 @@ class ShowtimeService {
   // Lấy tất cả showtime cho admin (bao gồm cả active và inactive)
   async getAllShowtimesForAdmin(): Promise<IShowtime[]> {
     try {
-      const showtimes = await Showtime.find()
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysLater = new Date(
+        now.getTime() + 30 * 24 * 60 * 60 * 1000
+      );
+
+      const showtimes = await Showtime.find({
+        "showTimes.date": {
+          $gte: thirtyDaysAgo,
+          $lte: thirtyDaysLater,
+        },
+      })
         .populate("movieId", "title")
         .populate("theaterId", "name")
         .populate({
@@ -1678,7 +1732,8 @@ class ShowtimeService {
         .populate({
           path: "showTimes.showSessionId",
           select: "name startTime endTime",
-        });
+        })
+        .lean(); // Sử dụng lean() để tăng performance
 
       // Admin thấy tất cả showtime (không filter theo status)
       return showtimes as any;

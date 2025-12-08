@@ -643,11 +643,17 @@ export default class VoucherService {
         new Types.ObjectId();
       detail = { _id: ensuredId, ...lineData.voucherDetail };
 
-      // Xử lý totalQuantity: chỉ cập nhật nếu được cung cấp, nếu không thì giữ nguyên giá trị cũ
+      // Xử lý totalQuantity:
+      // 1. Nếu được cung cấp trong request thì dùng giá trị đó
+      // 2. Nếu không, giữ nguyên giá trị từ database (existingDetail.totalQuantity)
+      // 3. Chỉ set totalQuantity = quantity khi thực sự chưa có trong database (trường hợp migrate dữ liệu cũ)
       if (typeof lineData.voucherDetail.totalQuantity === "number") {
         detail.totalQuantity = lineData.voucherDetail.totalQuantity;
-      } else if (!detail.totalQuantity && typeof detail.quantity === "number") {
-        // Nếu chưa có totalQuantity và có quantity, set totalQuantity = quantity
+      } else if (typeof existingDetail?.totalQuantity === "number") {
+        // Giữ nguyên totalQuantity từ database
+        detail.totalQuantity = existingDetail.totalQuantity;
+      } else if (typeof detail.quantity === "number") {
+        // Chỉ set totalQuantity = quantity khi thực sự chưa có trong database
         detail.totalQuantity = detail.quantity;
       }
 
