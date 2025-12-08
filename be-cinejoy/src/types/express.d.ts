@@ -10,6 +10,8 @@ declare module "express" {
     file?: any;
     files?: any;
     ip?: string;
+    cookies?: any;
+    get(name: string): string | undefined;
   }
 
   export interface Response extends ServerResponse {
@@ -18,11 +20,19 @@ declare module "express" {
     send(body: any): Response;
     cookie(name: string, value: string, options?: any): Response;
     clearCookie(name: string, options?: any): Response;
+    redirect(url: string): void;
+    redirect(status: number, url: string): void;
   }
 
   export interface NextFunction {
     (err?: any): void;
   }
+
+  export type RequestHandler = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => void | Promise<void>;
 
   export interface Application {
     use(...handlers: any[]): Application;
@@ -41,8 +51,13 @@ declare module "express" {
     use(...handlers: any[]): Router;
   }
 
-  export function express(): Application;
-  export function Router(): Router;
+  // Express module exports
+  function express(): Application;
+  function json(): RequestHandler;
+  function urlencoded(options?: any): RequestHandler;
+
+  export default express;
+  export { json, urlencoded, Router };
 }
 
 declare module "cookie-parser" {
@@ -124,13 +139,34 @@ declare module "axios" {
     isAxiosError: boolean;
   }
 
-  export default function axios(
-    config: AxiosRequestConfig
-  ): Promise<AxiosResponse>;
-  export default function axios(
-    url: string,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse>;
+  interface AxiosInstance {
+    <T = any>(config: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+    <T = any>(url: string, config?: AxiosRequestConfig): Promise<
+      AxiosResponse<T>
+    >;
+    get<T = any>(
+      url: string,
+      config?: AxiosRequestConfig
+    ): Promise<AxiosResponse<T>>;
+    post<T = any>(
+      url: string,
+      data?: any,
+      config?: AxiosRequestConfig
+    ): Promise<AxiosResponse<T>>;
+    put<T = any>(
+      url: string,
+      data?: any,
+      config?: AxiosRequestConfig
+    ): Promise<AxiosResponse<T>>;
+    delete<T = any>(
+      url: string,
+      config?: AxiosRequestConfig
+    ): Promise<AxiosResponse<T>>;
+    create(config?: AxiosRequestConfig): AxiosInstance;
+  }
+
+  const axios: AxiosInstance;
+  export default axios;
 
   export function get<T = any>(
     url: string,
@@ -146,9 +182,5 @@ declare module "axios" {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<AxiosResponse<T>>;
-  // Note: delete is a reserved word in TypeScript
-  // axios.delete() is available on axios instance, not as a named export
-  // Use axios({ method: 'delete', url, ...config }) or axios.delete() on instance
-
-  export function create(config?: AxiosRequestConfig): typeof axios;
+  export function create(config?: AxiosRequestConfig): AxiosInstance;
 }
