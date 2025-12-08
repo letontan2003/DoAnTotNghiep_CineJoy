@@ -37,7 +37,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
   showtimeId,
   seatTypeMap,
 }) => {
-  const { isDarkMode } = useAppStore();
+  const { isDarkMode, setIsModalOpen } = useAppStore();
   const hasSelectedSeats = movie.seats.length > 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -110,6 +110,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
     }
 
     setConfirmOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleConfirm = async () => {
@@ -159,6 +160,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
         sessionStorage.setItem(storageKey, JSON.stringify(movie.seats));
 
         setConfirmOpen(false);
+        setIsModalOpen(false);
         onContinue();
       } else {
         message.error(
@@ -335,7 +337,10 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
         centered
         open={confirmOpen}
         width={360}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setIsModalOpen(false);
+        }}
         footer={null}
         getContainer={false}
         closeIcon={null}
@@ -359,7 +364,14 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
           CNJ sẽ không hoàn tiền nếu người xem không đáp ứng đủ điều kiện.
         </div>
         <div className="flex justify-center gap-3">
-          <Button onClick={() => setConfirmOpen(false)}>Hủy</Button>
+          <Button
+            onClick={() => {
+              setConfirmOpen(false);
+              setIsModalOpen(false);
+            }}
+          >
+            Hủy
+          </Button>
           <Button type="primary" danger onClick={handleConfirm}>
             Đồng ý
           </Button>
