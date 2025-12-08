@@ -17,7 +17,7 @@ const ENV = {
     APP_PAYMENT_CANCEL_URL: "cinejoy://payment/cancel",
   },
   production: {
-    API_URL: "https://api.cinejoy.onrender.com",
+    API_URL: "https://api-cinejoy.onrender.com",
     WEB_PAYMENT_SUCCESS_URL: "https://cinejoy.vercel.app/payment/success",
     WEB_PAYMENT_CANCEL_URL: "https://cinejoy.vercel.app/payment/cancel",
     WEB_BOOKING_HISTORY_URL: "https://cinejoy.vercel.app/booking-history",

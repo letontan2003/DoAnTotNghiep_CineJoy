@@ -52,11 +52,14 @@ declare module "express" {
   }
 
   // Express module exports
-  interface Express {
+  interface ExpressFunction {
     (): Application;
-    json(): RequestHandler;
+    json(options?: any): RequestHandler;
     urlencoded(options?: any): RequestHandler;
     Router(): Router;
+  }
+
+  interface Express extends ExpressFunction {
     RequestHandler: RequestHandler;
   }
 
@@ -66,6 +69,15 @@ declare module "express" {
   // Export Router as both type and value
   function Router(): Router;
   export { Router, RequestHandler };
+}
+
+// Add namespace for express.RequestHandler usage
+declare namespace express {
+  type RequestHandler = (
+    req: import("express").Request,
+    res: import("express").Response,
+    next: import("express").NextFunction
+  ) => void | Promise<void>;
 }
 
 declare module "cookie-parser" {
