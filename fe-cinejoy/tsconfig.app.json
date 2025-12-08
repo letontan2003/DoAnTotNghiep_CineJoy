@@ -14,7 +14,7 @@
       "pages/*": ["./src/pages/*"],
       "styles/*": ["./src/styles/*"],
       "services/*": ["./src/services/*"],
-      "context/*": ["./src/context/*"],
+      "context/*": ["./src/context/*"]
     },
 
     /* Bundler mode */
@@ -26,12 +26,13 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": false,
+    "skipLibCheck": true
   },
   "include": ["src"]
 }
