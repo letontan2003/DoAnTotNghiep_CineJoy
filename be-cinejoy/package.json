@@ -42,6 +42,7 @@
     "mongoose": "^8.15.1",
     "multer": "^2.0.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-cache": "^5.1.2",
     "nodemailer": "^7.0.3",
     "qrcode": "^1.5.4",
     "vnpay": "^2.4.4"
