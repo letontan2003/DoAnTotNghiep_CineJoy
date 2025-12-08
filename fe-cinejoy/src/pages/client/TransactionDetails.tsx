@@ -193,7 +193,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
                 <td><strong>${movie?.title || "N/A"}</strong></td>
                 <td>
                   <div>${theater?.name || "N/A"}</div>
-                  <div>Room ${order?.roomId || "N/A"}</div>
+                  <div>Room ${order?.room || "N/A"}</div>
                   <div>${formatDate(order?.showDate || "")}</div>
                   <div>Từ ${order?.showTime || "N/A"} - Đến ${calculateEndTime(
       order?.showTime || "",
