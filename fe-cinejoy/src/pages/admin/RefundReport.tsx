@@ -37,9 +37,7 @@ interface OrderLite {
     price: number;
   }>;
   foodCombos?: Array<{
-    comboId: {
-      name: string;
-    };
+    comboId: string | { name: string };
     quantity: number;
     price: number;
   }>;
@@ -96,7 +94,8 @@ const RefundReport: React.FC = () => {
         const returned = (res.orders || []).filter(
           (o: OrderLite) => o.orderStatus === "RETURNED"
         );
-        setOrders(returned as OrderLite[]);
+        // Ép kiểu qua unknown để tránh cảnh báo TS về không tương thích sâu
+        setOrders(returned as unknown as OrderLite[]);
         // Tính min/max ngày giao dịch
         if (returned.length > 0) {
           const ds = returned.map((o) => dayjs(o.createdAt));
@@ -265,12 +264,6 @@ const RefundReport: React.FC = () => {
 
     return result;
   }, [filteredOrders]);
-
-  const currency = (n: number) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(n);
 
   const exportExcel = async () => {
     const workbook = new ExcelJS.Workbook();
