@@ -21,7 +21,8 @@ class MoMoConfiguration {
         process.env.MOMO_IPN_URL ||
         "http://localhost:8000/api/payments/momo/callback",
       returnUrl:
-        process.env.MOMO_RETURN_URL || "http://localhost:3000/payment/return",
+        process.env.MOMO_RETURN_URL ||
+        "https://cinejoy.vercel.app/payment/success",
       environment:
         (process.env.MOMO_ENVIRONMENT as "sandbox" | "production") || "sandbox",
     };
