@@ -52,12 +52,20 @@ declare module "express" {
   }
 
   // Express module exports
-  function express(): Application;
-  function json(): RequestHandler;
-  function urlencoded(options?: any): RequestHandler;
+  interface Express {
+    (): Application;
+    json(): RequestHandler;
+    urlencoded(options?: any): RequestHandler;
+    Router(): Router;
+    RequestHandler: RequestHandler;
+  }
 
+  const express: Express;
   export default express;
-  export { json, urlencoded, Router };
+
+  // Export Router as both type and value
+  function Router(): Router;
+  export { Router, RequestHandler };
 }
 
 declare module "cookie-parser" {
@@ -95,6 +103,12 @@ declare module "multer" {
 }
 
 declare namespace Express {
+  type RequestHandler = (
+    req: import("express").Request,
+    res: import("express").Response,
+    next: import("express").NextFunction
+  ) => void | Promise<void>;
+
   namespace Multer {
     interface File {
       fieldname: string;
