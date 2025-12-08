@@ -1,0 +1,85 @@
+/* CSS cải thiện cho nội dung blog */
+
+.blog-content-custom {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.8;
+  font-size: 1.1rem;
+  white-space: pre-line;
+  max-width: 100%;
+  text-align: justify;
+  letter-spacing: 0.025em;
+}
+
+/* Style cho các đoạn văn chính */
+.blog-content-custom .blog-paragraph {
+  margin-bottom: 1.25rem;
+  line-height: 1.8;
+  text-align: justify;
+  text-indent: 1.5rem;
+  word-spacing: 0.1em;
+}
+
+/* Style cho đoạn đầu tiên */
+.blog-content-custom .blog-paragraph:first-child {
+  font-size: 1.2rem;
+  font-weight: 500;
+  text-indent: 0;
+  margin-bottom: 1.5rem;
+  line-height: 1.7;
+}
+
+/* Style cho các đoạn có từ khóa quan trọng */
+.blog-content-custom .blog-paragraph:has-text("Galaxy Cinema"),
+.blog-content-custom .blog-paragraph:has-text("Rec Rec"),
+.blog-content-custom .blog-paragraph:has-text("Bánh Phồng Dế") {
+  font-weight: 500;
+  color: inherit;
+}
+
+/* Style cho các dòng có thông tin quan trọng (giá, thời gian, địa điểm) */
+.blog-content-custom .info-highlight {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 197, 253, 0.1));
+  border-left: 4px solid #3b82f6;
+  padding: 1rem 1.5rem;
+  margin: 1rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-weight: 500;
+  text-indent: 0;
+}
+
+/* Dark mode cho info highlight */
+.dark .blog-content-custom .info-highlight {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(147, 197, 253, 0.15));
+  border-left-color: #60a5fa;
+}
+
+/* Style cho các dòng có dấu checkmark */
+.blog-content-custom .flavor-item {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.75rem 0;
+}
+
+.blog-content-custom .flavor-checkmark {
+  color: #8b5cf6;
+  font-weight: bold;
+  margin-right: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+.blog-content-custom .flavor-name {
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+/* Dark mode cho flavor items */
+.dark .blog-content-custom .flavor-checkmark,
+.dark .blog-content-custom .flavor-name {
+  color: #a78bfa;
+}
+
+/* Light mode cho flavor items */
+.light .blog-content-custom .flavor-checkmark,
+.light .blog-content-custom .flavor-name {
+  color: #7c3aed;
+}

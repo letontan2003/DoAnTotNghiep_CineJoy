@@ -1,0 +1,53 @@
+{
+  "name": "fe-cinejoy",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@tailwindcss/vite": "^4.1.8",
+    "@types/axios": "^0.9.36",
+    "antd": "^5.25.4",
+    "async-mutex": "0.5.0",
+    "axios": "^1.9.0",
+    "chart.js": "^4.5.1",
+    "dayjs": "^1.11.13",
+    "dns": "^0.2.2",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^12.12.1",
+    "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0",
+    "react-multi-carousel": "^2.8.6",
+    "react-router-dom": "6.27.0",
+    "react-toastify": "^11.0.5",
+    "sass": "^1.89.1",
+    "tailwindcss": "^4.1.8",
+    "use-debounce": "^10.0.5",
+    "vite-tsconfig-paths": "^5.1.4",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react-swc": "^3.9.0",
+    "eslint": "^9.25.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.30.1",
+    "vite": "^6.3.5"
+  }
+}
