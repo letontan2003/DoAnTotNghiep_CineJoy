@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn src/app.ts",
-    "build": "tsc",
+    "build": "tsc --skipLibCheck",
     "start": "node dist/app.js",
     "migration:add-codes": "ts-node src/scripts/addPromotionLineCodes.ts",
     "migration:check-codes": "ts-node src/scripts/checkPromotionLineCodes.ts"
