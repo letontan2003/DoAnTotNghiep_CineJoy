@@ -55,7 +55,7 @@ const getYoutubeEmbedUrl = (url?: string) => {
 };
 
 const formatVNTime = (iso: string) => {
-  return dayjs(iso).tz("Asia/Ho_Chi_Minh").format("hh:mm A");
+  return dayjs(iso).tz("Asia/Ho_Chi_Minh").format("HH:mm");
 };
 
 const CardInfMovie = () => {

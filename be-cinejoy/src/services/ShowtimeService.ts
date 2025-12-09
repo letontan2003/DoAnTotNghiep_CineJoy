@@ -591,13 +591,31 @@ class ShowtimeService {
             Math.abs(showStartTime.getTime() - targetStartTime.getTime()) <
             60000;
         } else if (startTime.includes(" ")) {
-          // Format 12-hour như "03:00 PM"
+          // Format 12-hour như "03:00 PM" - chuẩn hóa về UTC+7
           const showStartTime = new Date(st.start);
-          const targetTimeStr = `${date} ${startTime}`;
-          const targetStartTime = new Date(targetTimeStr);
-          timeMatch =
-            Math.abs(showStartTime.getTime() - targetStartTime.getTime()) <
-            60000;
+          const showTimeHourVN = (showStartTime.getUTCHours() + 7) % 24;
+          const showTimeMinVN = showStartTime.getUTCMinutes();
+
+          // Parse 12-hour format (HH:mm AM/PM) sang 24-hour
+          const timeMatchRegex = startTime.match(
+            /(\d{1,2}):(\d{2})\s*(AM|PM)/i
+          );
+          if (timeMatchRegex) {
+            let targetHour = parseInt(timeMatchRegex[1], 10);
+            const targetMin = parseInt(timeMatchRegex[2], 10);
+            const ampm = timeMatchRegex[3].toUpperCase();
+
+            if (ampm === "PM" && targetHour !== 12) {
+              targetHour += 12;
+            } else if (ampm === "AM" && targetHour === 12) {
+              targetHour = 0;
+            }
+
+            timeMatch =
+              showTimeHourVN === targetHour && showTimeMinVN === targetMin;
+          } else {
+            timeMatch = false;
+          }
         } else {
           // Nếu startTime chỉ là thời gian (HH:mm) 24-hour format
           // Chuẩn hóa về múi giờ VN (UTC+7) để khớp với thời gian FE gửi lên
@@ -643,18 +661,39 @@ class ShowtimeService {
               Math.abs(showStartTime.getTime() - targetStartTime.getTime()) <
               60000;
           } else if (startTime.includes(" ")) {
+            // Format 12-hour như "03:00 PM" - chuẩn hóa về UTC+7
             const showStartTime = new Date(st.start);
-            const targetTimeStr = `${date} ${startTime}`;
-            const targetStartTime = new Date(targetTimeStr);
-            timeMatch =
-              Math.abs(showStartTime.getTime() - targetStartTime.getTime()) <
-              60000;
+            const showTimeHourVN = (showStartTime.getUTCHours() + 7) % 24;
+            const showTimeMinVN = showStartTime.getUTCMinutes();
+
+            // Parse 12-hour format (HH:mm AM/PM) sang 24-hour
+            const timeMatchRegex = startTime.match(
+              /(\d{1,2}):(\d{2})\s*(AM|PM)/i
+            );
+            if (timeMatchRegex) {
+              let targetHour = parseInt(timeMatchRegex[1], 10);
+              const targetMin = parseInt(timeMatchRegex[2], 10);
+              const ampm = timeMatchRegex[3].toUpperCase();
+
+              if (ampm === "PM" && targetHour !== 12) {
+                targetHour += 12;
+              } else if (ampm === "AM" && targetHour === 12) {
+                targetHour = 0;
+              }
+
+              timeMatch =
+                showTimeHourVN === targetHour && showTimeMinVN === targetMin;
+            } else {
+              timeMatch = false;
+            }
           } else {
-            const showTimeHour = new Date(st.start).getHours();
-            const showTimeMin = new Date(st.start).getMinutes();
+            // Format 24-hour (HH:mm) - chuẩn hóa về UTC+7
+            const showStartTime = new Date(st.start);
+            const showTimeHourVN = (showStartTime.getUTCHours() + 7) % 24;
+            const showTimeMinVN = showStartTime.getUTCMinutes();
             const [targetHour, targetMin] = startTime.split(":").map(Number);
             timeMatch =
-              showTimeHour === targetHour && showTimeMin === targetMin;
+              showTimeHourVN === targetHour && showTimeMinVN === targetMin;
           }
 
           const roomMatch = room ? st.room.toString() === room : true;
