@@ -24,9 +24,9 @@ const getResetPasswordTemplate = (userName: string, otp: string) => {
 };
 
 const getWelcomeTemplate = (userName: string) => {
-    return {
-      subject: "Chào mừng bạn đến với CineJoy – Trải nghiệm điện ảnh tuyệt vời!",
-      html: `
+  return {
+    subject: "Chào mừng bạn đến với CineJoy – Trải nghiệm điện ảnh tuyệt vời!",
+    html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #e50914; text-align: center;">Chào mừng đến với CineJoy! 🍿</h1>
           <p style="font-size: 16px;">Xin chào <strong>${userName}</strong>,</p>
@@ -43,7 +43,7 @@ const getWelcomeTemplate = (userName: string) => {
           <p style="font-size: 16px;">Trân trọng,<br>Đội ngũ CineJoy</p>
         </div>
       `,
-    };
+  };
 };
 
 interface PaymentEmailData {
@@ -86,19 +86,40 @@ interface PaymentEmailData {
 }
 
 const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
-  const { userName, orderId, movieName, cinema, room, roomType, showtime, seats, ticketPrice, comboPrice, totalAmount, voucherDiscount, voucherCode, amountDiscount, amountDiscountDescription, itemPromotions, percentPromotions, finalAmount, qrCodeDataUrl, foodCombos } = data;
-  
+  const {
+    userName,
+    orderId,
+    movieName,
+    cinema,
+    room,
+    roomType,
+    showtime,
+    seats,
+    ticketPrice,
+    comboPrice,
+    totalAmount,
+    voucherDiscount,
+    voucherCode,
+    amountDiscount,
+    amountDiscountDescription,
+    itemPromotions,
+    percentPromotions,
+    finalAmount,
+    qrCodeDataUrl,
+    foodCombos,
+  } = data;
+
   // Debug logging
   console.log(`📧 Email Template Debug:`, {
     orderId,
     foodCombos,
     hasFoodCombos: foodCombos && foodCombos.length > 0,
-    foodCombosLength: foodCombos ? foodCombos.length : 0
+    foodCombosLength: foodCombos ? foodCombos.length : 0,
   });
-  
+
   return {
     subject: "CineJoy: Giao Dịch Thành Công",
-      html: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; overflow-x: hidden;">
         
         <div style="padding: 10px; background-color: white;">
@@ -134,7 +155,9 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Phòng chiếu:</td>
-                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${room}${roomType ? ` (${roomType})` : ''}</td>
+                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${room}${
+      roomType ? ` (${roomType})` : ""
+    }</td>
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Suất chiếu:</td>
@@ -142,58 +165,103 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Ghế:</td>
-                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${seats.join(', ')}</td>
+                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${seats.join(
+                  ", "
+                )}</td>
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Giá vé:</td>
-                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${seats.length} x ${ticketPrice.toLocaleString('vi-VN')}₫</td>
+                <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${
+                  seats.length
+                } x ${ticketPrice.toLocaleString("vi-VN")}₫</td>
               </tr>
-              ${data.foodCombos && data.foodCombos.length > 0 ? `
+              ${
+                data.foodCombos && data.foodCombos.length > 0
+                  ? `
               <tr>
                 <td colspan="2" style="padding: 10px 0; font-weight: bold; font-size: 14px; border-top: 1px dashed #ccc;">
                   CHI TIẾT CONCESSION
                 </td>
               </tr>
-              ${data.foodCombos.map(combo => `
+              ${data.foodCombos
+                .map(
+                  (combo) => `
               <tr>
-                <td style="padding: 5px 0; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word;">${combo.comboName}</td>
-                <td style="padding: 5px 0; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${combo.quantity} x ${combo.price.toLocaleString('vi-VN')}₫</td>
+                <td style="padding: 5px 0; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word;">${
+                  combo.comboName
+                }</td>
+                <td style="padding: 5px 0; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">${
+                  combo.quantity
+                } x ${combo.price.toLocaleString("vi-VN")}₫</td>
               </tr>
-              `).join('')}
+              `
+                )
+                .join("")}
               <tr>
                 <td colspan="2" style="padding: 5px 0; border-bottom: 1px dashed #ccc;"></td>
               </tr>
-              ` : ''}
+              `
+                  : ""
+              }
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Voucher:</td>
                 <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">
-                  ${voucherDiscount && voucherDiscount > 0 ? `-${voucherDiscount.toLocaleString('vi-VN')}₫` : '0₫'}
+                  ${
+                    voucherDiscount && voucherDiscount > 0
+                      ? `-${voucherDiscount.toLocaleString("vi-VN")}₫`
+                      : "0₫"
+                  }
                 </td>
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; font-size: 14px; word-wrap: break-word;">Khuyến mãi:</td>
                 <td style="padding: 5px 0; word-wrap: break-word; overflow-wrap: break-word; text-align: right;">
-                  ${amountDiscount && amountDiscount > 0 ? `-${amountDiscount.toLocaleString('vi-VN')}₫` : '0₫'}
+                  ${
+                    amountDiscount && amountDiscount > 0
+                      ? `-${amountDiscount.toLocaleString("vi-VN")}₫`
+                      : "0₫"
+                  }
                 </td>
               </tr>
-              ${amountDiscount && amountDiscount > 0 && amountDiscountDescription ? `
+              ${
+                amountDiscount &&
+                amountDiscount > 0 &&
+                amountDiscountDescription
+                  ? `
               <tr>
                 <td colspan="2" style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
                   ${amountDiscountDescription}
                 </td>
               </tr>
-              ` : ''}
-              ${percentPromotions && percentPromotions.length > 0 ? percentPromotions.map(promotion => `
+              `
+                  : ""
+              }
+              ${
+                percentPromotions && percentPromotions.length > 0
+                  ? percentPromotions
+                      .map(
+                        (promotion) => `
               <tr>
                 <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
-                  ${promotion.description || `Giảm ${promotion.discountPercent}% ${promotion.comboName}`}
+                  ${
+                    promotion.description ||
+                    `Giảm ${promotion.discountPercent}% ${promotion.comboName}`
+                  }
                 </td>
                 <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word; text-align: right;">
-                  -${promotion.discountAmount.toLocaleString('vi-VN')}₫
+                  -${promotion.discountAmount.toLocaleString("vi-VN")}₫
                 </td>
               </tr>
-              `).join('') : ''}
-              ${itemPromotions && itemPromotions.length > 0 ? itemPromotions.map(promotion => `
+              `
+                      )
+                      .join("")
+                  : ""
+              }
+              ${
+                itemPromotions && itemPromotions.length > 0
+                  ? itemPromotions
+                      .map(
+                        (promotion) => `
               <tr>
                 <td colspan="2" style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word;">
                   ${promotion.description}
@@ -204,16 +272,22 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
                   +${promotion.rewardQuantity} ${promotion.rewardItem}
                 </td>
                 <td style="padding: 2px 0; font-size: 12px; font-style: italic; word-wrap: break-word; text-align: right;">
-                  ${promotion.rewardType === 'free' ? '(miễn phí)' : ''}
+                  ${promotion.rewardType === "free" ? "(miễn phí)" : ""}
                 </td>
               </tr>
-              `).join('') : ''}
+              `
+                      )
+                      .join("")
+                  : ""
+              }
             </table>
           </div>
           
           
           <div style="background-color: #e50914; color: white; padding: 12px; border-radius: 5px; text-align: center; margin: 20px 0;">
-            <h2 style="margin: 0; font-size: 14px;">Tổng cộng: ${finalAmount.toLocaleString('vi-VN')}₫</h2>
+            <h2 style="margin: 0; font-size: 14px;">Tổng cộng: ${finalAmount.toLocaleString(
+              "vi-VN"
+            )}₫</h2>
           </div>
           
             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
@@ -227,9 +301,12 @@ const getPaymentSuccessTemplate = (data: PaymentEmailData) => {
     `,
   };
 };
-  
 
-const sendResetPasswordEmail = async (to: string, userName: string, otp: string) => {
+const sendResetPasswordEmail = async (
+  to: string,
+  userName: string,
+  otp: string
+) => {
   try {
     const template = getResetPasswordTemplate(userName, otp);
 
@@ -289,20 +366,19 @@ const sendWelcomeEmail = async (to: string, userName: string) => {
 
 const sendPaymentSuccessEmail = async (to: string, data: PaymentEmailData) => {
   try {
-    
     // Tạo QR code từ order ID
     const qrCodeBuffer = await QRCode.toBuffer(data.orderId, {
-      width: 100,  // Giảm kích thước
-      margin: 1,   // Giảm margin
+      width: 100, // Giảm kích thước
+      margin: 1, // Giảm margin
       color: {
-        dark: '#000000',  // Màu đen bình thường
-        light: '#FFFFFF'
-      }
+        dark: "#000000", // Màu đen bình thường
+        light: "#FFFFFF",
+      },
     });
 
     const template = getPaymentSuccessTemplate({
       ...data,
-      qrCodeDataUrl: '' // Không dùng base64 nữa
+      qrCodeDataUrl: "", // Không dùng base64 nữa
     });
 
     const mailOptions: SendMailOptions = {
@@ -314,9 +390,9 @@ const sendPaymentSuccessEmail = async (to: string, data: PaymentEmailData) => {
         {
           filename: `qr-code-${data.orderId}.png`,
           content: qrCodeBuffer,
-          cid: 'qr-code' // Content ID để reference trong HTML
-        }
-      ]
+          cid: "qr-code", // Content ID để reference trong HTML
+        },
+      ],
     };
 
     await transporter.sendMail(mailOptions);

@@ -3,7 +3,7 @@ import NodeCache from "node-cache";
 
 // Khởi tạo Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
 // Cấu hình cache
 const cache = new NodeCache({ stdTTL: 600 }); // Cache phản hồi trong 10 phút

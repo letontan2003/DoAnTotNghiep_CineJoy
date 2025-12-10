@@ -4,6 +4,60 @@ import momoConfig from "../configs/momoConfig";
 import vnpayConfig from "../configs/vnpayConfig";
 import MoMoConfigTest from "../utils/momoConfigTest";
 import VNPayService from "../services/VNPayService";
+import Payment from "../models/Payment";
+
+const DEFAULT_SUCCESS_REDIRECT =
+  process.env.FRONTEND_SUCCESS_URL || "http://localhost:3000/payment/success";
+const DEFAULT_CANCEL_REDIRECT =
+  process.env.FRONTEND_CANCEL_URL || "http://localhost:3000/payment/cancel";
+
+const buildRedirectUrl = (
+  baseUrl: string,
+  params: Record<string, string | undefined>
+): string => {
+  try {
+    const url = new URL(baseUrl);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, value);
+      }
+    });
+    return url.toString();
+  } catch (error) {
+    console.error("Invalid redirect URL", { baseUrl, error });
+    return baseUrl;
+  }
+};
+
+const getPaymentRedirectBase = async (
+  orderId: string | undefined,
+  type: "success" | "cancel"
+): Promise<string> => {
+  if (!orderId) {
+    return type === "success"
+      ? DEFAULT_SUCCESS_REDIRECT
+      : DEFAULT_CANCEL_REDIRECT;
+  }
+  try {
+    const paymentRecord = await Payment.findOne({ orderId })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (type === "success" && paymentRecord?.metadata?.returnUrl) {
+      return paymentRecord.metadata.returnUrl;
+    }
+    if (type === "cancel" && paymentRecord?.metadata?.cancelUrl) {
+      return paymentRecord.metadata.cancelUrl;
+    }
+  } catch (error) {
+    console.error("Error retrieving payment metadata for redirect", {
+      orderId,
+      error,
+    });
+  }
+  return type === "success"
+    ? DEFAULT_SUCCESS_REDIRECT
+    : DEFAULT_CANCEL_REDIRECT;
+};
 
 class PaymentController {
   // Lấy payment theo ID
@@ -109,7 +163,6 @@ class PaymentController {
   async handleMoMoReturn(req: Request, res: Response): Promise<void> {
     try {
       const { orderId, resultCode, message } = req.query;
-
 
       // Redirect về frontend với kết quả
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -332,7 +385,7 @@ class PaymentController {
           <div class="container">
             <h2>🎬 CineJoy - Mock Payment</h2>
             <p><strong>Payment ID:</strong> ${paymentId}</p>
-            <p><strong>Phương thức:</strong> ${paymentMethod || 'MOMO'}</p>
+            <p><strong>Phương thức:</strong> ${paymentMethod || "MOMO"}</p>
             <p><strong>Số tiền:</strong> <span class="amount">${parseInt(
               amount as string
             ).toLocaleString()} VNĐ</span></p>
@@ -343,7 +396,7 @@ class PaymentController {
           </div>
 
           <script>
-            const paymentMethod = '${paymentMethod || 'MOMO'}';
+            const paymentMethod = '${paymentMethod || "MOMO"}';
             
             function simulatePayment(status) {
               if (status === 'success') {
@@ -487,16 +540,14 @@ class PaymentController {
   // Xử lý VNPay return URL
   async handleVNPayReturn(req: Request, res: Response): Promise<void> {
     try {
-      
-      const { 
-        vnp_TxnRef, 
-        vnp_ResponseCode, 
+      const {
+        vnp_TxnRef,
+        vnp_ResponseCode,
         vnp_TransactionNo,
         vnp_Amount,
         vnp_SecureHash,
-        ...otherParams 
+        ...otherParams
       } = req.query;
-
 
       // Gọi callback để xử lý kết quả thanh toán
       try {
@@ -506,25 +557,50 @@ class PaymentController {
           vnp_TransactionNo,
           vnp_Amount,
           vnp_SecureHash,
-          ...otherParams
+          ...otherParams,
         };
-        
-        const result = await PaymentService.handleVNPayCallback(callbackData);
+
+        await PaymentService.handleVNPayCallback(callbackData);
       } catch (callbackError) {
         console.error("VNPay callback error:", callbackError);
       }
 
+      const orderId = vnp_TxnRef ? String(vnp_TxnRef) : undefined;
+      const amountValue =
+        typeof vnp_Amount === "string"
+          ? (Number(vnp_Amount) / 100).toString()
+          : undefined;
+      const transactionNo =
+        typeof vnp_TransactionNo === "string" ? vnp_TransactionNo : undefined;
+
       // Redirect dựa trên response code
       if (vnp_ResponseCode === "00") {
         // Thanh toán thành công
-        res.redirect(`http://localhost:3000/payment/success?orderId=${vnp_TxnRef}&status=success`);
+        const successBase = await getPaymentRedirectBase(orderId, "success");
+        const redirectUrl = buildRedirectUrl(successBase, {
+          orderId,
+          status: "success",
+          amount: amountValue,
+          transId: transactionNo,
+        });
+        res.redirect(redirectUrl);
       } else {
         // Thanh toán thất bại
-        res.redirect(`http://localhost:3000/payment/cancel?orderId=${vnp_TxnRef}&status=failed&code=${vnp_ResponseCode}`);
+        const cancelBase = await getPaymentRedirectBase(orderId, "cancel");
+        const redirectUrl = buildRedirectUrl(cancelBase, {
+          orderId,
+          status: "failed",
+          code: vnp_ResponseCode ? String(vnp_ResponseCode) : undefined,
+          amount: amountValue,
+        });
+        res.redirect(redirectUrl);
       }
     } catch (error) {
       console.error("VNPay return error:", error);
-      res.redirect("http://localhost:3000/payment/cancel?status=error");
+      const fallbackUrl = buildRedirectUrl(DEFAULT_CANCEL_REDIRECT, {
+        status: "error",
+      });
+      res.redirect(fallbackUrl);
     }
   }
 

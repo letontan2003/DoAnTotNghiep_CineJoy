@@ -19,7 +19,11 @@ export interface IMovie extends Document {
   language: string[];
   description: string;
   trailer: string;
-  status: 'Phim đang chiếu' | 'Phim sắp chiếu' | 'Suất chiếu đặc biệt' | 'Đã kết thúc';
+  status:
+    | "Phim đang chiếu"
+    | "Phim sắp chiếu"
+    | "Suất chiếu đặc biệt"
+    | "Đã kết thúc";
   image: string;
   posterImage: string;
   ageRating: string;
@@ -42,10 +46,15 @@ const MovieSchema = new Schema<IMovie>({
   language: { type: [String], required: true },
   description: { type: String, required: true },
   trailer: { type: String },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     required: true,
-    enum: ['Phim đang chiếu', 'Phim sắp chiếu', 'Suất chiếu đặc biệt', 'Đã kết thúc']
+    enum: [
+      "Phim đang chiếu",
+      "Phim sắp chiếu",
+      "Suất chiếu đặc biệt",
+      "Đã kết thúc",
+    ],
   },
   image: { type: String, required: true },
   posterImage: { type: String, required: true },
@@ -64,9 +73,9 @@ const MovieSchema = new Schema<IMovie>({
     max: 5,
   },
   titleNoAccent: { type: String },
-  isHidden: { 
-    type: Boolean, 
-    default: false 
+  isHidden: {
+    type: Boolean,
+    default: false,
   },
 });
 

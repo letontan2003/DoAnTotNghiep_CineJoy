@@ -131,18 +131,18 @@ const ChatbotService = {
 
           const movieTitle = movieId?.title || "Chưa có";
           const theaterName = theaterId?.name || "Chưa có";
-          
+
           let dateInfo = "Chưa cập nhật";
           let startDateStr = "";
           let endDateStr = "";
-          
+
           // Tính toán ngày bắt đầu và kết thúc từ mảng showTimes
           if (showTimes && Array.isArray(showTimes) && showTimes.length > 0) {
             // Lọc các showTime có date hợp lệ và status active
-            const validShowTimes = showTimes.filter((st: any) => 
-              st.date && (st.status === 'active' || !st.status)
+            const validShowTimes = showTimes.filter(
+              (st: any) => st.date && (st.status === "active" || !st.status)
             );
-            
+
             if (validShowTimes.length > 0) {
               // Tìm ngày nhỏ nhất (bắt đầu) và lớn nhất (kết thúc)
               const dates = validShowTimes.map((st: any) => {
@@ -151,13 +151,17 @@ const ChatbotService = {
                 date.setHours(0, 0, 0, 0);
                 return date;
               });
-              
-              const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
-              const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
-              
+
+              const minDate = new Date(
+                Math.min(...dates.map((d: Date) => d.getTime()))
+              );
+              const maxDate = new Date(
+                Math.max(...dates.map((d: Date) => d.getTime()))
+              );
+
               startDateStr = minDate.toLocaleDateString("vi-VN");
               endDateStr = maxDate.toLocaleDateString("vi-VN");
-              
+
               if (startDateStr === endDateStr) {
                 dateInfo = startDateStr;
               } else {
@@ -166,26 +170,38 @@ const ChatbotService = {
             }
           }
 
-          const timesDetails = showTimes
-            ?.filter((time: any) => time.status === 'active' || !time.status)
-            .slice(0, 5) // Chỉ lấy 5 suất đầu tiên để không quá dài
-            .map((time: { date?: string | Date; start: string | Date; end: string | Date; room?: any }) => {
-              const date = time.date 
-                ? new Date(time.date).toLocaleDateString("vi-VN")
-                : "Chưa có";
-              const startTime = new Date(time.start).toLocaleTimeString(
-                "vi-VN",
-                { hour: "2-digit", minute: "2-digit" }
-              );
-              const endTime = new Date(time.end).toLocaleTimeString(
-                "vi-VN",
-                { hour: "2-digit", minute: "2-digit" }
-              );
-              const roomName = time.room?.name || (typeof time.room === 'string' ? time.room : "Chưa cập nhật");
+          const timesDetails =
+            showTimes
+              ?.filter((time: any) => time.status === "active" || !time.status)
+              .slice(0, 5) // Chỉ lấy 5 suất đầu tiên để không quá dài
+              .map(
+                (time: {
+                  date?: string | Date;
+                  start: string | Date;
+                  end: string | Date;
+                  room?: any;
+                }) => {
+                  const date = time.date
+                    ? new Date(time.date).toLocaleDateString("vi-VN")
+                    : "Chưa có";
+                  const startTime = new Date(time.start).toLocaleTimeString(
+                    "vi-VN",
+                    { hour: "2-digit", minute: "2-digit" }
+                  );
+                  const endTime = new Date(time.end).toLocaleTimeString(
+                    "vi-VN",
+                    { hour: "2-digit", minute: "2-digit" }
+                  );
+                  const roomName =
+                    time.room?.name ||
+                    (typeof time.room === "string"
+                      ? time.room
+                      : "Chưa cập nhật");
 
-              return `  - Ngày: ${date}, Phòng: ${roomName}, Giờ: ${startTime} - ${endTime}`;
-            })
-            .join("\n") || "Chưa có suất chiếu";
+                  return `  - Ngày: ${date}, Phòng: ${roomName}, Giờ: ${startTime} - ${endTime}`;
+                }
+              )
+              .join("\n") || "Chưa có suất chiếu";
 
           return `
 - Phim: ${movieTitle}
@@ -633,14 +649,14 @@ ${timesDetails}
   getBlogInfo: async () => {
     try {
       const blogs = await blogService.getVisibleBlogs();
-      
+
       if (!blogs || blogs.length === 0) {
         return "Hiện không có tin tức nào.";
       }
 
       // Lấy 10 blog mới nhất
       const recentBlogs = blogs.slice(0, 10);
-      
+
       return recentBlogs
         .map((blog: any, index: number) => {
           return `${index + 1}. ${blog.title || "Chưa có tiêu đề"}`;
@@ -655,7 +671,7 @@ ${timesDetails}
   // Lấy thông tin cách tích điểm
   getPointsAccumulationInfo: async (userId?: string) => {
     let birthdayInfo = "";
-    
+
     if (userId) {
       try {
         const user = await User.findById(userId).select("dateOfBirth");
@@ -663,21 +679,34 @@ ${timesDetails}
           const today = new Date();
           const birthday = new Date(user.dateOfBirth);
           const currentYear = today.getFullYear();
-          
+
           // Tạo ngày sinh nhật năm nay
-          const thisYearBirthday = new Date(currentYear, birthday.getMonth(), birthday.getDate());
-          
+          const thisYearBirthday = new Date(
+            currentYear,
+            birthday.getMonth(),
+            birthday.getDate()
+          );
+
           // Nếu sinh nhật đã qua trong năm nay, tính cho năm sau
           let nextBirthday = thisYearBirthday;
           if (today > thisYearBirthday) {
-            nextBirthday = new Date(currentYear + 1, birthday.getMonth(), birthday.getDate());
+            nextBirthday = new Date(
+              currentYear + 1,
+              birthday.getMonth(),
+              birthday.getDate()
+            );
           }
-          
+
           // Tính số ngày còn lại
-          const daysUntilBirthday = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-          
-          const birthdayDateStr = birthday.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
-          
+          const daysUntilBirthday = Math.ceil(
+            (nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          const birthdayDateStr = birthday.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+          });
+
           birthdayInfo = `\n3. Sự kiện sinh nhật:
    - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
    - Sinh nhật của bạn: ${birthdayDateStr}
@@ -697,7 +726,7 @@ ${timesDetails}
    - Nhận +100 điểm CNJ vào ngày sinh nhật của bạn
    - Bạn cần đăng nhập để xem thông tin sinh nhật của mình`;
     }
-    
+
     return `Các cách tích lũy điểm CNJ tại CineJoy:
 
 1. Mua vé xem phim:
@@ -1539,10 +1568,12 @@ Trả lời:`;
 
       // Xử lý lỗi quota exceeded (429)
       if (error?.status === 429) {
-        const retryDelay = error?.errorDetails?.find(
-          (detail: any) => detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
-        )?.retryDelay || "một lúc";
-        
+        const retryDelay =
+          error?.errorDetails?.find(
+            (detail: any) =>
+              detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+          )?.retryDelay || "một lúc";
+
         console.error(
           "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
         );
@@ -1620,14 +1651,14 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       return cleanTitle;
     } catch (error: any) {
       console.error("Error recognizing poster from image:", error);
-      
+
       // Xử lý lỗi quota exceeded (429)
       if (error?.status === 429) {
         console.error(
           "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests khi nhận diện poster."
         );
       }
-      
+
       return null;
     }
   },
@@ -2229,13 +2260,15 @@ Nhiệm vụ:
     return reply;
   } catch (error: any) {
     console.error("Error generating poster question reply:", error);
-    
+
     // Xử lý lỗi quota exceeded (429)
     if (error?.status === 429) {
-      const retryDelay = error?.errorDetails?.find(
-        (detail: any) => detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
-      )?.retryDelay || "một lúc";
-      
+      const retryDelay =
+        error?.errorDetails?.find(
+          (detail: any) =>
+            detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+        )?.retryDelay || "một lúc";
+
       console.error(
         "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày."
       );
@@ -2243,7 +2276,7 @@ Nhiệm vụ:
       ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
       return fallback;
     }
-    
+
     const fallback =
       "Xin lỗi, hệ thống đang bận nên chưa thể trả lời câu hỏi về poster ngay lúc này. Bạn vui lòng thử lại sau nhé!";
     ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });

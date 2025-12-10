@@ -60,4 +60,10 @@ ShowtimeSchema.index({ movieId: 1, theaterId: 1 }, { unique: true });
 // Tối ưu tìm kiếm theo các trường trong mảng showTimes
 ShowtimeSchema.index({ 'showTimes.date': 1, 'showTimes.room': 1, 'showTimes.start': 1 });
 
+// Index cho status để tối ưu filter active/inactive showtimes
+ShowtimeSchema.index({ 'showTimes.date': 1, 'showTimes.status': 1 });
+
+// Index riêng cho date để tối ưu query theo ngày (dùng trong getShowtimes, releaseExpiredReservations)
+ShowtimeSchema.index({ 'showTimes.date': 1 });
+
 export const Showtime = model<IShowtime>("Showtime", ShowtimeSchema);

@@ -37,9 +37,9 @@ export interface IOrder extends Document {
   }>;
   percentPromotions?: Array<{
     description: string;
-    comboName?: string; // Optional - chỉ có khi áp dụng cho combo
-    comboId?: string; // Optional - chỉ có khi áp dụng cho combo
-    seatType?: string; // Optional - chỉ có khi áp dụng cho vé
+    comboName?: string;
+    comboId?: string;
+    seatType?: string;
     discountPercent: number;
     discountAmount: number;
   }>;
@@ -50,7 +50,7 @@ export interface IOrder extends Document {
   paymentMethod: "MOMO" | "VNPAY"; // Required
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
   orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RETURNED";
-  pointsProcessed?: boolean; // Đánh dấu order đã được xử lý điểm chưa
+  pointsProcessed?: boolean;
   returnInfo?: {
     reason?: string;
     returnDate?: Date;
@@ -67,7 +67,7 @@ export interface IOrder extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
-  expiresAt?: Date; // Optional để có thể null cho CONFIRMED/RETURNED
+  expiresAt?: Date;
 }
 
 const OrderSchema: Schema = new Schema(
@@ -208,15 +208,15 @@ const OrderSchema: Schema = new Schema(
         },
         comboName: {
           type: String,
-          required: false, // Optional - chỉ có khi áp dụng cho combo
+          required: false,
         },
         comboId: {
           type: String,
-          required: false, // Optional - chỉ có khi áp dụng cho combo
+          required: false,
         },
         seatType: {
           type: String,
-          required: false, // Optional - chỉ có khi áp dụng cho vé
+          required: false,
         },
         discountPercent: {
           type: Number,
@@ -312,7 +312,7 @@ const OrderSchema: Schema = new Schema(
     },
     expiresAt: {
       type: Date,
-      required: false, // Không bắt buộc để có thể set null cho CONFIRMED/RETURNED
+      required: false,
       index: { expireAfterSeconds: 0 },
     },
   },
@@ -322,12 +322,9 @@ const OrderSchema: Schema = new Schema(
   }
 );
 
-// Indexes for better performance
 OrderSchema.index({ userId: 1, createdAt: -1 });
 OrderSchema.index({ paymentStatus: 1, orderStatus: 1 });
-// expiresAt index is already defined above with TTL
 
-// Generate unique order code before saving (backup in case not provided)
 OrderSchema.pre("save", async function (next) {
   if (this.isNew && !this.orderCode) {
     const timestamp = Date.now().toString(36);
@@ -337,10 +334,7 @@ OrderSchema.pre("save", async function (next) {
   next();
 });
 
-// Pre-save hook: Đảm bảo orders CONFIRMED và RETURNED không bao giờ có expiresAt
-// Để tránh TTL index xóa các orders đã được xác nhận
 OrderSchema.pre("save", async function (next) {
-  // Nếu order đã được CONFIRMED hoặc RETURNED, đảm bảo expiresAt không được set
   if (this.orderStatus === "CONFIRMED" || this.orderStatus === "RETURNED") {
     if (this.expiresAt !== undefined && this.expiresAt !== null) {
       this.expiresAt = undefined;

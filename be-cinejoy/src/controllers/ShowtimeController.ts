@@ -21,7 +21,9 @@ export default class ShowtimeController {
       const showtimes = await showtimeService.getAllShowtimesForAdmin();
       res.status(200).json(showtimes);
     } catch (error) {
-      res.status(500).json({ message: "Error getting all showtimes for admin", error });
+      res
+        .status(500)
+        .json({ message: "Error getting all showtimes for admin", error });
     }
   }
 
@@ -33,7 +35,7 @@ export default class ShowtimeController {
         status: true,
         error: 0,
         message: `Đã cập nhật ${result.updatedCount} suất chiếu đã quá ngày`,
-        data: result
+        data: result,
       });
     } catch (error) {
       console.error("Error updating expired showtimes:", error);
@@ -41,20 +43,23 @@ export default class ShowtimeController {
         status: false,
         error: 500,
         message: "Lỗi server khi cập nhật suất chiếu đã quá ngày",
-        data: null
+        data: null,
       });
     }
   }
 
   // API manual trigger cập nhật trạng thái showtime đã quá ngày (cho admin)
-  async manualUpdateExpiredShowtimes(req: Request, res: Response): Promise<void> {
+  async manualUpdateExpiredShowtimes(
+    req: Request,
+    res: Response
+  ): Promise<void> {
     try {
       const result = await schedulerService.runManualExpiredUpdate();
       res.status(200).json({
         status: true,
         error: 0,
         message: `Đã cập nhật thủ công ${result.updatedCount} suất chiếu đã quá ngày`,
-        data: result
+        data: result,
       });
     } catch (error) {
       console.error("Error in manual update expired showtimes:", error);
@@ -62,7 +67,7 @@ export default class ShowtimeController {
         status: false,
         error: 500,
         message: "Lỗi server khi cập nhật thủ công suất chiếu đã quá ngày",
-        data: null
+        data: null,
       });
     }
   }
@@ -76,7 +81,7 @@ export default class ShowtimeController {
         status: true,
         error: 0,
         message: "Kiểm tra ghế đã đặt thành công",
-        data: result
+        data: result,
       });
     } catch (error) {
       console.error("Error checking occupied seats:", error);
@@ -84,13 +89,16 @@ export default class ShowtimeController {
         status: false,
         error: 500,
         message: "Lỗi server khi kiểm tra ghế đã đặt",
-        data: null
+        data: null,
       });
     }
   }
 
   // API kiểm tra từng suất chiếu có ghế đã đặt không
-  async checkEachShowtimeOccupiedSeats(req: Request, res: Response): Promise<void> {
+  async checkEachShowtimeOccupiedSeats(
+    req: Request,
+    res: Response
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const result = await showtimeService.checkEachShowtimeOccupiedSeats(id);
@@ -98,7 +106,7 @@ export default class ShowtimeController {
         status: true,
         error: 0,
         message: "Kiểm tra từng suất chiếu thành công",
-        data: result
+        data: result,
       });
     } catch (error) {
       console.error("Error checking each showtime occupied seats:", error);
@@ -106,23 +114,27 @@ export default class ShowtimeController {
         status: false,
         error: 500,
         message: "Lỗi server khi kiểm tra từng suất chiếu",
-        data: null
+        data: null,
       });
     }
   }
 
   // API lấy thông tin ghế với trạng thái reservation
-  async getSeatsWithReservationStatus(req: Request, res: Response): Promise<void> {
+  async getSeatsWithReservationStatus(
+    req: Request,
+    res: Response
+  ): Promise<void> {
     try {
-      const { showtimeId, date, startTime, room, fromPaymentReturn } = req.query;
+      const { showtimeId, date, startTime, room, fromPaymentReturn } =
+        req.query;
       const userId = (req as any).user?.id; // Từ middleware auth
 
       if (!showtimeId || !date || !startTime || !room) {
-        res.status(400).json({ 
-          status: false, 
-          error: 400, 
-          message: 'Thiếu thông tin bắt buộc', 
-          data: null 
+        res.status(400).json({
+          status: false,
+          error: 400,
+          message: "Thiếu thông tin bắt buộc",
+          data: null,
         });
         return;
       }
@@ -133,21 +145,21 @@ export default class ShowtimeController {
         startTime as string,
         room as string,
         userId,
-        fromPaymentReturn === 'true'
+        fromPaymentReturn === "true"
       );
 
-      res.status(200).json({ 
-        status: true, 
-        error: 0, 
-        message: 'Lấy thông tin ghế thành công', 
-        data: seats 
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: "Lấy thông tin ghế thành công",
+        data: seats,
       });
     } catch (error) {
-      res.status(500).json({ 
-        status: false, 
-        error: 500, 
-        message: error instanceof Error ? error.message : 'Lỗi server', 
-        data: null 
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: error instanceof Error ? error.message : "Lỗi server",
+        data: null,
       });
     }
   }
@@ -158,23 +170,30 @@ export default class ShowtimeController {
       const { showtimeId, date, startTime, room, seatIds } = req.body;
       const userId = (req as any).user?.id;
 
-      if (!showtimeId || !date || !startTime || !room || !Array.isArray(seatIds) || !userId) {
-        res.status(400).json({ 
-          status: false, 
-          error: 400, 
-          message: 'Thiếu thông tin bắt buộc', 
-          data: null 
+      if (
+        !showtimeId ||
+        !date ||
+        !startTime ||
+        !room ||
+        !Array.isArray(seatIds) ||
+        !userId
+      ) {
+        res.status(400).json({
+          status: false,
+          error: 400,
+          message: "Thiếu thông tin bắt buộc",
+          data: null,
         });
         return;
       }
 
       // Kiểm tra giới hạn tối đa 8 ghế
       if (seatIds.length > 8) {
-        res.status(400).json({ 
-          status: false, 
-          error: 400, 
-          message: 'Bạn chỉ có thể đặt tối đa 8 ghế', 
-          data: null 
+        res.status(400).json({
+          status: false,
+          error: 400,
+          message: "Bạn chỉ có thể đặt tối đa 8 ghế",
+          data: null,
         });
         return;
       }
@@ -185,23 +204,23 @@ export default class ShowtimeController {
         startTime,
         room,
         seatIds,
-        'reserved',
+        "reserved",
         undefined,
         userId
       );
 
-      res.status(200).json({ 
-        status: true, 
-        error: 0, 
-        message: 'Tạm giữ ghế thành công (8 phút)', 
-        data: { seatIds, reservedUntil: new Date(Date.now() + 8 * 60 * 1000) }
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: "Tạm giữ ghế thành công (8 phút)",
+        data: { seatIds, reservedUntil: new Date(Date.now() + 8 * 60 * 1000) },
       });
     } catch (error) {
-      res.status(500).json({ 
-        status: false, 
-        error: 500, 
-        message: error instanceof Error ? error.message : 'Lỗi server', 
-        data: null 
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: error instanceof Error ? error.message : "Lỗi server",
+        data: null,
       });
     }
   }
@@ -211,14 +230,34 @@ export default class ShowtimeController {
     try {
       const { showtimeId, date, startTime, room, seatIds } = req.body;
       const userId = (req as any).user?.id; // Lấy userId từ auth middleware
-      
-      if (!showtimeId || !date || !startTime || !room || !Array.isArray(seatIds)) {
-        res.status(400).json({ status: false, error: 400, message: 'Thiếu thông tin bắt buộc', data: null });
+
+      if (
+        !showtimeId ||
+        !date ||
+        !startTime ||
+        !room ||
+        !Array.isArray(seatIds)
+      ) {
+        res
+          .status(400)
+          .json({
+            status: false,
+            error: 400,
+            message: "Thiếu thông tin bắt buộc",
+            data: null,
+          });
         return;
       }
 
       if (!userId) {
-        res.status(401).json({ status: false, error: 401, message: 'User chưa đăng nhập', data: null });
+        res
+          .status(401)
+          .json({
+            status: false,
+            error: 401,
+            message: "User chưa đăng nhập",
+            data: null,
+          });
         return;
       }
 
@@ -231,15 +270,32 @@ export default class ShowtimeController {
         startTime,
         room,
         seatIds,
-        'available',
+        "available",
         userId // Chỉ cho phép release ghế mà user này đã reserve
       );
 
-      console.log(`✅ Successfully released seats for user ${userId}:`, seatIds);
-      res.status(200).json({ status: true, error: 0, message: 'Đã giải phóng ghế', data: result });
+      console.log(
+        `✅ Successfully released seats for user ${userId}:`,
+        seatIds
+      );
+      res
+        .status(200)
+        .json({
+          status: true,
+          error: 0,
+          message: "Đã giải phóng ghế",
+          data: result,
+        });
     } catch (error) {
       console.error(`❌ Error releasing seats:`, error);
-      res.status(500).json({ status: false, error: 500, message: error instanceof Error ? error.message : 'Lỗi server', data: null });
+      res
+        .status(500)
+        .json({
+          status: false,
+          error: 500,
+          message: error instanceof Error ? error.message : "Lỗi server",
+          data: null,
+        });
     }
   }
   async getShowtimeById(req: Request, res: Response): Promise<void> {
@@ -261,7 +317,7 @@ export default class ShowtimeController {
       const newShowtime = await showtimeService.addShowtime(req.body);
       res.status(201).json(newShowtime);
     } catch (error: any) {
-      console.error('Error in addShowtime controller:', error);
+      console.error("Error in addShowtime controller:", error);
       // Trả về message cụ thể từ error nếu có, nếu không thì dùng message mặc định
       const errorMessage = error?.message || "Error adding showtime";
       res.status(400).json({ message: errorMessage, error: error?.message });
@@ -279,31 +335,31 @@ export default class ShowtimeController {
         res.status(404).json({ message: "Showtime not found" });
         return;
       }
-      
+
       // Populate room data before returning
       const populatedShowtime = await showtimeService.getShowtimeById(id);
       res.status(200).json(populatedShowtime);
     } catch (error: any) {
-      console.error('Error in updateShowtime controller:', error);
-      
+      console.error("Error in updateShowtime controller:", error);
+
       // Xử lý lỗi occupied seats
       if (error?.message && error.message.includes("đã có ghế được đặt")) {
-        res.status(400).json({ 
+        res.status(400).json({
           status: false,
           error: 400,
           message: "Không thể cập nhật vì suất chiếu này đã có ghế được đặt",
-          data: null
+          data: null,
         });
         return;
       }
-      
+
       // Trả về message cụ thể từ error nếu có, nếu không thì dùng message mặc định
       const errorMessage = error?.message || "Error updating showtime";
-      res.status(400).json({ 
+      res.status(400).json({
         status: false,
         error: 400,
-        message: errorMessage, 
-        data: null
+        message: errorMessage,
+        data: null,
       });
     }
   }
@@ -364,10 +420,15 @@ export default class ShowtimeController {
       return;
     }
     try {
-      const list = await showtimeService.getShowtimesByRoomAndDate(roomId, date);
+      const list = await showtimeService.getShowtimesByRoomAndDate(
+        roomId,
+        date
+      );
       res.status(200).json(list);
     } catch (error) {
-      res.status(500).json({ message: "Error fetching showtimes by room/date", error });
+      res
+        .status(500)
+        .json({ message: "Error fetching showtimes by room/date", error });
     }
   }
 
@@ -376,7 +437,6 @@ export default class ShowtimeController {
     try {
       const { id: showtimeId } = req.params;
       const { date, startTime, room } = req.query;
-
 
       if (!showtimeId) {
         res.status(400).json({
@@ -398,8 +458,13 @@ export default class ShowtimeController {
         return;
       }
 
-      console.log(`🔍 getSeatsForShowtime called with:`, { showtimeId, date, startTime, room });
-      
+      console.log(`🔍 getSeatsForShowtime called with:`, {
+        showtimeId,
+        date,
+        startTime,
+        room,
+      });
+
       const seats = await showtimeService.getSeatsForShowtime(
         showtimeId as string,
         date as string,
@@ -408,7 +473,7 @@ export default class ShowtimeController {
       );
 
       console.log(`📋 getSeatsForShowtime response:`, seats);
-      
+
       if (!seats) {
         res.status(404).json({
           status: false,
@@ -441,7 +506,6 @@ export default class ShowtimeController {
     try {
       const { id: showtimeId } = req.params;
       const { date, startTime, room, seats } = req.body;
-
 
       if (
         !showtimeId ||
@@ -499,7 +563,6 @@ export default class ShowtimeController {
     try {
       const { showtimeId, date, startTime, room, seatIds, userId } = req.body;
 
-
       if (
         !showtimeId ||
         !date ||
@@ -534,7 +597,7 @@ export default class ShowtimeController {
         startTime,
         room,
         seatIds,
-        'selected',
+        "selected",
         userId
       );
 
@@ -609,18 +672,18 @@ export default class ShowtimeController {
   async releaseExpired(req: Request, res: Response): Promise<void> {
     try {
       const result = await schedulerService.runCleanupNow();
-      res.status(200).json({ 
-        status: true, 
-        error: 0, 
-        message: `Released ${result.released} expired reservations`, 
-        data: result 
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Released ${result.released} expired reservations`,
+        data: result,
       });
     } catch (error) {
-      res.status(500).json({ 
-        status: false, 
-        error: 500, 
-        message: 'Release expired error', 
-        data: null 
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Release expired error",
+        data: null,
       });
     }
   }
@@ -628,10 +691,26 @@ export default class ShowtimeController {
   // Endpoint backfill seats cho toàn bộ showtimes (chỉ dùng dev/admin)
   async backfillSeats(req: Request, res: Response): Promise<void> {
     try {
-      const result = await showtimeService.backfillAllShowtimeSeats(Boolean(req.query.force === 'true'));
-      res.status(200).json({ status: true, error: 0, message: "Backfill completed", data: result });
+      const result = await showtimeService.backfillAllShowtimeSeats(
+        Boolean(req.query.force === "true")
+      );
+      res
+        .status(200)
+        .json({
+          status: true,
+          error: 0,
+          message: "Backfill completed",
+          data: result,
+        });
     } catch (error) {
-      res.status(500).json({ status: false, error: 500, message: "Backfill error", data: null });
+      res
+        .status(500)
+        .json({
+          status: false,
+          error: 500,
+          message: "Backfill error",
+          data: null,
+        });
     }
   }
 
@@ -639,9 +718,16 @@ export default class ShowtimeController {
   async releaseUserReservedSeats(req: Request, res: Response): Promise<void> {
     try {
       const userId = (req as any).user?.id; // Lấy userId từ auth middleware
-      
+
       if (!userId) {
-        res.status(401).json({ status: false, error: 401, message: 'User chưa đăng nhập', data: null });
+        res
+          .status(401)
+          .json({
+            status: false,
+            error: 401,
+            message: "User chưa đăng nhập",
+            data: null,
+          });
         return;
       }
 
@@ -649,20 +735,22 @@ export default class ShowtimeController {
 
       const result = await showtimeService.releaseUserReservedSeats(userId);
 
-      console.log(`✅ Successfully released ${result.released} seats for user ${userId}`);
-      res.status(200).json({ 
-        status: true, 
-        error: 0, 
-        message: `Đã giải phóng ${result.released} ghế tạm giữ`, 
-        data: result 
+      console.log(
+        `✅ Successfully released ${result.released} seats for user ${userId}`
+      );
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Đã giải phóng ${result.released} ghế tạm giữ`,
+        data: result,
       });
     } catch (error) {
       console.error(`❌ Error releasing user reserved seats:`, error);
-      res.status(500).json({ 
-        status: false, 
-        error: 500, 
-        message: error instanceof Error ? error.message : 'Lỗi server', 
-        data: null 
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: error instanceof Error ? error.message : "Lỗi server",
+        data: null,
       });
     }
   }
@@ -671,18 +759,32 @@ export default class ShowtimeController {
   async testUpdateSeatsToOccupied(req: Request, res: Response): Promise<void> {
     try {
       const { showtimeId, date, startTime, room, seatIds } = req.body;
-      
-      if (!showtimeId || !date || !startTime || !room || !seatIds || !Array.isArray(seatIds)) {
-        res.status(400).json({ 
-          status: false, 
-          error: 400, 
-          message: 'Missing required fields: showtimeId, date, startTime, room, seatIds', 
-          data: null 
+
+      if (
+        !showtimeId ||
+        !date ||
+        !startTime ||
+        !room ||
+        !seatIds ||
+        !Array.isArray(seatIds)
+      ) {
+        res.status(400).json({
+          status: false,
+          error: 400,
+          message:
+            "Missing required fields: showtimeId, date, startTime, room, seatIds",
+          data: null,
         });
         return;
       }
 
-      console.log(`🧪 TEST: Updating seats to occupied:`, { showtimeId, date, startTime, room, seatIds });
+      console.log(`🧪 TEST: Updating seats to occupied:`, {
+        showtimeId,
+        date,
+        startTime,
+        room,
+        seatIds,
+      });
 
       await showtimeService.setSeatsStatus(
         showtimeId,
@@ -690,25 +792,26 @@ export default class ShowtimeController {
         startTime,
         room,
         seatIds,
-        'occupied'
+        "occupied"
       );
 
-      console.log(`✅ TEST: Successfully updated ${seatIds.length} seats to occupied status`);
-      res.status(200).json({ 
-        status: true, 
-        error: 0, 
-        message: `Đã cập nhật ${seatIds.length} ghế thành occupied`, 
-        data: { showtimeId, date, startTime, room, seatIds }
+      console.log(
+        `✅ TEST: Successfully updated ${seatIds.length} seats to occupied status`
+      );
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Đã cập nhật ${seatIds.length} ghế thành occupied`,
+        data: { showtimeId, date, startTime, room, seatIds },
       });
     } catch (error) {
       console.error(`❌ TEST: Error updating seats to occupied:`, error);
-      res.status(500).json({ 
-        status: false, 
-        error: 500, 
-        message: error instanceof Error ? error.message : 'Lỗi server', 
-        data: null 
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: error instanceof Error ? error.message : "Lỗi server",
+        data: null,
       });
     }
   }
-
 }
