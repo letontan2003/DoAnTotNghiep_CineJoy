@@ -6,6 +6,9 @@ import Logo from "assets/CineJoyLogo.png";
 import { FaFacebookF } from "react-icons/fa";
 import useAppStore from "@/store/app.store";
 
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
 interface Message {
   sender: "user" | "bot";
   text: string;
@@ -137,7 +140,7 @@ const Chatbot: React.FC = () => {
       }
 
       const response = await axios.post<ChatResponse>(
-        "http://localhost:5000/chatbot/chat",
+        `${API_BASE_URL}/chatbot/chat`,
         requestBody,
         { headers }
       );
@@ -197,7 +200,7 @@ const Chatbot: React.FC = () => {
       if (captionText) {
         // Gửi cả image và message đến /chat endpoint
         const response = await axios.post<ChatResponse>(
-          "http://localhost:5000/chatbot/chat",
+          `${API_BASE_URL}/chatbot/chat`,
           {
             message: captionText,
             imageBase64: base64String,
@@ -217,7 +220,7 @@ const Chatbot: React.FC = () => {
       } else {
         // Chỉ gửi image đến /upload-poster endpoint
         const response = await axios.post<PosterUploadResponse>(
-          "http://localhost:5000/chatbot/upload-poster",
+          `${API_BASE_URL}/chatbot/upload-poster`,
           {
             imageBase64: base64String,
             mimeType: file.type || "image/jpeg",
