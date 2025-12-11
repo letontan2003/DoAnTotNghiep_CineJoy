@@ -1,10 +1,13 @@
 import axios from "axios";
 
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
 const axiosClient = axios.create({
-    baseURL: "http://localhost:5000",
-    headers: {
-        "Content-Type": "application/json",
-    },
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 // Add request interceptor to include auth token
@@ -29,8 +32,11 @@ axiosClient.interceptors.response.use(
   function (error) {
     // Với các lỗi (400, 500, etc.), throw error với message từ backend
     if (error && error.response && error.response.data) {
-      const backendError = new Error(error.response.data.message || "Có lỗi xảy ra!");
-      (backendError as Error & { response?: unknown }).response = error.response;
+      const backendError = new Error(
+        error.response.data.message || "Có lỗi xảy ra!"
+      );
+      (backendError as Error & { response?: unknown }).response =
+        error.response;
       return Promise.reject(backendError);
     }
     return Promise.reject(error);
