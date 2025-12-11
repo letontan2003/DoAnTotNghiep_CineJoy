@@ -17,6 +17,41 @@ const userVoucherService = new UserVoucherService();
 const blogService = new BlogService();
 const backendUrl = process.env.BACKEND_URL;
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retry helper for Gemini transient errors (e.g., 503 overloaded)
+const callGeminiWithRetry = async (
+  prompt: any,
+  maxRetries = 2,
+  baseDelayMs = 500
+) => {
+  let attempt = 0;
+  while (true) {
+    try {
+      const result = await model.generateContent(prompt);
+      return result;
+    } catch (error: any) {
+      attempt += 1;
+      const isRetryable =
+        error?.status === 503 ||
+        error?.status === 500 ||
+        error?.code === "ETIMEDOUT";
+
+      if (attempt > maxRetries || !isRetryable) {
+        throw error;
+      }
+
+      const backoff = baseDelayMs * attempt;
+      console.warn(
+        `Gemini call failed (attempt ${attempt}/${maxRetries}) with status ${
+          error?.status || "unknown"
+        }. Retrying in ${backoff}ms...`
+      );
+      await delay(backoff);
+    }
+  }
+};
+
 const ChatbotService = {
   // Lưu tin nhắn vào lịch sử trò chuyện
   saveMessage: (sessionId: string, message: any) => {
@@ -1529,7 +1564,7 @@ Trả lời:`;
                 : ""
             }
             `;
-      const result = await model.generateContent(prompt);
+      const result = await callGeminiWithRetry(prompt);
       const response = await result.response;
       let botResponse =
         response.text() ||
@@ -1576,6 +1611,15 @@ Trả lời:`;
           "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
         );
         return `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
+      }
+
+      // Xử lý lỗi quá tải (503, 500, timeout) sau khi đã retry
+      if (
+        error?.status === 503 ||
+        error?.status === 500 ||
+        error?.code === "ETIMEDOUT"
+      ) {
+        return "Xin lỗi, hệ thống AI đang quá tải. Vui lòng thử lại sau ít phút.";
       }
 
       return "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
@@ -2247,7 +2291,7 @@ Nhiệm vụ:
 `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await callGeminiWithRetry(prompt);
     const response = await result.response;
     let reply =
       response.text() ||
