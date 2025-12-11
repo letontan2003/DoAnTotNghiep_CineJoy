@@ -1526,22 +1526,22 @@ const Dashboard: React.FC = () => {
       if (selectedVoucher) {
         // Cập nhật
         await updateVoucher(selectedVoucher._id!, voucherData as IVoucher);
-        toast.success("Cập nhật voucher thành công!");
+        toast.success("Cập nhật khuyến mãi thành công!");
       } else {
         // Thêm mới
         await addVoucher(voucherData as IVoucher);
-        toast.success("Thêm voucher thành công!");
+        toast.success("Thêm khuyến mãi thành công!");
       }
       // Reload dữ liệu sau khi thêm/sửa
       await loadVouchers();
       setShowVoucherForm(false);
       setSelectedVoucher(undefined);
     } catch (error) {
-      console.error("Error submitting voucher:", error);
+      console.error("Error submitting khuyến mãi:", error);
       toast.error(
         selectedVoucher
-          ? "Cập nhật voucher thất bại!"
-          : "Thêm voucher thất bại!"
+          ? "Cập nhật khuyến mãi thất bại!"
+          : "Thêm khuyến mãi thất bại!"
       );
     }
   };

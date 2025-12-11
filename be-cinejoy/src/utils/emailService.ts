@@ -1,13 +1,48 @@
 import nodemailer, { Transporter, SendMailOptions } from "nodemailer";
 import QRCode from "qrcode";
 
+const EMAIL_REQUIRED_ENVS = [
+  "EMAIL_USERNAME",
+  "EMAIL_PASSWORD",
+  "EMAIL_FROM",
+] as const;
+
 const transporter: Transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: Number(process.env.EMAIL_PORT || 587),
+  secure: process.env.EMAIL_SECURE === "true" || false, // true for 465
   auth: {
     user: process.env.EMAIL_USERNAME as string,
     pass: process.env.EMAIL_PASSWORD as string,
   },
+  connectionTimeout: 15_000,
+  socketTimeout: 20_000,
 });
+
+const verifyTransporter = async () => {
+  try {
+    await transporter.verify();
+    console.log("📧 SMTP verify: success", {
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: Number(process.env.EMAIL_PORT || 587),
+      secure: process.env.EMAIL_SECURE === "true" || false,
+      user: process.env.EMAIL_USERNAME,
+    });
+    return true;
+  } catch (err) {
+    console.error("❌ SMTP verify failed:", err);
+    return false;
+  }
+};
+
+const ensureEmailConfig = () => {
+  const missing = EMAIL_REQUIRED_ENVS.filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    const msg = `Missing email env vars: ${missing.join(", ")}`;
+    console.error("❌ Email config error:", msg);
+    throw new Error(msg);
+  }
+};
 
 const getResetPasswordTemplate = (userName: string, otp: string) => {
   return {
@@ -308,6 +343,8 @@ const sendResetPasswordEmail = async (
   otp: string
 ) => {
   try {
+    ensureEmailConfig();
+    await verifyTransporter();
     const template = getResetPasswordTemplate(userName, otp);
 
     const mailOptions: SendMailOptions = {
@@ -317,7 +354,14 @@ const sendResetPasswordEmail = async (
       html: template.html,
     };
 
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log("📧 Reset password email sent", {
+      to,
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+    });
     return {
       status: true,
       error: 0,
@@ -337,6 +381,8 @@ const sendResetPasswordEmail = async (
 
 const sendWelcomeEmail = async (to: string, userName: string) => {
   try {
+    ensureEmailConfig();
+    await verifyTransporter();
     const template = getWelcomeTemplate(userName);
 
     const mailOptions: SendMailOptions = {
@@ -346,7 +392,14 @@ const sendWelcomeEmail = async (to: string, userName: string) => {
       html: template.html,
     };
 
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log("📧 Welcome email sent", {
+      to,
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+    });
     return {
       status: true,
       error: 0,
@@ -366,6 +419,8 @@ const sendWelcomeEmail = async (to: string, userName: string) => {
 
 const sendPaymentSuccessEmail = async (to: string, data: PaymentEmailData) => {
   try {
+    ensureEmailConfig();
+    await verifyTransporter();
     // Tạo QR code từ order ID
     const qrCodeBuffer = await QRCode.toBuffer(data.orderId, {
       width: 100, // Giảm kích thước
@@ -395,7 +450,15 @@ const sendPaymentSuccessEmail = async (to: string, data: PaymentEmailData) => {
       ],
     };
 
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log("📧 Payment email sent", {
+      to,
+      orderId: data.orderId,
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+    });
     return {
       status: true,
       error: 0,
