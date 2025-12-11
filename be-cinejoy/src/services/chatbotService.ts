@@ -15,6 +15,7 @@ const showtimeService = new ShowtimeService();
 const voucherService = new VoucherService();
 const userVoucherService = new UserVoucherService();
 const blogService = new BlogService();
+const backendUrl = process.env.BACKEND_URL;
 
 const ChatbotService = {
   // Lưu tin nhắn vào lịch sử trò chuyện
@@ -45,7 +46,7 @@ const ChatbotService = {
   // Lấy thông tin phim từ API
   getMovieInfo: async () => {
     try {
-      const response = await axios.get("http://localhost:5000/movies");
+      const response = await axios.get(`${backendUrl}/movies`);
       const movies = response.data;
 
       if (!movies || !Array.isArray(movies)) {
@@ -94,7 +95,7 @@ const ChatbotService = {
   // Lấy thông tin rạp chiếu phim
   getTheaterInfo: async () => {
     try {
-      const response = await axios.get("http://localhost:5000/theaters");
+      const response = await axios.get(`${backendUrl}/theaters`);
       const theaters = response.data;
       if (!theaters || !Array.isArray(theaters)) {
         return "Hiện không có thông tin rạp chiếu phim.";
@@ -1530,7 +1531,6 @@ Trả lời:`;
             `;
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      console.log("🔍 response---------------:", response);
       let botResponse =
         response.text() ||
         "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
