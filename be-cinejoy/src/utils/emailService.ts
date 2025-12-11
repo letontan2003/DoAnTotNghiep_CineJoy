@@ -1,33 +1,44 @@
 import nodemailer, { Transporter, SendMailOptions } from "nodemailer";
 import QRCode from "qrcode";
 
-const EMAIL_REQUIRED_ENVS = [
-  "EMAIL_USERNAME",
-  "EMAIL_PASSWORD",
-  "EMAIL_FROM",
-] as const;
+// const EMAIL_REQUIRED_ENVS = [
+//   "EMAIL_USERNAME",
+//   "EMAIL_PASSWORD",
+//   "EMAIL_FROM",
+// ] as const;
+
+const EMAIL_REQUIRED_ENVS = ["EMAIL_FROM", "RESEND_API_KEY"] as const;
 
 const transporter: Transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || "smtp.gmail.com",
-  port: Number(process.env.EMAIL_PORT || 587),
-  secure: process.env.EMAIL_SECURE === "true" || false, // true for 465
+  // host: process.env.EMAIL_HOST || "smtp.gmail.com",
+  // port: Number(process.env.EMAIL_PORT || 587),
+  // secure: process.env.EMAIL_SECURE === "true" || false, // true for 465
+  // auth: {
+  //   user: process.env.EMAIL_USERNAME as string,
+  //   pass: process.env.EMAIL_PASSWORD as string,
+  // },
+  // connectionTimeout: 15_000,
+  // socketTimeout: 20_000,
+  host: "smtp.resend.com",
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USERNAME as string,
-    pass: process.env.EMAIL_PASSWORD as string,
+    user: "resend",
+    pass: process.env.RESEND_API_KEY,
   },
-  connectionTimeout: 15_000,
-  socketTimeout: 20_000,
 });
 
 const verifyTransporter = async () => {
   try {
     await transporter.verify();
-    console.log("📧 SMTP verify: success", {
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: Number(process.env.EMAIL_PORT || 587),
-      secure: process.env.EMAIL_SECURE === "true" || false,
-      user: process.env.EMAIL_USERNAME,
-    });
+    // console.log("📧 SMTP verify: success", {
+    //   host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    //   port: Number(process.env.EMAIL_PORT || 587),
+    //   secure: process.env.EMAIL_SECURE === "true" || false,
+    //   user: process.env.EMAIL_USERNAME,
+    // });
+    console.log("📧 SMTP verify: success (Resend)");
+
     return true;
   } catch (err) {
     console.error("❌ SMTP verify failed:", err);
