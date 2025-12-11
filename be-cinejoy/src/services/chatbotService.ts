@@ -1530,6 +1530,7 @@ Trả lời:`;
             `;
       const result = await model.generateContent(prompt);
       const response = await result.response;
+      console.log("🔍 response---------------:", response);
       let botResponse =
         response.text() ||
         "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
