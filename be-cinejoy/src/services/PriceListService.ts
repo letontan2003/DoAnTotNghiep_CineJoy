@@ -1,6 +1,14 @@
 import PriceList, { IPriceList, IPriceListLine } from "../models/PriceList";
 import { FoodCombo } from "../models/FoodCombo";
 import mongoose from "mongoose";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const VIETNAM_TZ = "Asia/Ho_Chi_Minh";
 
 export interface ICreatePriceListData {
   code: string;
@@ -21,22 +29,40 @@ export interface IUpdatePriceListData {
 }
 
 class PriceListService {
+  private toVietnamStartOfDay(date: Date) {
+    return dayjs(date).tz(VIETNAM_TZ).startOf("day");
+  }
+
+  private normalizeDateRangeToVietnam(startDate: Date, endDate: Date) {
+    const start = this.toVietnamStartOfDay(startDate);
+    const end = this.toVietnamStartOfDay(endDate);
+
+    return {
+      startDate: start.toDate(),
+      endDate: end.toDate(),
+    };
+  }
+
+  private formatVietnamDate(date: dayjs.Dayjs) {
+    return date.tz(VIETNAM_TZ).format("DD/MM/YYYY");
+  }
+
   private computeStatusByDate(
     startDate: Date,
     endDate: Date
   ): "scheduled" | "active" | "expired" {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(0, 0, 0, 0); // Reset về đầu ngày để so sánh chính xác
+    const today = dayjs().tz(VIETNAM_TZ).startOf("day");
+    const start = this.toVietnamStartOfDay(startDate);
+    const end = this.toVietnamStartOfDay(endDate);
 
-    // Nếu ngày kết thúc < ngày hiện tại → expired
-    if (end < today) return "expired";
-    // Nếu ngày hiện tại >= ngày bắt đầu và ngày hiện tại <= ngày kết thúc → active
-    if (today >= start && today <= end) return "active";
-    // Còn lại → scheduled
+    if (end.isBefore(today)) return "expired";
+    if (
+      today.isSame(start) ||
+      today.isSame(end) ||
+      (today.isAfter(start) && today.isBefore(end))
+    ) {
+      return "active";
+    }
     return "scheduled";
   }
 
@@ -101,6 +127,13 @@ class PriceListService {
   async createPriceList(
     priceListData: ICreatePriceListData
   ): Promise<IPriceList> {
+    const normalizedDates = this.normalizeDateRangeToVietnam(
+      priceListData.startDate,
+      priceListData.endDate
+    );
+    priceListData.startDate = normalizedDates.startDate;
+    priceListData.endDate = normalizedDates.endDate;
+
     // Kiểm tra mã bảng giá có trùng lặp không
     const codeExists = await this.checkCodeExists(priceListData.code);
     if (codeExists) {
@@ -162,8 +195,14 @@ class PriceListService {
 
     // Kiểm tra xung đột thời gian nếu có thay đổi ngày
     if (updateData.startDate || updateData.endDate) {
-      const startDate = updateData.startDate || priceList.startDate;
-      const endDate = updateData.endDate || priceList.endDate;
+      const normalized = this.normalizeDateRangeToVietnam(
+        updateData.startDate || priceList.startDate,
+        updateData.endDate || priceList.endDate
+      );
+      updateData.startDate = normalized.startDate;
+      updateData.endDate = normalized.endDate;
+      const startDate = updateData.startDate;
+      const endDate = updateData.endDate;
       await this.checkTimeConflicts(startDate, endDate, id);
     }
 
@@ -197,22 +236,25 @@ class PriceListService {
     endDate: Date,
     excludeId?: string
   ): Promise<void> {
+    const normalizedStart = this.toVietnamStartOfDay(startDate).toDate();
+    const normalizedEnd = this.toVietnamStartOfDay(endDate).toDate();
+
     const query: any = {
       $or: [
         // Bảng giá mới bắt đầu trong khoảng thời gian của bảng giá khác
         {
-          startDate: { $lte: startDate },
-          endDate: { $gte: startDate },
+          startDate: { $lte: normalizedStart },
+          endDate: { $gte: normalizedStart },
         },
         // Bảng giá mới kết thúc trong khoảng thời gian của bảng giá khác
         {
-          startDate: { $lte: endDate },
-          endDate: { $gte: endDate },
+          startDate: { $lte: normalizedEnd },
+          endDate: { $gte: normalizedEnd },
         },
         // Bảng giá mới bao trùm hoàn toàn bảng giá khác
         {
-          startDate: { $gte: startDate },
-          endDate: { $lte: endDate },
+          startDate: { $gte: normalizedStart },
+          endDate: { $lte: normalizedEnd },
         },
       ],
     };
@@ -340,18 +382,19 @@ class PriceListService {
       return { hasGap: false };
     }
 
-    const now = new Date();
+    const today = dayjs().tz(VIETNAM_TZ).startOf("day");
     const firstPriceList = priceLists[0];
     const lastPriceList = priceLists[priceLists.length - 1];
     const gaps: string[] = [];
 
     // Kiểm tra khoảng trống ở đầu (trước bảng giá đầu tiên)
-    if (firstPriceList.startDate > now) {
-      const timeDiff = firstPriceList.startDate.getTime() - now.getTime();
-      if (timeDiff > 24 * 60 * 60 * 1000) {
-        // Khoảng trống lớn hơn 1 ngày
-        const todayStr = now.toLocaleDateString("vi-VN");
-        const startStr = firstPriceList.startDate.toLocaleDateString("vi-VN");
+    const firstStart = this.toVietnamStartOfDay(firstPriceList.startDate);
+    if (firstStart.isAfter(today)) {
+      const diffDays = firstStart.diff(today, "day");
+      const todayStr = this.formatVietnamDate(today);
+      const startStr = this.formatVietnamDate(firstStart);
+      // Chỉ cảnh báo khi còn ít nhất 1 ngày trống
+      if (diffDays > 0) {
         gaps.push(
           `Khoảng trống từ ${todayStr} đến ${startStr} (trước bảng giá "${firstPriceList.name}")`
         );
@@ -363,28 +406,21 @@ class PriceListService {
       const current = priceLists[i];
       const next = priceLists[i + 1];
 
-      // Chuẩn hóa ngày về đầu ngày để so sánh chính xác (tránh timezone issues)
-      const currentEndDate = new Date(current.endDate);
-      currentEndDate.setHours(0, 0, 0, 0);
-
-      const nextStartDate = new Date(next.startDate);
-      nextStartDate.setHours(0, 0, 0, 0);
+      const currentEndDate = this.toVietnamStartOfDay(current.endDate);
+      const nextStartDate = this.toVietnamStartOfDay(next.startDate);
 
       // Tính ngày kế tiếp sau endDate (ngày hợp lệ tiếp theo)
-      const dayAfterEndDate = new Date(currentEndDate);
-      dayAfterEndDate.setDate(dayAfterEndDate.getDate() + 1);
+      const dayAfterEndDate = currentEndDate.add(1, "day");
 
       // Nếu nextStartDate > dayAfterEndDate thì có khoảng trống
       // Ví dụ: endDate = 31/1, dayAfterEndDate = 1/2, nextStartDate = 1/2 => không có gap
       // Ví dụ: endDate = 31/1, dayAfterEndDate = 1/2, nextStartDate = 3/2 => có gap từ 1/2 đến 2/2
-      if (nextStartDate.getTime() > dayAfterEndDate.getTime()) {
-        // Tính ngày bắt đầu và kết thúc của khoảng trống
-        const gapStartDate = new Date(dayAfterEndDate);
-        const gapEndDate = new Date(nextStartDate);
-        gapEndDate.setDate(gapEndDate.getDate() - 1); // Ngày trước startDate
+      if (nextStartDate.isAfter(dayAfterEndDate)) {
+        const gapStartDate = dayAfterEndDate;
+        const gapEndDate = nextStartDate.subtract(1, "day"); // Ngày trước startDate
 
-        const gapStartStr = gapStartDate.toLocaleDateString("vi-VN");
-        const gapEndStr = gapEndDate.toLocaleDateString("vi-VN");
+        const gapStartStr = this.formatVietnamDate(gapStartDate);
+        const gapEndStr = this.formatVietnamDate(gapEndDate);
         gaps.push(
           `Khoảng trống từ ${gapStartStr} đến ${gapEndStr} (giữa bảng giá "${current.name}" và "${next.name}")`
         );
@@ -392,9 +428,10 @@ class PriceListService {
     }
 
     // Kiểm tra khoảng trống ở cuối (sau bảng giá cuối cùng)
-    if (lastPriceList.endDate < now) {
-      const endStr = lastPriceList.endDate.toLocaleDateString("vi-VN");
-      const todayStr = now.toLocaleDateString("vi-VN");
+    const lastEnd = this.toVietnamStartOfDay(lastPriceList.endDate);
+    if (lastEnd.isBefore(today)) {
+      const endStr = this.formatVietnamDate(lastEnd);
+      const todayStr = this.formatVietnamDate(today);
       gaps.push(
         `Khoảng trống từ ${endStr} đến ${todayStr} (sau bảng giá "${lastPriceList.name}" đã hết hạn)`
       );
