@@ -1,50 +1,9 @@
-import nodemailer, { Transporter, SendMailOptions } from "nodemailer";
+import { Resend } from "resend";
 import QRCode from "qrcode";
 
-// const EMAIL_REQUIRED_ENVS = [
-//   "EMAIL_USERNAME",
-//   "EMAIL_PASSWORD",
-//   "EMAIL_FROM",
-// ] as const;
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EMAIL_REQUIRED_ENVS = ["EMAIL_FROM", "RESEND_API_KEY"] as const;
-
-const transporter: Transporter = nodemailer.createTransport({
-  // host: process.env.EMAIL_HOST || "smtp.gmail.com",
-  // port: Number(process.env.EMAIL_PORT || 587),
-  // secure: process.env.EMAIL_SECURE === "true" || false, // true for 465
-  // auth: {
-  //   user: process.env.EMAIL_USERNAME as string,
-  //   pass: process.env.EMAIL_PASSWORD as string,
-  // },
-  // connectionTimeout: 15_000,
-  // socketTimeout: 20_000,
-  host: "smtp.resend.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "resend",
-    pass: process.env.RESEND_API_KEY,
-  },
-});
-
-const verifyTransporter = async () => {
-  try {
-    await transporter.verify();
-    // console.log("📧 SMTP verify: success", {
-    //   host: process.env.EMAIL_HOST || "smtp.gmail.com",
-    //   port: Number(process.env.EMAIL_PORT || 587),
-    //   secure: process.env.EMAIL_SECURE === "true" || false,
-    //   user: process.env.EMAIL_USERNAME,
-    // });
-    console.log("📧 SMTP verify: success (Resend)");
-
-    return true;
-  } catch (err) {
-    console.error("❌ SMTP verify failed:", err);
-    return false;
-  }
-};
 
 const ensureEmailConfig = () => {
   const missing = EMAIL_REQUIRED_ENVS.filter((k) => !process.env[k]);
@@ -355,135 +314,97 @@ const sendResetPasswordEmail = async (
 ) => {
   try {
     ensureEmailConfig();
-    await verifyTransporter();
     const template = getResetPasswordTemplate(userName, otp);
 
-    const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM as string,
-      to: to,
+    const result = await resend.emails.send({
+      from: `CineJoy <${process.env.EMAIL_FROM}>`,
+      to,
       subject: template.subject,
       html: template.html,
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log("📧 Reset password email sent", {
-      to,
-      messageId: result.messageId,
-      accepted: result.accepted,
-      rejected: result.rejected,
-      response: result.response,
     });
+
+    console.log("📧 Reset password email sent:", result);
     return {
       status: true,
       error: 0,
-      message: "Email đã được gửi thành công",
-      data: null,
+      message: "Email đặt lại mật khẩu đã được gửi thành công",
     };
-  } catch (error) {
-    console.error("Lỗi gửi email:", error);
-    return {
-      status: false,
-      error: 1,
-      message: "Không thể gửi email: " + (error as Error).message,
-      data: null,
-    };
+  } catch (err) {
+    console.error("❌ Error reset email:", err);
+    return { status: false, error: 1, message: (err as Error).message };
   }
 };
 
 const sendWelcomeEmail = async (to: string, userName: string) => {
   try {
     ensureEmailConfig();
-    await verifyTransporter();
     const template = getWelcomeTemplate(userName);
 
-    const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM as string,
-      to: to,
+    const result = await resend.emails.send({
+      from: `CineJoy <${process.env.EMAIL_FROM}>`,
+      to,
       subject: template.subject,
       html: template.html,
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log("📧 Welcome email sent", {
-      to,
-      messageId: result.messageId,
-      accepted: result.accepted,
-      rejected: result.rejected,
-      response: result.response,
     });
+
+    console.log("📧 Welcome email sent:", result);
     return {
       status: true,
       error: 0,
       message: "Email chào mừng đã được gửi thành công",
-      data: null,
     };
-  } catch (error) {
-    console.error("Lỗi gửi email:", error);
-    return {
-      status: false,
-      error: 1,
-      message: "Không thể gửi email: " + (error as Error).message,
-      data: null,
-    };
+  } catch (err) {
+    console.error("❌ Error welcome email:", err);
+    return { status: false, error: 1, message: (err as Error).message };
   }
 };
 
 const sendPaymentSuccessEmail = async (to: string, data: PaymentEmailData) => {
   try {
     ensureEmailConfig();
-    await verifyTransporter();
-    // Tạo QR code từ order ID
+
+    // Tạo QR code buffer như cũ
     const qrCodeBuffer = await QRCode.toBuffer(data.orderId, {
-      width: 100, // Giảm kích thước
-      margin: 1, // Giảm margin
-      color: {
-        dark: "#000000", // Màu đen bình thường
-        light: "#FFFFFF",
-      },
+      width: 100,
+      margin: 1,
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
 
+    // KHÔNG sửa UI template
     const template = getPaymentSuccessTemplate({
       ...data,
-      qrCodeDataUrl: "", // Không dùng base64 nữa
+      qrCodeDataUrl: "", // vẫn truyền như cũ, không dùng trong HTML
     });
 
-    const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM as string,
-      to: to,
+    // Tách attachments ra kiểu any để không bị TS bắt lỗi
+    const attachments: any[] = [
+      {
+        filename: `qr-${data.orderId}.png`,
+        // Gửi buffer thô, không toString("base64")
+        content: qrCodeBuffer,
+        contentType: "image/png",
+        // dùng CID để match với src="cid:qr-code"
+        contentId: "qr-code",
+      },
+    ];
+
+    const result = await resend.emails.send({
+      from: `CineJoy <${process.env.EMAIL_FROM}>`,
+      to,
       subject: template.subject,
       html: template.html,
-      attachments: [
-        {
-          filename: `qr-code-${data.orderId}.png`,
-          content: qrCodeBuffer,
-          cid: "qr-code", // Content ID để reference trong HTML
-        },
-      ],
-    };
-
-    const result = await transporter.sendMail(mailOptions);
-    console.log("📧 Payment email sent", {
-      to,
-      orderId: data.orderId,
-      messageId: result.messageId,
-      accepted: result.accepted,
-      rejected: result.rejected,
-      response: result.response,
+      attachments, // truyền mảng any[] ở trên
     });
+
+    console.log("📧 Payment email sent:", result);
     return {
       status: true,
       error: 0,
-      message: "Email xác nhận thanh toán đã được gửi thành công",
-      data: null,
+      message: "Email thanh toán đã được gửi thành công",
     };
   } catch (error) {
     console.error("Lỗi gửi email thanh toán:", error);
-    return {
-      status: false,
-      error: 1,
-      message: "Không thể gửi email: " + (error as Error).message,
-      data: null,
-    };
+    return { status: false, error: 1, message: (error as Error).message };
   }
 };
 
