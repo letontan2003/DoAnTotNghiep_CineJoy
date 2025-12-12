@@ -339,7 +339,6 @@ const SelectSeatScreen = () => {
             ) {
               const updatedMap = { ...newSeatMap };
               const myReservedSeats: string[] = [];
-
               reservationResponse.data.forEach((seatItem) => {
                 if (
                   seatItem &&

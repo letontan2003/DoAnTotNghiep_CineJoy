@@ -16,7 +16,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as ImagePicker from "expo-image-picker";
+// Lazy load ImagePicker to avoid crash on app startup with New Architecture
 import SideMenu from "@/components/SideMenu";
 import { sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
@@ -201,6 +201,25 @@ const ChatbotScreen = () => {
   const handlePickImage = async () => {
     if (isProcessing) return;
     try {
+      // Lazy load ImagePicker to avoid crash on startup
+      const ImagePickerModule = await import("expo-image-picker");
+      const ImagePicker =
+        ImagePickerModule?.default && typeof ImagePickerModule.default === "object"
+          ? ImagePickerModule.default
+          : ImagePickerModule;
+
+      // Check if module loaded correctly
+      if (
+        !ImagePicker ||
+        typeof ImagePicker.requestMediaLibraryPermissionsAsync !== "function"
+      ) {
+        console.error(
+          "ImagePicker module structure:",
+          Object.keys(ImagePickerModule || {})
+        );
+        throw new Error("ImagePicker module not loaded correctly");
+      }
+
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -293,7 +312,9 @@ const ChatbotScreen = () => {
                       ? styles.bubbleUser
                       : styles.bubbleBot,
                     message.imageUri && styles.messageBubbleWithImage,
-                    !message.text && message.imageUri && styles.messageBubbleImageOnly,
+                    !message.text &&
+                      message.imageUri &&
+                      styles.messageBubbleImageOnly,
                   ]}
                 >
                   {message.imageUri && (

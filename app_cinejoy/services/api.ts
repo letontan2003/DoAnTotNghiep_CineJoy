@@ -122,15 +122,29 @@ export const changePasswordApi = async (data: {
 };
 
 export const fetchAccountApi = async () => {
-  const response = await axios.get<IBackendResponse<IFetchAccount>>(
-    "/v1/api/auth/account",
-    {
-      headers: {
-        delay: 1000,
-      },
+  try {
+    const response = await axios.get<IBackendResponse<IFetchAccount>>(
+      "/v1/api/auth/account",
+      {
+        headers: {
+          delay: 1000,
+        },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    // If error is already structured (from interceptor), return it
+    if (error && typeof error === "object" && "status" in error) {
+      throw error;
     }
-  );
-  return response.data;
+    // Otherwise, structure the error
+    throw {
+      status: false,
+      error: error?.response?.status || "UNKNOWN_ERROR",
+      message: error?.message || "Failed to fetch account",
+      data: null,
+    };
+  }
 };
 
 // Movie APIs

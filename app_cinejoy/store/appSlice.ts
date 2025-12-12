@@ -30,41 +30,92 @@ export const fetchAccount = createAsyncThunk(
   "app/fetchAccount",
   async (_, { rejectWithValue }) => {
     try {
-      const token = await AsyncStorage.getItem("accessToken");
-      const chatbotEnabledStr = await AsyncStorage.getItem("chatbotEnabled");
-      const chatbotEnabled = chatbotEnabledStr
-        ? JSON.parse(chatbotEnabledStr)
-        : false;
+      let chatbotEnabled = false;
+      try {
+        const chatbotEnabledStr = await AsyncStorage.getItem("chatbotEnabled");
+        chatbotEnabled = chatbotEnabledStr
+          ? JSON.parse(chatbotEnabledStr)
+          : false;
+      } catch (storageError) {
+        console.warn(
+          "Error reading chatbotEnabled from storage:",
+          storageError
+        );
+      }
+
+      let token: string | null = null;
+      try {
+        token = await AsyncStorage.getItem("accessToken");
+      } catch (storageError) {
+        console.warn("Error reading accessToken from storage:", storageError);
+      }
 
       if (!token) {
         return { user: null, isAuthenticated: false, chatbotEnabled };
       }
 
-      const res = await fetchAccountApi();
+      try {
+        const res = await fetchAccountApi();
 
-      if (res.data) {
-        // Lưu current_user_id vào AsyncStorage (tương đương sessionStorage ở web)
-        await AsyncStorage.setItem("current_user_id", res.data.user._id);
-        return {
-          user: res.data.user,
-          isAuthenticated: true,
-          isDarkMode: res.data.user.settings.darkMode,
-          chatbotEnabled,
-        };
-      } else {
-        await AsyncStorage.removeItem("accessToken");
-        await AsyncStorage.removeItem("current_user_id");
+        // Check if response is valid
+        if (res && res.data && res.data.user) {
+          try {
+            // Lưu current_user_id vào AsyncStorage (tương đương sessionStorage ở web)
+            await AsyncStorage.setItem("current_user_id", res.data.user._id);
+          } catch (storageError) {
+            console.warn("Error saving current_user_id:", storageError);
+          }
+          return {
+            user: res.data.user,
+            isAuthenticated: true,
+            isDarkMode: res.data.user.settings?.darkMode ?? false,
+            chatbotEnabled,
+          };
+        } else {
+          // Invalid response, clear tokens
+          try {
+            await AsyncStorage.removeItem("accessToken");
+            await AsyncStorage.removeItem("current_user_id");
+          } catch (storageError) {
+            console.warn("Error clearing tokens:", storageError);
+          }
+          return { user: null, isAuthenticated: false, chatbotEnabled };
+        }
+      } catch (apiError: any) {
+        console.error("API call error:", apiError);
+        // Clear tokens on API error
+        try {
+          await AsyncStorage.removeItem("accessToken");
+          await AsyncStorage.removeItem("current_user_id");
+        } catch (storageError) {
+          console.warn("Error clearing tokens:", storageError);
+        }
         return { user: null, isAuthenticated: false, chatbotEnabled };
       }
     } catch (err: any) {
-      console.error("Fetch account error:", err);
-      await AsyncStorage.removeItem("accessToken");
-      await AsyncStorage.removeItem("current_user_id");
-      const chatbotEnabledStr = await AsyncStorage.getItem("chatbotEnabled");
-      const chatbotEnabled = chatbotEnabledStr
-        ? JSON.parse(chatbotEnabledStr)
-        : false;
-      return rejectWithValue({ error: err, chatbotEnabled });
+      console.error("Fetch account unexpected error:", err);
+      // Try to clear tokens, but don't fail if it errors
+      try {
+        await AsyncStorage.removeItem("accessToken");
+        await AsyncStorage.removeItem("current_user_id");
+      } catch (storageError) {
+        console.warn("Error clearing tokens in catch:", storageError);
+      }
+
+      let chatbotEnabled = false;
+      try {
+        const chatbotEnabledStr = await AsyncStorage.getItem("chatbotEnabled");
+        chatbotEnabled = chatbotEnabledStr
+          ? JSON.parse(chatbotEnabledStr)
+          : false;
+      } catch (storageError) {
+        console.warn("Error reading chatbotEnabled in catch:", storageError);
+      }
+
+      return rejectWithValue({
+        error: err?.message || "Unknown error",
+        chatbotEnabled,
+      });
     }
   }
 );
@@ -124,10 +175,19 @@ const appSlice = createSlice({
           state.chatbotEnabled = action.payload.chatbotEnabled ?? false;
         }
       })
-      .addCase(fetchAccount.rejected, (state) => {
+      .addCase(fetchAccount.rejected, (state, action) => {
         state.isAppLoading = false;
         state.user = null;
         state.isAuthenticated = false;
+        // Preserve chatbotEnabled even on error
+        if (
+          action.payload &&
+          typeof action.payload === "object" &&
+          "chatbotEnabled" in action.payload
+        ) {
+          state.chatbotEnabled =
+            (action.payload as any).chatbotEnabled ?? false;
+        }
       });
   },
 });

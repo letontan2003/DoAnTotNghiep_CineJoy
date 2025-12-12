@@ -39,6 +39,7 @@ import CompanyInfoScreen from "@/screens/CompanyInfoScreen";
 import NotificationScreen from "@/screens/NotificationScreen";
 import AppProvider from "@/components/AppProvider/AppProvider";
 import ChatBubble from "@/components/ChatBubble";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setCurrentScreen } from "@/store/appSlice";
 
@@ -153,17 +154,19 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Provider store={store}>
-      <SafeAreaProvider>
-        <SafeAreaView
-          style={{ flex: 1, backgroundColor: "#000000" }}
-          edges={["bottom"]}
-        >
-          <AppProvider>
-            <AppContent />
-          </AppProvider>
-        </SafeAreaView>
-      </SafeAreaProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <SafeAreaProvider>
+          <SafeAreaView
+            style={{ flex: 1, backgroundColor: "#000000" }}
+            edges={["bottom"]}
+          >
+            <AppProvider>
+              <AppContent />
+            </AppProvider>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 }
