@@ -14,7 +14,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import * as ImagePicker from "expo-image-picker";
+// Lazy load ImagePicker to avoid crash on app startup with New Architecture
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { setUser } from "@/store/appSlice";
 import { uploadImageApi, updateUserApi } from "@/services/api";
@@ -97,6 +97,25 @@ const MemberScreen = () => {
     if (isUploadingAvatar) return;
 
     try {
+      // Lazy load ImagePicker to avoid crash on startup
+      const ImagePickerModule = await import("expo-image-picker");
+      const ImagePicker =
+        ImagePickerModule?.default && typeof ImagePickerModule.default === "object"
+          ? ImagePickerModule.default
+          : ImagePickerModule;
+
+      // Check if module loaded correctly
+      if (
+        !ImagePicker ||
+        typeof ImagePicker.requestMediaLibraryPermissionsAsync !== "function"
+      ) {
+        console.error(
+          "ImagePicker module structure:",
+          Object.keys(ImagePickerModule || {})
+        );
+        throw new Error("ImagePicker module not loaded correctly");
+      }
+
       // Yêu cầu quyền truy cập thư viện ảnh
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();

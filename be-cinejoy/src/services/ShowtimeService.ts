@@ -1264,27 +1264,23 @@ class ShowtimeService {
     if (!showtime) throw new Error("Không tìm thấy suất chiếu");
 
     const showtimeIndex = showtime.showTimes.findIndex((st) => {
+      // Date match: compare calendar day (server local) to requested date
       const showDate = new Date(st.date);
-      const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
-      const showDateStr = showDateVietnam.toISOString().split("T")[0];
-      const dateMatch = showDateStr === date;
+      const targetDate = new Date(date);
+      const dateMatch = showDate.toDateString() === targetDate.toDateString();
 
+      // Time match: compare VN-localized start time to requested HH:mm
+      const showStartTime = new Date(st.start);
+      const vietnamHour = (showStartTime.getUTCHours() + 7) % 24;
+      const vietnamMin = showStartTime.getUTCMinutes();
       let timeMatch = false;
-      if (startTime.includes("T")) {
-        const showStartTime = new Date(st.start);
-        const targetStartTime = new Date(startTime);
-        timeMatch =
-          Math.abs(showStartTime.getTime() - targetStartTime.getTime()) < 60000;
-      } else if (startTime.includes(" ")) {
-        const showStartTime = new Date(st.start);
-        const targetTimeStr = `${date} ${startTime}`;
-        const targetStartTime = new Date(targetTimeStr);
+      if (startTime.includes("T") || startTime.includes(" ")) {
+        const targetStartTime = new Date(
+          startTime.includes("T") ? startTime : `${date} ${startTime}`
+        );
         timeMatch =
           Math.abs(showStartTime.getTime() - targetStartTime.getTime()) < 60000;
       } else {
-        const showStartTime = new Date(st.start);
-        const vietnamHour = (showStartTime.getUTCHours() + 7) % 24;
-        const vietnamMin = showStartTime.getUTCMinutes();
         const [targetHour, targetMin] = startTime.split(":").map(Number);
         timeMatch = vietnamHour === targetHour && vietnamMin === targetMin;
       }
@@ -1428,27 +1424,23 @@ class ShowtimeService {
     if (!showtime) throw new Error("Không tìm thấy suất chiếu");
 
     const showtimeIndex = showtime.showTimes.findIndex((st) => {
+      // Date match: compare calendar day (server local) to requested date
       const showDate = new Date(st.date);
-      const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
-      const showDateStr = showDateVietnam.toISOString().split("T")[0];
-      const dateMatch = showDateStr === date;
+      const targetDate = new Date(date);
+      const dateMatch = showDate.toDateString() === targetDate.toDateString();
 
+      // Time match: compare VN-localized start time to requested HH:mm
+      const showStartTime = new Date(st.start);
+      const vietnamHour = (showStartTime.getUTCHours() + 7) % 24;
+      const vietnamMin = showStartTime.getUTCMinutes();
       let timeMatch = false;
-      if (startTime.includes("T")) {
-        const showStartTime = new Date(st.start);
-        const targetStartTime = new Date(startTime);
-        timeMatch =
-          Math.abs(showStartTime.getTime() - targetStartTime.getTime()) < 60000;
-      } else if (startTime.includes(" ")) {
-        const showStartTime = new Date(st.start);
-        const targetTimeStr = `${date} ${startTime}`;
-        const targetStartTime = new Date(targetTimeStr);
+      if (startTime.includes("T") || startTime.includes(" ")) {
+        const targetStartTime = new Date(
+          startTime.includes("T") ? startTime : `${date} ${startTime}`
+        );
         timeMatch =
           Math.abs(showStartTime.getTime() - targetStartTime.getTime()) < 60000;
       } else {
-        const showStartTime = new Date(st.start);
-        const vietnamHour = (showStartTime.getUTCHours() + 7) % 24;
-        const vietnamMin = showStartTime.getUTCMinutes();
         const [targetHour, targetMin] = startTime.split(":").map(Number);
         timeMatch = vietnamHour === targetHour && vietnamMin === targetMin;
       }

@@ -16,7 +16,7 @@ import {
   Alert,
 } from "react-native";
 import Fontisto from "@expo/vector-icons/Fontisto";
-import * as ImagePicker from "expo-image-picker";
+// Lazy load ImagePicker to avoid crash on app startup with New Architecture
 import { sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -449,6 +449,25 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
   const handlePickImage = async () => {
     if (isProcessing) return;
     try {
+      // Lazy load ImagePicker to avoid crash on startup
+      const ImagePickerModule = await import("expo-image-picker");
+      const ImagePicker =
+        ImagePickerModule?.default && typeof ImagePickerModule.default === "object"
+          ? ImagePickerModule.default
+          : ImagePickerModule;
+
+      // Check if module loaded correctly
+      if (
+        !ImagePicker ||
+        typeof ImagePicker.requestMediaLibraryPermissionsAsync !== "function"
+      ) {
+        console.error(
+          "ImagePicker module structure:",
+          Object.keys(ImagePickerModule || {})
+        );
+        throw new Error("ImagePicker module not loaded correctly");
+      }
+
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
