@@ -65,8 +65,10 @@ const getVNDayLabel = (date: Date, idx: number) => {
 
 const getDateRange = (start: string, end: string) => {
   const result = [];
-  let current = dayjs(start);
-  const last = dayjs(end);
+  // Parse date string "YYYY-MM-DD" như UTC để tránh lệch timezone giữa local và prod
+  // Sau đó convert sang VN timezone để lấy calendar date đúng
+  let current = dayjs.utc(start + "T00:00:00.000Z").tz("Asia/Ho_Chi_Minh");
+  const last = dayjs.utc(end + "T00:00:00.000Z").tz("Asia/Ho_Chi_Minh");
   let idx = 0;
   while (current.isSameOrBefore(last, "day")) {
     result.push({
@@ -84,8 +86,14 @@ const formatVNTime = (iso: string) => {
 };
 
 const ScheduleList: React.FC = () => {
-  const today = dayjs().format("YYYY-MM-DD");
-  const sevenDaysLater = dayjs().add(6, "day").format("YYYY-MM-DD");
+  // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
+  // dayjs.utc() lấy UTC time thực sự từ server/browser, không phụ thuộc local timezone
+  const today = dayjs.utc().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+  const sevenDaysLater = dayjs()
+    .utc()
+    .tz("Asia/Ho_Chi_Minh")
+    .add(6, "day")
+    .format("YYYY-MM-DD");
 
   const navigate = useNavigate();
   const { releaseUserReservedSeats } = useReleaseReservedSeats();
@@ -144,24 +152,55 @@ const ScheduleList: React.FC = () => {
         .flat();
 
       // Lọc theo ngày chọn
-      let showTimesOfSelectedDate = allShowTimes.filter(
-        (st) => dayjs(st.date).format("YYYY-MM-DD") === selectedDate
-      );
+      // Parse date: Backend lưu date ở UTC, cần lấy calendar date theo VN timezone
+      let showTimesOfSelectedDate = allShowTimes.filter((st) => {
+        // Parse date: Backend lưu date ở UTC với time 17:00 (VN midnight của ngày hôm sau)
+        // Ví dụ: "2025-12-17T17:00:00.000Z" = VN midnight của ngày 18
+        // Để lấy calendar date đúng, cần trừ 7 giờ từ UTC time
+        // "2025-12-17T17:00:00.000Z" - 7h = "2025-12-17T10:00:00.000Z" → date: "2025-12-17" ✓
+        const showDate = dayjs
+          .utc(st.date)
+          .subtract(7, "hour")
+          .format("YYYY-MM-DD");
+
+        // Debug log: Hiển thị trong browser console (F12) để debug trên production
+        // Mở F12 > Console để xem log này
+        if (showDate !== selectedDate) {
+          console.log("[ScheduleList] Date filter debug:", {
+            rawDate: st.date,
+            parsedUTC: dayjs.utc(st.date).format("YYYY-MM-DD HH:mm:ss"),
+            afterSubtract7h: dayjs
+              .utc(st.date)
+              .subtract(7, "hour")
+              .format("YYYY-MM-DD HH:mm:ss"),
+            showDate,
+            selectedDate,
+            match: showDate === selectedDate,
+          });
+        }
+
+        return showDate === selectedDate;
+      });
 
       // Nếu là hôm nay: ẩn các suất bắt đầu trước thời điểm hiện tại 5 phút
-      const isToday = selectedDate === dayjs().format("YYYY-MM-DD");
+      // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
+      const todayVN = dayjs.utc().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+      const isToday = selectedDate === todayVN;
       if (isToday) {
-        const now = dayjs();
+        const now = dayjs.utc().tz("Asia/Ho_Chi_Minh");
         showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
-          const start = dayjs(st.start);
-          const end = dayjs(st.end);
+          const start = dayjs(st.start).tz("Asia/Ho_Chi_Minh");
+          const end = dayjs(st.end).tz("Asia/Ho_Chi_Minh");
 
           // Xử lý trường hợp ca đêm qua ngày hôm sau
           if (start.hour() >= 22 && end.hour() < 6) {
             // Ca đêm: kiểm tra xem đã qua end time chưa
             const endTimeToday = end.format("YYYY-MM-DD HH:mm");
             // const nowFormatted = now.format("YYYY-MM-DD HH:mm");
-            return dayjs(endTimeToday).add(5, "minute").isAfter(now);
+            return dayjs(endTimeToday)
+              .tz("Asia/Ho_Chi_Minh")
+              .add(5, "minute")
+              .isAfter(now);
           } else {
             // Ca bình thường: kiểm tra start time
             return start.add(5, "minute").isAfter(now);
@@ -268,8 +307,13 @@ const ScheduleList: React.FC = () => {
   // Khi đổi rạp, nếu rạp không có ngày đang chọn thì chọn ngày đầu tiên có suất chiếu
   useEffect(() => {
     // Luôn chỉ lấy 7 ngày từ hôm nay
-    const todayConst = dayjs().format("YYYY-MM-DD");
-    const sevenDaysLaterConst = dayjs().add(6, "day").format("YYYY-MM-DD");
+    // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
+    const todayConst = dayjs.utc().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+    const sevenDaysLaterConst = dayjs()
+      .utc()
+      .tz("Asia/Ho_Chi_Minh")
+      .add(6, "day")
+      .format("YYYY-MM-DD");
     setDates(getDateRange(todayConst, sevenDaysLaterConst));
 
     // Nếu ngày đang chọn không nằm trong 7 ngày này thì đặt lại về hôm nay

@@ -34,7 +34,9 @@ const getVNDayLabel = (date: Date, idx: number) => {
 };
 
 const get7DaysFromToday = () => {
-  const today = dayjs();
+  // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
+  // dayjs.utc() lấy UTC time thực sự từ server/browser, không phụ thuộc local timezone
+  const today = dayjs.utc().tz("Asia/Ho_Chi_Minh");
   return Array.from({ length: 7 }, (_, idx) => {
     const date = today.add(idx, "day");
     return {
@@ -91,19 +93,48 @@ const CardInfMovie = () => {
   );
 
   // Lọc theo ngày, và nếu là hôm nay thì ẩn suất đã quá giờ bắt đầu 5 phút
-  let showTimesOfSelectedDate = allShowTimes.filter(
-    (st) => dayjs(st.date).format("YYYY-MM-DD") === selectedDate
-  );
-  if (selectedDate === dayjs().format("YYYY-MM-DD")) {
-    const now = dayjs();
+  // Parse date: Backend lưu date ở UTC với time 17:00 (VN midnight của ngày hôm sau)
+  // Để lấy calendar date đúng, cần trừ 7 giờ từ UTC time
+  let showTimesOfSelectedDate = allShowTimes.filter((st) => {
+    // "2025-12-17T17:00:00.000Z" - 7h = "2025-12-17T10:00:00.000Z" → date: "2025-12-17" ✓
+    const showDate = dayjs
+      .utc(st.date)
+      .subtract(7, "hour")
+      .format("YYYY-MM-DD");
+
+    // Debug log: Hiển thị trong browser console (F12) để debug trên production
+    if (showDate !== selectedDate) {
+      console.log("[CardInfMovie] Date filter debug:", {
+        rawDate: st.date,
+        parsedUTC: dayjs.utc(st.date).format("YYYY-MM-DD HH:mm:ss"),
+        afterSubtract7h: dayjs
+          .utc(st.date)
+          .subtract(7, "hour")
+          .format("YYYY-MM-DD HH:mm:ss"),
+        showDate,
+        selectedDate,
+        selectedDateType: typeof selectedDate,
+        match: showDate === selectedDate,
+      });
+    }
+
+    return showDate === selectedDate;
+  });
+  // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
+  const todayVN = dayjs.utc().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+  if (selectedDate === todayVN) {
+    const now = dayjs.utc().tz("Asia/Ho_Chi_Minh");
     showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
-      const start = dayjs(st.start);
-      const end = dayjs(st.end);
+      const start = dayjs(st.start).tz("Asia/Ho_Chi_Minh");
+      const end = dayjs(st.end).tz("Asia/Ho_Chi_Minh");
       // Xử lý trường hợp ca đêm qua ngày hôm sau
       if (start.hour() >= 22 && end.hour() < 6) {
         // Ca đêm: kiểm tra xem đã qua end time chưa
         const endTimeToday = end.format("YYYY-MM-DD HH:mm");
-        return dayjs(endTimeToday).add(5, "minute").isAfter(now);
+        return dayjs(endTimeToday)
+          .tz("Asia/Ho_Chi_Minh")
+          .add(5, "minute")
+          .isAfter(now);
       } else {
         // Ca bình thường: kiểm tra start time
         return start.add(5, "minute").isAfter(now);
