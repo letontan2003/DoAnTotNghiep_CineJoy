@@ -58,12 +58,39 @@ const ChatbotController = {
         let responseText = "";
 
         if (imageResult) {
-          responseText = await generatePosterQuestionReply({
+          const posterReply = await generatePosterQuestionReply({
             posterInfo: imageResult,
             question: message,
             sessionId,
             userId,
           });
+
+          // Response có thể là string hoặc object với movie/showtimes
+          if (
+            posterReply &&
+            typeof posterReply === "object" &&
+            "text" in posterReply
+          ) {
+            const replyObj = posterReply as {
+              text: string;
+              movie?: any;
+              showtimes?: any[];
+              targetDate?: string;
+              dateRange?: { start: string; end: string };
+            };
+            responseText = replyObj.text || "";
+            // Nếu có movie/showtimes trong response, lưu lại
+            if (replyObj.movie || replyObj.showtimes) {
+              imageResult = {
+                success: true,
+                movie: replyObj.movie || imageResult.movie,
+                showtimes: replyObj.showtimes || [],
+                message: responseText,
+              };
+            }
+          } else {
+            responseText = typeof posterReply === "string" ? posterReply : "";
+          }
         } else {
           const response = await chatbotService.getResponse(
             message,
@@ -71,12 +98,35 @@ const ChatbotController = {
             userId
           );
 
-          responseText =
-            typeof response === "string"
-              ? response
-              : response && typeof response.toString === "function"
-              ? response.toString()
-              : "";
+          // Response có thể là string hoặc object với movie/showtimes
+          if (
+            typeof response === "object" &&
+            response !== null &&
+            "text" in response
+          ) {
+            const responseObj = response as {
+              text: string;
+              movie?: any;
+              showtimes?: any[];
+            };
+            responseText = responseObj.text || "";
+            // Nếu có movie/showtimes trong response, lưu lại
+            if (responseObj.movie || responseObj.showtimes) {
+              imageResult = {
+                success: true,
+                movie: responseObj.movie,
+                showtimes: responseObj.showtimes,
+                message: responseText,
+              };
+            }
+          } else {
+            responseText =
+              typeof response === "string"
+                ? response
+                : response && typeof response.toString === "function"
+                ? response.toString()
+                : "";
+          }
 
           chatbotService.saveMessage(sessionId, {
             sender: "bot",

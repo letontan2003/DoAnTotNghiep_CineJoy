@@ -1,10 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import tuongtacIcon from "assets/tuongtac.png";
 import Logo from "assets/CineJoyLogo.png";
 import { FaFacebookF } from "react-icons/fa";
 import useAppStore from "@/store/app.store";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const API_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
@@ -13,10 +20,24 @@ interface Message {
   sender: "user" | "bot";
   text: string;
   image?: string; // Base64 image URL for display
+  movie?: {
+    _id: string;
+    title: string;
+    posterImage: string;
+    image: string;
+    genre: string[];
+    duration: number;
+    ageRating: string;
+    status: string;
+  };
+  showtimes?: any[];
 }
 
 interface ChatResponse {
   reply: string;
+  movie?: any;
+  showtimes?: any[];
+  movieTitle?: string;
 }
 
 interface PosterUploadResponse {
@@ -28,6 +49,7 @@ interface PosterUploadResponse {
 }
 
 const Chatbot: React.FC = () => {
+  const navigate = useNavigate();
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -147,7 +169,12 @@ const Chatbot: React.FC = () => {
 
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: response.data.reply },
+        {
+          sender: "bot",
+          text: response.data.reply,
+          movie: response.data.movie,
+          showtimes: response.data.showtimes,
+        },
       ]);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -215,6 +242,8 @@ const Chatbot: React.FC = () => {
           {
             sender: "bot",
             text: response.data.reply,
+            movie: response.data.movie,
+            showtimes: response.data.showtimes,
           },
         ]);
       } else {
@@ -234,6 +263,8 @@ const Chatbot: React.FC = () => {
           {
             sender: "bot",
             text: response.data.reply,
+            movie: response.data.movie,
+            showtimes: response.data.showtimes,
           },
         ]);
       }
@@ -430,6 +461,246 @@ const Chatbot: React.FC = () => {
                       >
                         {message.text}
                       </div>
+                      {/* Movie Card */}
+                      {message.movie && !isUser && (
+                        <div className="mt-3 border-t border-gray-200 pt-3">
+                          <div
+                            className="flex gap-3 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() =>
+                              navigate(`/movies/${message.movie?._id}`)
+                            }
+                          >
+                            <img
+                              src={
+                                message.movie?.posterImage ||
+                                message.movie?.image
+                              }
+                              alt={message.movie?.title}
+                              className="w-16 h-24 object-cover rounded-lg"
+                            />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm mb-1">
+                                {message.movie?.title}
+                              </h4>
+                              <p className="text-xs text-gray-600 mb-1">
+                                {message.movie?.genre?.join(", ")}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                {message.movie?.duration} phút •{" "}
+                                {message.movie?.ageRating}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {/* Showtimes */}
+                      {message.showtimes &&
+                        message.showtimes.length > 0 &&
+                        !isUser &&
+                        message.movie && (
+                          <div className="mt-3 border-t border-gray-200 pt-3">
+                            <p className="text-xs font-semibold mb-2 text-gray-700">
+                              Suất chiếu:
+                            </p>
+                            <div className="space-y-2">
+                              {message.showtimes.map(
+                                (showtime: any, stIdx: number) => {
+                                  const theaterName =
+                                    showtime.theaterId?.name || "Chưa có tên";
+                                  // Filter showtimes: chỉ lấy các suất chưa qua (từ hôm nay trở đi)
+                                  const now = dayjs
+                                    .utc()
+                                    .tz("Asia/Ho_Chi_Minh");
+                                  const today = now.format("YYYY-MM-DD");
+
+                                  const upcomingShowtimes =
+                                    showtime.showTimes
+                                      ?.filter((st: any) => {
+                                        if (st.status !== "active")
+                                          return false;
+
+                                        // Parse date và so sánh với hôm nay
+                                        const showDate = dayjs
+                                          .utc(st.date)
+                                          .subtract(7, "hour")
+                                          .format("YYYY-MM-DD");
+
+                                        // Chỉ lấy suất từ hôm nay trở đi
+                                        if (showDate < today) return false;
+
+                                        // Nếu là hôm nay, kiểm tra giờ bắt đầu
+                                        if (showDate === today) {
+                                          const startTime = dayjs(st.start).tz(
+                                            "Asia/Ho_Chi_Minh"
+                                          );
+                                          const currentTime = now;
+                                          // Chỉ lấy suất chưa bắt đầu (còn ít nhất 5 phút)
+                                          return startTime.isAfter(
+                                            currentTime.add(5, "minute")
+                                          );
+                                        }
+
+                                        return true;
+                                      })
+                                      .sort((a: any, b: any) => {
+                                        // Sắp xếp theo ngày, sau đó theo giờ
+                                        const dateA = dayjs
+                                          .utc(a.date)
+                                          .subtract(7, "hour")
+                                          .format("YYYY-MM-DD");
+                                        const dateB = dayjs
+                                          .utc(b.date)
+                                          .subtract(7, "hour")
+                                          .format("YYYY-MM-DD");
+                                        if (dateA !== dateB) {
+                                          return dateA.localeCompare(dateB);
+                                        }
+                                        const timeA = dayjs(a.start).tz(
+                                          "Asia/Ho_Chi_Minh"
+                                        );
+                                        const timeB = dayjs(b.start).tz(
+                                          "Asia/Ho_Chi_Minh"
+                                        );
+                                        return timeA.diff(timeB);
+                                      }) || [];
+
+                                  // Nhóm showtimes theo ngày
+                                  const showtimesByDate: Record<string, any[]> =
+                                    {};
+                                  upcomingShowtimes.forEach((st: any) => {
+                                    const date = dayjs
+                                      .utc(st.date)
+                                      .subtract(7, "hour")
+                                      .format("DD/MM/YYYY");
+                                    if (!showtimesByDate[date]) {
+                                      showtimesByDate[date] = [];
+                                    }
+                                    showtimesByDate[date].push(st);
+                                  });
+
+                                  return (
+                                    <div key={stIdx} className="text-xs">
+                                      <p className="font-medium text-gray-700 mb-1">
+                                        {theaterName}
+                                      </p>
+                                      <div className="space-y-2">
+                                        {Object.entries(showtimesByDate).map(
+                                          ([date, sts]) => (
+                                            <div key={date}>
+                                              <p className="text-xs font-semibold text-gray-600 mb-1">
+                                                {date}:
+                                              </p>
+                                              <div className="flex flex-wrap gap-1">
+                                                {sts.map(
+                                                  (
+                                                    st: any,
+                                                    timeIdx: number
+                                                  ) => {
+                                                    const time = dayjs(st.start)
+                                                      .tz("Asia/Ho_Chi_Minh")
+                                                      .format("HH:mm");
+                                                    const roomName =
+                                                      st.room?.name ||
+                                                      st.room ||
+                                                      "Chưa có";
+
+                                                    return (
+                                                      <button
+                                                        key={timeIdx}
+                                                        onClick={() => {
+                                                          navigate(
+                                                            `/selectSeat`,
+                                                            {
+                                                              state: {
+                                                                movie: {
+                                                                  ...message.movie,
+                                                                  title:
+                                                                    message
+                                                                      .movie
+                                                                      ?.title,
+                                                                  poster:
+                                                                    message
+                                                                      .movie
+                                                                      ?.posterImage,
+                                                                  format:
+                                                                    "2D, Phụ đề Tiếng Việt",
+                                                                  genre:
+                                                                    message.movie?.genre?.join(
+                                                                      ", "
+                                                                    ),
+                                                                  duration:
+                                                                    message
+                                                                      .movie
+                                                                      ?.duration,
+                                                                  minAge:
+                                                                    message
+                                                                      .movie
+                                                                      ?.ageRating ===
+                                                                    "T18+"
+                                                                      ? 18
+                                                                      : message
+                                                                          .movie
+                                                                          ?.ageRating ===
+                                                                        "T16+"
+                                                                      ? 16
+                                                                      : message
+                                                                          .movie
+                                                                          ?.ageRating ===
+                                                                        "T15+"
+                                                                      ? 15
+                                                                      : message
+                                                                          .movie
+                                                                          ?.ageRating ===
+                                                                        "T12+"
+                                                                      ? 12
+                                                                      : 13,
+                                                                  ageRating:
+                                                                    message
+                                                                      .movie
+                                                                      ?.ageRating,
+                                                                },
+                                                                cinema:
+                                                                  theaterName,
+                                                                date: dayjs
+                                                                  .utc(st.date)
+                                                                  .subtract(
+                                                                    7,
+                                                                    "hour"
+                                                                  )
+                                                                  .format(
+                                                                    "YYYY-MM-DD"
+                                                                  ),
+                                                                time: time,
+                                                                room: roomName,
+                                                                showtimeId:
+                                                                  showtime._id,
+                                                                theaterId:
+                                                                  showtime
+                                                                    .theaterId
+                                                                    ?._id,
+                                                              },
+                                                            }
+                                                          );
+                                                        }}
+                                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors text-xs"
+                                                      >
+                                                        {time}
+                                                      </button>
+                                                    );
+                                                  }
+                                                )}
+                                              </div>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          </div>
+                        )}
                     </div>
                   </div>
                 );

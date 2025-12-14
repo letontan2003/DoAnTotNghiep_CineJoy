@@ -5,9 +5,9 @@ import NodeCache from "node-cache";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
-// Cấu hình cache
-const cache = new NodeCache({ stdTTL: 600 }); // Cache phản hồi trong 10 phút
-const productCache = new NodeCache({ stdTTL: 3600 }); // Cache sản phẩm trong 1 giờ
+// Cấu hình cache - Tăng thời gian cache để giảm số lần gọi API
+const cache = new NodeCache({ stdTTL: 3600 }); // Cache phản hồi trong 1 giờ (tăng từ 10 phút)
+const productCache = new NodeCache({ stdTTL: 3600 * 2 }); // Cache sản phẩm trong 2 giờ (tăng từ 1 giờ)
 const conversationCache = new NodeCache({ stdTTL: 3600 * 24 }); // Lưu trữ lịch sử trò chuyện trong 24h
 
 // Cấu hình prompt

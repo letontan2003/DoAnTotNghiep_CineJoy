@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import useAppStore from "@/store/app.store";
 import { Modal, Button, message } from "antd";
 import { bookSeatsApi } from "@/services/api";
+import dayjs from "dayjs";
 
 interface MovieInfoProps {
   movie: {
@@ -42,8 +43,9 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Format ngày chiếu theo chuẩn Việt Nam DD/MM/YYYY
+  // Parse date string "YYYY-MM-DD" trực tiếp, không dùng new Date() để tránh lệch timezone
   const displayDate = movie.date
-    ? new Date(movie.date).toLocaleDateString("vi-VN")
+    ? dayjs(movie.date, "YYYY-MM-DD").format("DD/MM/YYYY")
     : movie.date;
 
   const seatCols = movie.seatCols || 10;

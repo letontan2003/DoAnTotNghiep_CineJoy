@@ -1223,6 +1223,186 @@ Trả lời:`;
     }
   },
 
+  // Detect movie title và filters từ user message hoặc bot response
+  detectMovieFromMessage: async (
+    message: string
+  ): Promise<{
+    movie: any;
+    showtimes: any[];
+    needsMoreInfo?: boolean;
+  } | null> => {
+    try {
+      // Lấy danh sách phim
+      const response = await axios.get(`${backendUrl}/movies`);
+      const movies = response.data;
+
+      if (!movies || !Array.isArray(movies)) {
+        return null;
+      }
+
+      // Detect filters từ message
+      const messageLower = message.toLowerCase();
+      let theaterId: string | undefined;
+      let city: string | undefined;
+      let time: string | undefined;
+      let needsMoreInfo = false;
+
+      // Detect xem user có hỏi về suất chiếu không
+      const isAskingAboutShowtimes =
+        messageLower.includes("suất chiếu") ||
+        messageLower.includes("lịch chiếu") ||
+        messageLower.includes("chiếu") ||
+        messageLower.includes("xem") ||
+        messageLower.includes("đặt vé") ||
+        messageLower.includes("vé") ||
+        messageLower.includes("booking") ||
+        messageLower.includes("giờ chiếu") ||
+        messageLower.includes("khi nào chiếu");
+
+      // Detect city/khu vực - ưu tiên tên đầy đủ trước để tránh match sai
+      const cityKeywords = [
+        { keyword: "hồ chí minh", city: "hồ chí minh" },
+        { keyword: "hcm", city: "hồ chí minh" },
+        { keyword: "hà nội", city: "hà nội" },
+        { keyword: "hanoi", city: "hà nội" },
+        { keyword: "đà nẵng", city: "đà nẵng" },
+        { keyword: "danang", city: "đà nẵng" },
+      ];
+
+      // Tìm keyword dài nhất trước (để tránh match "hà nội" khi có "hồ chí minh")
+      const sortedKeywords = cityKeywords.sort(
+        (a, b) => b.keyword.length - a.keyword.length
+      );
+
+      for (const { keyword, city: detectedCity } of sortedKeywords) {
+        if (messageLower.includes(keyword)) {
+          city = detectedCity;
+          break;
+        }
+      }
+
+      // Detect theater/rạp
+      const theaters = await axios.get(`${backendUrl}/theaters`);
+      if (theaters.data && Array.isArray(theaters.data)) {
+        for (const theater of theaters.data) {
+          const theaterName = theater.name?.toLowerCase() || "";
+          if (
+            messageLower.includes(theaterName) ||
+            theaterName.includes(messageLower)
+          ) {
+            theaterId = theater._id.toString();
+            break;
+          }
+        }
+      }
+
+      // Detect time/giờ
+      if (messageLower.includes("sáng") || messageLower.includes("buổi sáng")) {
+        time = "sáng";
+      } else if (
+        messageLower.includes("chiều") ||
+        messageLower.includes("buổi chiều")
+      ) {
+        time = "chiều";
+      } else if (
+        messageLower.includes("tối") ||
+        messageLower.includes("đêm") ||
+        messageLower.includes("buổi tối")
+      ) {
+        time = "tối";
+      } else {
+        // Detect giờ cụ thể (ví dụ: "2 giờ", "14:00", "14h")
+        const timeMatch = messageLower.match(/(\d{1,2})\s*(?:giờ|h|:)/);
+        if (timeMatch) {
+          time = timeMatch[1];
+        }
+      }
+
+      // CHỈ detect phim nếu message có từ khóa liên quan đến phim hoặc có độ dài hợp lý
+      // Tránh detect nhầm khi user chỉ chào hỏi ("hi", "hello", v.v.)
+      const messageWords = messageLower
+        .split(/\s+/)
+        .filter((w) => w.length > 2);
+      const hasMovieKeywords =
+        messageLower.includes("phim") ||
+        messageLower.includes("movie") ||
+        messageLower.includes("chiếu") ||
+        messageLower.includes("suất") ||
+        messageLower.includes("lịch") ||
+        messageLower.includes("vé") ||
+        messageLower.includes("rạp") ||
+        messageLower.includes("cinema") ||
+        messageWords.length >= 2; // Ít nhất 2 từ có nghĩa
+
+      // Nếu message quá ngắn hoặc không có từ khóa phim, không detect
+      if (!hasMovieKeywords && messageWords.length < 2) {
+        return null;
+      }
+
+      // Tìm phim trong message
+      for (const movie of movies) {
+        const normalizedTitle = ChatbotService.normalizeTitle(movie.title);
+        const normalizedMessage = ChatbotService.normalizeTitle(message);
+
+        // Kiểm tra nếu message chứa tên phim (phải match ít nhất 2 từ để tránh match nhầm)
+        const titleWords = normalizedTitle
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
+        const matchedWords = titleWords.filter((word) =>
+          normalizedMessage.includes(word)
+        );
+
+        // Phải match ít nhất 2 từ của tên phim HOẶC tên phim đầy đủ
+        if (
+          matchedWords.length >= 2 ||
+          normalizedMessage.includes(normalizedTitle) ||
+          (normalizedTitle.includes(normalizedMessage) &&
+            normalizedMessage.length >= 5)
+        ) {
+          // CHỈ lấy showtimes nếu user hỏi về suất chiếu HOẶC đã cung cấp khu vực/rạp/giờ
+          let showtimes: any[] = [];
+
+          if (isAskingAboutShowtimes || theaterId || city || time) {
+            // Nếu user chưa nói rõ khu vực/rạp/giờ nhưng đang hỏi về suất chiếu, đánh dấu cần hỏi thêm
+            if (isAskingAboutShowtimes && !theaterId && !city && !time) {
+              needsMoreInfo = true;
+            }
+
+            // Lấy showtimes cho phim với filters
+            showtimes = await ChatbotService.getShowtimesForMovie(
+              movie._id.toString(),
+              {
+                theaterId,
+                city,
+                time,
+              }
+            );
+          }
+
+          return {
+            movie: {
+              _id: movie._id,
+              title: movie.title,
+              posterImage: movie.posterImage,
+              image: movie.image,
+              genre: movie.genre,
+              duration: movie.duration,
+              ageRating: movie.ageRating,
+              status: movie.status,
+            },
+            showtimes: showtimes || [], // Chỉ trả về showtimes nếu user hỏi về suất chiếu
+            needsMoreInfo,
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error detecting movie from message:", error);
+      return null;
+    }
+  },
+
   getResponse: async (
     userMessage: string,
     sessionId = "default",
@@ -1570,8 +1750,13 @@ Trả lời:`;
         response.text() ||
         "Xin lỗi, tôi không thể trả lời ngay lúc này. Bạn có thể hỏi thêm về phim hoặc rạp chiếu phim không?";
 
-      // Loại bỏ tất cả dấu * khỏi response để đảm bảo không có markdown formatting
-      botResponse = botResponse.replace(/\*\*/g, "").replace(/\*/g, "");
+      // Loại bỏ tất cả dấu * và HTML/markdown tags khỏi response
+      botResponse = botResponse
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/<\/?blockquote>/gi, "")
+        .replace(/<\/?[^>]+(>|$)/gi, "") // Loại bỏ tất cả HTML tags
+        .trim();
 
       // Lưu phản hồi vào cache và lịch sử trò chuyện
       cache.set(cacheKey, botResponse);
@@ -1579,6 +1764,62 @@ Trả lời:`;
         sender: "bot",
         text: botResponse,
       });
+
+      // Detect movie/showtimes từ USER MESSAGE (không phải bot response)
+      // Vì bot response có thể chứa tên phim nhưng user không hỏi về suất chiếu
+      const movieData = await ChatbotService.detectMovieFromMessage(
+        userMessage // Detect từ user message, không phải bot response
+      );
+
+      // Trả về response với movie/showtimes nếu có
+      // CHỈ trả về movie nếu user thực sự hỏi về phim (có từ khóa phim hoặc tên phim cụ thể)
+      if (movieData) {
+        // Kiểm tra xem user có thực sự hỏi về phim không
+        const userMessageLower = userMessage.toLowerCase();
+        const isActuallyAskingAboutMovie =
+          userMessageLower.includes("phim") ||
+          userMessageLower.includes("movie") ||
+          userMessageLower.includes("chiếu") ||
+          userMessageLower.includes("suất") ||
+          userMessageLower.includes("lịch") ||
+          userMessageLower.includes("vé") ||
+          userMessageLower.includes("rạp") ||
+          userMessageLower.includes("cinema") ||
+          // Hoặc message chứa tên phim đầy đủ (ít nhất 5 ký tự)
+          (movieData.movie &&
+            userMessageLower.includes(
+              movieData.movie.title
+                .toLowerCase()
+                .substring(0, Math.min(5, movieData.movie.title.length))
+            ));
+
+        // Nếu user không hỏi về phim (chỉ chào hỏi như "hi", "hello"), không trả về movie
+        if (!isActuallyAskingAboutMovie) {
+          return botResponse;
+        }
+
+        // CHỈ hiển thị showtimes nếu user thực sự hỏi về suất chiếu
+        // Nếu user chỉ hỏi thông tin phim (diễn viên, thể loại, v.v.) thì không hiển thị showtimes
+        const shouldShowShowtimes = movieData.showtimes.length > 0;
+
+        // Nếu cần hỏi thêm thông tin, thêm câu hỏi vào response
+        let finalResponse = botResponse;
+        if (movieData.needsMoreInfo && shouldShowShowtimes) {
+          finalResponse +=
+            "\n\n💡 Bạn muốn xem ở rạp nào hoặc khu vực nào? (ví dụ: Hồ Chí Minh, Hà Nội, hoặc tên rạp cụ thể)";
+        } else if (movieData.needsMoreInfo && !shouldShowShowtimes) {
+          finalResponse +=
+            "\n\n💡 Bạn muốn xem ở rạp nào, khu vực nào, hoặc giờ nào? (ví dụ: Hồ Chí Minh, buổi tối, hoặc tên rạp cụ thể)";
+        }
+
+        return {
+          text: finalResponse,
+          movie: movieData.movie,
+          showtimes: shouldShowShowtimes ? movieData.showtimes : [], // Chỉ trả về showtimes nếu user hỏi về suất chiếu
+          targetDate: (movieData as any).targetDate,
+          dateRange: (movieData as any).dateRange,
+        };
+      }
 
       return botResponse;
     } catch (error: any) {
@@ -1608,7 +1849,7 @@ Trả lời:`;
               detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
           )?.retryDelay || "một lúc";
         console.error(
-          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày. Vui lòng đợi hoặc nâng cấp plan."
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 20 requests/ngày cho model gemini-2.5-flash. Quota sẽ reset vào 00:00 UTC. Vui lòng đợi hoặc tạo project mới với API key khác."
         );
         return `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
       }
@@ -1697,7 +1938,7 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       // Xử lý lỗi quota exceeded (429)
       if (error?.status === 429) {
         console.error(
-          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests khi nhận diện poster."
+          "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests khi nhận diện poster. Free tier: 20 requests/ngày. Quota sẽ reset vào 00:00 UTC."
         );
       }
 
@@ -2014,17 +2255,147 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     }
   },
 
-  // Lấy showtimes cho một phim
-  getShowtimesForMovie: async (movieId: string): Promise<any[]> => {
+  // Lấy showtimes cho một phim, có thể filter theo theater/city/time
+  getShowtimesForMovie: async (
+    movieId: string,
+    filters?: {
+      theaterId?: string;
+      city?: string;
+      time?: string; // "sáng", "chiều", "tối", hoặc giờ cụ thể
+    }
+  ): Promise<any[]> => {
     try {
       const showtimes = await showtimeService.getShowtimes();
 
       // Lọc showtimes cho phim cụ thể
-      const movieShowtimes = showtimes.filter(
+      let movieShowtimes = showtimes.filter(
         (st: any) =>
           st.movieId?._id?.toString() === movieId ||
           st.movieId?.toString() === movieId
       );
+
+      // Filter theo theater nếu có
+      if (filters?.theaterId) {
+        movieShowtimes = movieShowtimes.filter(
+          (st: any) =>
+            st.theaterId?._id?.toString() === filters.theaterId ||
+            st.theaterId?.toString() === filters.theaterId
+        );
+      }
+
+      // Filter theo city nếu có
+      if (filters?.city) {
+        const cityLower = filters.city.toLowerCase().trim();
+
+        // Mapping các tên city phổ biến
+        const cityMapping: Record<string, string[]> = {
+          "hồ chí minh": [
+            "hồ chí minh",
+            "hcm",
+            "ho chi minh",
+            "tp. hồ chí minh",
+            "tp hồ chí minh",
+            "thành phố hồ chí minh",
+          ],
+          hcm: [
+            "hồ chí minh",
+            "hcm",
+            "ho chi minh",
+            "tp. hồ chí minh",
+            "tp hồ chí minh",
+            "thành phố hồ chí minh",
+          ],
+          "hà nội": [
+            "hà nội",
+            "hanoi",
+            "thành phố hà nội",
+            "tp. hà nội",
+            "tp hà nội",
+          ],
+          hanoi: [
+            "hà nội",
+            "hanoi",
+            "thành phố hà nội",
+            "tp. hà nội",
+            "tp hà nội",
+          ],
+          "đà nẵng": [
+            "đà nẵng",
+            "danang",
+            "thành phố đà nẵng",
+            "tp. đà nẵng",
+            "tp đà nẵng",
+          ],
+          danang: [
+            "đà nẵng",
+            "danang",
+            "thành phố đà nẵng",
+            "tp. đà nẵng",
+            "tp đà nẵng",
+          ],
+        };
+
+        // Lấy danh sách các tên city tương đương
+        const cityVariants = cityMapping[cityLower] || [cityLower];
+
+        movieShowtimes = movieShowtimes.filter((st: any) => {
+          const theaterCity = (st.theaterId?.location?.city || "")
+            .toLowerCase()
+            .trim();
+
+          // Kiểm tra xem theaterCity có match với bất kỳ variant nào không
+          return cityVariants.some((variant) => {
+            // So sánh chính xác hoặc một trong hai chứa cái kia
+            return (
+              theaterCity === variant ||
+              theaterCity.includes(variant) ||
+              variant.includes(theaterCity)
+            );
+          });
+        });
+      }
+
+      // Filter theo time nếu có
+      if (filters?.time) {
+        const timeLower = filters.time.toLowerCase();
+        movieShowtimes = movieShowtimes
+          .map((st: any) => {
+            // Filter showTimes trong mỗi showtime
+            const filteredShowTimes =
+              st.showTimes?.filter((showTime: any) => {
+                const startTime = new Date(showTime.start);
+                const hour = startTime.getHours();
+
+                if (timeLower === "sáng" || timeLower.includes("sáng")) {
+                  return hour >= 6 && hour < 12;
+                } else if (
+                  timeLower === "chiều" ||
+                  timeLower.includes("chiều")
+                ) {
+                  return hour >= 12 && hour < 18;
+                } else if (
+                  timeLower === "tối" ||
+                  timeLower.includes("tối") ||
+                  timeLower.includes("đêm")
+                ) {
+                  return hour >= 18 || hour < 6;
+                }
+                // Nếu là giờ cụ thể (ví dụ: "14:00", "2 giờ")
+                const timeMatch = timeLower.match(/(\d{1,2})/);
+                if (timeMatch) {
+                  const targetHour = parseInt(timeMatch[1]);
+                  return Math.abs(hour - targetHour) <= 1; // Cho phép lệch 1 giờ
+                }
+                return true;
+              }) || [];
+
+            return {
+              ...st,
+              showTimes: filteredShowTimes,
+            };
+          })
+          .filter((st: any) => st.showTimes && st.showTimes.length > 0);
+      }
 
       return movieShowtimes;
     } catch (error) {
@@ -2071,12 +2442,7 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
         };
       }
 
-      // Bước 3: Lấy showtimes cho phim
-      const showtimes = await ChatbotService.getShowtimesForMovie(
-        movie._id.toString()
-      );
-
-      // Bước 4: Format response message
+      // Bước 3: Format response message - KHÔNG lấy showtimes ngay, chỉ hỏi thêm thông tin
       const userInfo = await ChatbotService.getUserInfo(userId);
       const userName = userInfo?.firstName || "bạn";
 
@@ -2086,58 +2452,9 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
       message += `- Thời lượng: ${movie.duration || "Chưa cập nhật"} phút\n`;
       message += `- Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}\n`;
       message += `- Trạng thái: ${movie.status || "Chưa cập nhật"}\n\n`;
+      message += `💡 ${userName} muốn xem phim này ở khu vực nào hoặc rạp nào? (ví dụ: Hồ Chí Minh, Hà Nội, hoặc tên rạp cụ thể)`;
 
-      if (showtimes.length === 0) {
-        message += `⚠️ Hiện tại phim này chưa có suất chiếu. Vui lòng kiểm tra lại sau.\n\n`;
-        message += `💬 ${userName} có muốn:\n`;
-        message += `- Tìm hiểu thêm về nội dung phim?\n`;
-        message += `- Xem danh sách các phim khác đang chiếu?\n`;
-        message += `- Biết thêm về diễn viên hoặc đạo diễn của phim?`;
-      } else {
-        message += `🎬 Lịch chiếu:\n`;
-        showtimes.forEach((st: any, index: number) => {
-          const theaterName = st.theaterId?.name || "Chưa có tên";
-          message += `\n${index + 1}. Rạp: ${theaterName}\n`;
-
-          // Lấy các suất chiếu sắp tới (trong 7 ngày tới)
-          const now = new Date();
-          const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-          const upcomingShowtimes = st.showTimes
-            .filter((showTime: any) => {
-              const showDate = new Date(showTime.date);
-              return (
-                showDate >= now &&
-                showDate <= nextWeek &&
-                showTime.status === "active"
-              );
-            })
-            .slice(0, 5); // Chỉ lấy 5 suất gần nhất
-
-          if (upcomingShowtimes.length > 0) {
-            upcomingShowtimes.forEach((showTime: any) => {
-              const date = new Date(showTime.date).toLocaleDateString("vi-VN");
-              const start = new Date(showTime.start).toLocaleTimeString(
-                "vi-VN",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }
-              );
-              const roomName = showTime.room?.name || "Chưa có";
-              message += `   📅 ${date} - ${start} (Phòng ${roomName})\n`;
-            });
-          } else {
-            message += `   Chưa có suất chiếu sắp tới\n`;
-          }
-        });
-        message += `\n💡 ${userName} có muốn:\n`;
-        message += `- Tìm hiểu thêm về nội dung phim?\n`;
-        message += `- Xem các phim cùng thể loại "${
-          movie.genre?.[0] || "hành động"
-        }"?`;
-      }
-
+      // KHÔNG trả về showtimes ngay, chỉ trả về movie info
       return {
         success: true,
         movieTitle: recognizedTitle,
@@ -2151,7 +2468,7 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
           posterImage: movie.posterImage,
           image: movie.image,
         },
-        showtimes: showtimes,
+        showtimes: [], // Không trả về showtimes ngay
         message: message,
       };
     } catch (error) {
@@ -2240,35 +2557,202 @@ export const generatePosterQuestionReply = async ({
   const userName = userInfo?.firstName || "bạn";
 
   const movie = posterInfo.movie;
-  const movieSummary = movie
-    ? `Tên phim: ${movie.title}
+  if (!movie) {
+    // Nếu không có movie, trả lời bình thường
+    const prompt = `
+Bạn là CineJoy Assistant. Hệ thống đã phân tích poster với kết quả:
+${posterInfo.message}
+
+Người dùng (${userName}) hỏi thêm: "${question}"
+
+Nhiệm vụ:
+1. Trả lời duy nhất một đoạn văn.
+2. Nếu phim chưa có trong hệ thống, giải thích rõ và gợi ý các lựa chọn khác.
+3. Không nhắc lại thông tin phân tích theo dạng máy móc; hãy diễn đạt lại tự nhiên.
+4. Chỉ trả lời một lần duy nhất.
+`;
+
+    try {
+      const result = await callGeminiWithRetry(prompt);
+      const response = await result.response;
+      let reply =
+        response.text() ||
+        "Xin lỗi, tôi chưa thể trả lời ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+      reply = reply
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/<\/?blockquote>/gi, "")
+        .replace(/<\/?[^>]+(>|$)/gi, "")
+        .trim();
+
+      ChatbotService.saveMessage(sessionId, { sender: "bot", text: reply });
+      return reply;
+    } catch (error: any) {
+      console.error("Error generating poster question reply:", error);
+      const fallback =
+        "Xin lỗi, hệ thống đang bận nên chưa thể trả lời câu hỏi về poster ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+      ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
+      return fallback;
+    }
+  }
+
+  // Detect filters từ question (khu vực/rạp/giờ)
+  const questionLower = question.toLowerCase();
+  let theaterId: string | undefined;
+  let city: string | undefined;
+  let time: string | undefined;
+
+  // Detect date/ngày cụ thể hoặc khoảng ngày
+  let targetDate: string | undefined;
+  let dateRange: { start: string; end: string } | undefined;
+  const today = new Date();
+
+  // Detect "hôm nay"
+  if (questionLower.includes("hôm nay") || questionLower.includes("hôm nay")) {
+    targetDate = today.toISOString().split("T")[0];
+  }
+  // Detect "ngày mai"
+  else if (
+    questionLower.includes("ngày mai") ||
+    questionLower.includes("mai")
+  ) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    targetDate = tomorrow.toISOString().split("T")[0];
+  }
+  // Detect khoảng ngày: "từ ngày X đến ngày Y"
+  else if (questionLower.includes("từ") && questionLower.includes("đến")) {
+    const dateRangeMatch = questionLower.match(
+      /từ\s*(?:ngày\s*)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\s*đến\s*(?:ngày\s*)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/i
+    );
+    if (dateRangeMatch) {
+      const startDay = parseInt(dateRangeMatch[1]);
+      const startMonth = parseInt(dateRangeMatch[2]) - 1;
+      const startYear = dateRangeMatch[3]
+        ? parseInt(dateRangeMatch[3])
+        : today.getFullYear();
+      const endDay = parseInt(dateRangeMatch[4]);
+      const endMonth = parseInt(dateRangeMatch[5]) - 1;
+      const endYear = dateRangeMatch[6]
+        ? parseInt(dateRangeMatch[6])
+        : today.getFullYear();
+
+      const startDate = new Date(startYear, startMonth, startDay);
+      const endDate = new Date(endYear, endMonth, endDay);
+
+      dateRange = {
+        start: startDate.toISOString().split("T")[0],
+        end: endDate.toISOString().split("T")[0],
+      };
+    }
+  }
+  // Detect ngày cụ thể: "ngày 13/12", "13/12/2025", "ngày 13"
+  else {
+    const dateMatch = questionLower.match(
+      /(?:ngày\s*)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/i
+    );
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]) - 1;
+      const year = dateMatch[3] ? parseInt(dateMatch[3]) : today.getFullYear();
+      const specificDate = new Date(year, month, day);
+      targetDate = specificDate.toISOString().split("T")[0];
+    }
+  }
+
+  // Detect city/khu vực
+  const cities = ["hồ chí minh", "hcm", "hà nội", "hanoi", "đà nẵng", "danang"];
+  for (const c of cities) {
+    if (questionLower.includes(c)) {
+      city = c;
+      break;
+    }
+  }
+
+  // Detect theater/rạp
+  try {
+    const backendUrl = process.env.BACKEND_URL;
+    const theaters = await axios.get(`${backendUrl}/theaters`);
+    if (theaters.data && Array.isArray(theaters.data)) {
+      for (const theater of theaters.data) {
+        const theaterName = theater.name?.toLowerCase() || "";
+        if (
+          questionLower.includes(theaterName) ||
+          theaterName.includes(questionLower)
+        ) {
+          theaterId = theater._id.toString();
+          break;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching theaters:", error);
+  }
+
+  // Detect time/giờ
+  if (questionLower.includes("sáng") || questionLower.includes("buổi sáng")) {
+    time = "sáng";
+  } else if (
+    questionLower.includes("chiều") ||
+    questionLower.includes("buổi chiều")
+  ) {
+    time = "chiều";
+  } else if (
+    questionLower.includes("tối") ||
+    questionLower.includes("đêm") ||
+    questionLower.includes("buổi tối")
+  ) {
+    time = "tối";
+  } else {
+    const timeMatch = questionLower.match(/(\d{1,2})\s*(?:giờ|h|:)/);
+    if (timeMatch) {
+      time = timeMatch[1];
+    }
+  }
+
+  // Nếu user đã cung cấp khu vực/rạp, lấy showtimes
+  let showtimes: any[] = [];
+  if (theaterId || city || time) {
+    showtimes = await ChatbotService.getShowtimesForMovie(
+      movie._id.toString(),
+      {
+        theaterId,
+        city,
+        time,
+      }
+    );
+  }
+
+  const movieSummary = `Tên phim: ${movie.title}
 Thể loại: ${movie.genre?.join(", ") || "Chưa cập nhật"}
 Thời lượng: ${movie.duration || "Chưa cập nhật"} phút
 Độ tuổi: ${movie.ageRating || "Chưa cập nhật"}
-Trạng thái: ${movie.status || "Chưa cập nhật"}`
-    : `Poster được nhận diện là "${
-        posterInfo.movieTitle || "một phim chưa có trong hệ thống"
-      }".`;
+Trạng thái: ${movie.status || "Chưa cập nhật"}`;
 
-  const showtimeSummary =
-    posterInfo.showtimes && posterInfo.showtimes.length > 0
-      ? posterInfo.showtimes
-          .slice(0, 3)
-          .map((st: any, index: number) => {
-            const theaterName = st.theaterId?.name || "Chưa có tên";
-            const firstShow = st.showTimes?.[0];
-            if (firstShow) {
-              const date = new Date(firstShow.date).toLocaleDateString("vi-VN");
-              const time = new Date(firstShow.start).toLocaleTimeString(
-                "vi-VN",
-                { hour: "2-digit", minute: "2-digit" }
-              );
-              return `${index + 1}. Rạp ${theaterName} - ${date} ${time}`;
-            }
-            return `${index + 1}. Rạp ${theaterName}`;
-          })
-          .join("\n")
-      : "Hiện chưa có suất chiếu sẵn sàng.";
+  let showtimeSummary = "";
+  if (showtimes.length > 0) {
+    showtimeSummary = showtimes
+      .slice(0, 3)
+      .map((st: any, index: number) => {
+        const theaterName = st.theaterId?.name || "Chưa có tên";
+        const firstShow = st.showTimes?.[0];
+        if (firstShow) {
+          const date = new Date(firstShow.date).toLocaleDateString("vi-VN");
+          const time = new Date(firstShow.start).toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return `${index + 1}. Rạp ${theaterName} - ${date} ${time}`;
+        }
+        return `${index + 1}. Rạp ${theaterName}`;
+      })
+      .join("\n");
+  } else if (theaterId || city || time) {
+    showtimeSummary = "Hiện không có suất chiếu phù hợp với yêu cầu của bạn.";
+  } else {
+    showtimeSummary =
+      "Bạn chưa chọn khu vực hoặc rạp cụ thể. Vui lòng cho biết bạn muốn xem ở khu vực nào hoặc rạp nào?";
+  }
 
   const prompt = `
 Bạn là CineJoy Assistant. Hệ thống đã phân tích poster với kết quả:
@@ -2277,15 +2761,14 @@ ${posterInfo.message}
 Tóm tắt phim:
 ${movieSummary}
 
-Lịch chiếu (nếu có):
-${showtimeSummary}
+${showtimes.length > 0 ? `Lịch chiếu:\n${showtimeSummary}` : showtimeSummary}
 
 Người dùng (${userName}) hỏi thêm: "${question}"
 
 Nhiệm vụ:
 1. Trả lời duy nhất một đoạn văn (có thể xuống dòng nhưng không được chào hỏi lặp lại nếu đã trả lời trước đó).
-2. Nếu phim chưa có trong hệ thống, giải thích rõ và gợi ý các lựa chọn khác.
-3. Nếu phim có trong hệ thống, kết hợp thông tin poster + câu hỏi để trả lời trực tiếp.
+2. Nếu phim có trong hệ thống và user đã cung cấp khu vực/rạp, hãy trả lời về lịch chiếu.
+3. Nếu user chưa cung cấp khu vực/rạp, hãy hỏi lại một cách tự nhiên.
 4. Không nhắc lại thông tin phân tích theo dạng máy móc; hãy diễn đạt lại tự nhiên.
 5. Chỉ trả lời một lần duy nhất.
 `;
@@ -2296,9 +2779,36 @@ Nhiệm vụ:
     let reply =
       response.text() ||
       "Xin lỗi, tôi chưa thể trả lời ngay lúc này. Bạn vui lòng thử lại sau nhé!";
-    reply = reply.replace(/\*\*/g, "").replace(/\*/g, "");
+    // Loại bỏ tất cả dấu * và HTML/markdown tags khỏi response
+    reply = reply
+      .replace(/\*\*/g, "")
+      .replace(/\*/g, "")
+      .replace(/<\/?blockquote>/gi, "")
+      .replace(/<\/?[^>]+(>|$)/gi, "") // Loại bỏ tất cả HTML tags
+      .trim();
 
     ChatbotService.saveMessage(sessionId, { sender: "bot", text: reply });
+
+    // Nếu có showtimes, trả về với showtimes để frontend render
+    if (showtimes.length > 0 && movie) {
+      return {
+        text: reply,
+        movie: {
+          _id: movie._id,
+          title: movie.title,
+          posterImage: movie.posterImage,
+          image: movie.image,
+          genre: movie.genre,
+          duration: movie.duration,
+          ageRating: movie.ageRating,
+          status: movie.status,
+        },
+        showtimes: showtimes,
+        targetDate: targetDate,
+        dateRange: dateRange,
+      };
+    }
+
     return reply;
   } catch (error: any) {
     console.error("Error generating poster question reply:", error);
@@ -2312,7 +2822,7 @@ Nhiệm vụ:
         )?.retryDelay || "một lúc";
 
       console.error(
-        "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 200 requests/ngày."
+        "⚠️ GEMINI API QUOTA EXCEEDED: Đã vượt quá giới hạn requests. Free tier: 20 requests/ngày cho model gemini-2.5-flash. Quota sẽ reset vào 00:00 UTC."
       );
       const fallback = `Xin lỗi, hệ thống chatbot hiện đang quá tải do số lượng yêu cầu vượt quá giới hạn. Vui lòng thử lại sau ${retryDelay} hoặc liên hệ quản trị viên để được hỗ trợ.`;
       ChatbotService.saveMessage(sessionId, { sender: "bot", text: fallback });
