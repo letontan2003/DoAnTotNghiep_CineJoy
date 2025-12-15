@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, {
   useState,
   useEffect,
@@ -6,10 +7,16 @@ import React, {
   useMemo,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { Spin, Empty, Button } from "antd";
+import { Spin, Empty, Button, Modal, Typography } from "antd";
 import { DesktopOutlined, EyeOutlined } from "@ant-design/icons";
 import useAppStore from "@/store/app.store";
 import { getUserBookingHistory } from "@/apiservice/apiOrder";
+import { processPaymentApi } from "@/services/api";
+import { message } from "antd";
+import momoLogo from "@/assets/momo.png";
+import vnpayLogo from "@/assets/vnpay.png";
+
+const { Title } = Typography;
 // IOrder is defined in global namespace
 
 const parseTimeTo24Hour = (
@@ -79,6 +86,31 @@ const getShowDateTime = (showDate: string, showTime: string): Date | null => {
   }
 };
 
+// Tính toán thời gian thanh toán tối thiểu (5 tiếng trước giờ bắt đầu chiếu)
+const getPaymentDeadline = (
+  showDate: string,
+  showTime: string
+): { deadlineDate: Date | null; deadlineText: string } => {
+  const showDateTime = getShowDateTime(showDate, showTime);
+  if (!showDateTime) {
+    return { deadlineDate: null, deadlineText: "Không xác định" };
+  }
+
+  // Trừ 5 tiếng từ giờ bắt đầu chiếu
+  const deadlineDate = new Date(showDateTime.getTime() - 5 * 60 * 60 * 1000);
+
+  // Format: "HH:mm ngày DD/MM/YYYY"
+  const hours = String(deadlineDate.getHours()).padStart(2, "0");
+  const minutes = String(deadlineDate.getMinutes()).padStart(2, "0");
+  const day = String(deadlineDate.getDate()).padStart(2, "0");
+  const month = String(deadlineDate.getMonth() + 1).padStart(2, "0");
+  const year = deadlineDate.getFullYear();
+
+  const deadlineText = `${hours}:${minutes} giờ ngày ${day}/${month}/${year}`;
+
+  return { deadlineDate, deadlineText };
+};
+
 const isReturnedStatus = (status: IOrder["orderStatus"]): boolean => {
   return (status ? status.toString().toUpperCase() : "") === "RETURNED";
 };
@@ -98,6 +130,10 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
   const [displayCount, setDisplayCount] = useState<number | string>(5);
   const [activeTab, setActiveTab] = useState<TabKey>("upcoming");
   const hasFetched = useRef<boolean>(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
+  const [selectedOrder, setSelectedOrder] = useState<IOrder | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"MOMO" | "VNPAY">("MOMO");
+  const [isPaymentLoading, setIsPaymentLoading] = useState<boolean>(false);
 
   const fetchBookingHistory = useCallback(async () => {
     if (hasFetched.current) return;
@@ -148,6 +184,12 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
           color: "text-yellow-600",
           bgColor: "bg-yellow-100",
         };
+      case "WAITING":
+        return {
+          text: "Chờ thanh toán",
+          color: "text-orange-600",
+          bgColor: "bg-orange-100",
+        };
       case "CANCELLED":
         return { text: "Đã hủy", color: "text-red-600", bgColor: "bg-red-100" };
       default:
@@ -182,6 +224,59 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
 
     return { upcoming, past, returned };
   }, [orders]);
+
+  const handlePayWaitingOrder = (order: IOrder) => {
+    setSelectedOrder(order);
+    setPaymentMethod("MOMO"); // Reset về MOMO mỗi lần mở modal
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedOrder) return;
+
+    setIsPaymentLoading(true);
+    try {
+      const paymentData = {
+        paymentMethod: paymentMethod,
+        returnUrl: `${window.location.origin}/payment/success`,
+        cancelUrl: `${window.location.origin}/payment/cancel`,
+      };
+
+      const paymentResult = await processPaymentApi(
+        selectedOrder._id,
+        paymentData
+      );
+      const paymentUrl =
+        (paymentResult as any)?.data?.paymentUrl ||
+        (paymentResult as any)?.paymentUrl;
+
+      if (paymentUrl) {
+        // Set flag để không release ghế khi redirect đến payment gateway
+        try {
+          sessionStorage.setItem("payment_redirecting", "1");
+        } catch (e) {
+          console.error("Error setting payment_redirecting flag:", e);
+        }
+        window.location.href = paymentUrl;
+      } else {
+        const payMsg =
+          (paymentResult as any)?.message ||
+          "Không tạo được đường dẫn thanh toán.";
+        message.error(payMsg);
+        setIsPaymentLoading(false);
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      message.error("Có lỗi xảy ra khi xử lý thanh toán!");
+      setIsPaymentLoading(false);
+    }
+  };
+
+  const handleClosePaymentModal = () => {
+    setIsPaymentModalOpen(false);
+    setSelectedOrder(null);
+    setIsPaymentLoading(false);
+  };
 
   const renderOrderCard = (order: IOrder) => {
     const statusInfo = getStatusDisplay(order.orderStatus);
@@ -223,12 +318,16 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
           </div>
         </div>
 
-        <div className="flex items-stretch space-x-6">
-          <div className="flex-shrink-0">
+        <div className="flex items-start space-x-6">
+          <div
+            className={`flex-shrink-0 ${
+              order.orderStatus === "WAITING" ? "mt-3" : ""
+            }`}
+          >
             <img
               src={movie?.posterImage || "/placeholder-poster.jpg"}
               alt={movie?.title}
-              className="w-35 h-full object-cover rounded"
+              className="w-35 h-56 object-cover rounded"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = "/placeholder-poster.jpg";
@@ -237,7 +336,7 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
           </div>
 
           <div className="flex-1 flex flex-col">
-            <div>
+            <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
                 <h3
                   className={`text-lg font-semibold ${
@@ -297,7 +396,41 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
               </div>
             </div>
 
-            <div className="mt-auto pt-4">
+            {order.orderStatus === "WAITING" && (
+              <div
+                className={`mt-3 p-3 rounded-lg border ${
+                  isDarkMode
+                    ? "bg-orange-900/20 border-orange-700 text-orange-200"
+                    : "bg-orange-50 border-orange-200 text-orange-800"
+                }`}
+              >
+                <p className="text-sm font-semibold mb-1">Lưu ý:</p>
+                <p className="text-xs">
+                  Thời gian thanh toán tối thiểu là{" "}
+                  {
+                    getPaymentDeadline(order.showDate, order.showTime)
+                      .deadlineText
+                  }{" "}
+                  (trước giờ bắt đầu chiếu 5 tiếng). Quá hạn thanh toán vé sẽ bị
+                  hủy, hủy nhiều lần sẽ cấm thanh toán sau.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              {order.orderStatus === "WAITING" && (
+                <Button
+                  type="primary"
+                  className={`${
+                    isDarkMode
+                      ? "bg-green-600 hover:bg-green-700 border-green-600"
+                      : "bg-green-500 hover:bg-green-600"
+                  }`}
+                  onClick={() => handlePayWaitingOrder(order)}
+                >
+                  Thanh toán
+                </Button>
+              )}
               <Button
                 type="primary"
                 icon={<EyeOutlined />}
@@ -507,6 +640,190 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
           </>
         )}
       </div>
+
+      {/* Modal chọn phương thức thanh toán */}
+      <Modal
+        title={
+          <Title
+            level={4}
+            style={{
+              color: "#e74c3c",
+              margin: 0,
+              textAlign: "center",
+              marginBottom: "20px",
+            }}
+          >
+            Chọn phương thức thanh toán
+          </Title>
+        }
+        open={isPaymentModalOpen}
+        onCancel={handleClosePaymentModal}
+        footer={[
+          <Button key="cancel" onClick={handleClosePaymentModal}>
+            Hủy
+          </Button>,
+          <Button
+            key="confirm"
+            type="primary"
+            loading={isPaymentLoading}
+            onClick={handleConfirmPayment}
+          >
+            Xác nhận
+          </Button>,
+        ]}
+        width={500}
+        centered
+        getContainer={false}
+        className={isDarkMode ? "dark-modal" : ""}
+        wrapClassName={isDarkMode ? "dark-modal-wrapper" : ""}
+        styles={{
+          content: {
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+          },
+          body: {
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+            color: isDarkMode ? "#f3f4f6" : "#1f2937",
+          },
+          header: {
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+            borderBottom: isDarkMode
+              ? "1px solid #374151"
+              : "1px solid #e5e7eb",
+          },
+          footer: {
+            backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+            borderTop: isDarkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+          },
+        }}
+      >
+        <div className={`space-y-3 ${isDarkMode ? "text-white" : ""}`}>
+          {/* MOMO */}
+          <label
+            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+              paymentMethod === "MOMO"
+                ? isDarkMode
+                  ? "bg-blue-900/30 border-blue-500"
+                  : "bg-[#f5f3ff] border-blue-400"
+                : isDarkMode
+                ? "bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]"
+                : "bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="paymentMethodModal"
+              value="MOMO"
+              checked={paymentMethod === "MOMO"}
+              onChange={(e) =>
+                setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+              }
+              className="mr-3 w-4 h-4 text-blue-600"
+            />
+            <div className="flex items-center">
+              <img
+                src={momoLogo}
+                alt="MOMO"
+                className="w-8 h-8 object-contain mr-3 rounded"
+                width={32}
+                height={32}
+                loading="lazy"
+              />
+              <span
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                }`}
+              >
+                MOMO
+              </span>
+            </div>
+          </label>
+
+          {/* VNPAY */}
+          <label
+            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+              paymentMethod === "VNPAY"
+                ? isDarkMode
+                  ? "bg-blue-900/30 border-blue-500"
+                  : "bg-[#eef5ff] border-blue-400"
+                : isDarkMode
+                ? "bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a]"
+                : "bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="paymentMethodModal"
+              value="VNPAY"
+              checked={paymentMethod === "VNPAY"}
+              onChange={(e) =>
+                setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+              }
+              className="mr-3 w-4 h-4 text-blue-600"
+            />
+            <div className="flex items-center">
+              <img
+                src={vnpayLogo}
+                alt="VNPAY logo"
+                className="w-8 h-8 object-contain mr-3 rounded"
+                width={32}
+                height={32}
+                loading="lazy"
+              />
+              <span
+                className={`text-sm font-medium ${
+                  isDarkMode ? "text-gray-200" : "text-gray-700"
+                }`}
+              >
+                VNPAY
+              </span>
+            </div>
+          </label>
+        </div>
+
+        {selectedOrder && (
+          <div
+            className={`mt-4 pt-4 border-t ${
+              isDarkMode ? "border-gray-600" : "border-gray-200"
+            }`}
+          >
+            <div
+              className={`text-sm ${
+                isDarkMode ? "text-white" : "text-gray-700"
+              }`}
+              style={isDarkMode ? { color: "#ffffff" } : { color: "#374151" }}
+            >
+              <p>
+                <strong
+                  className={isDarkMode ? "text-white" : "text-gray-700"}
+                  style={
+                    isDarkMode ? { color: "#ffffff" } : { color: "#374151" }
+                  }
+                >
+                  Tổng thanh toán:
+                </strong>{" "}
+                <span
+                  className={`font-bold text-lg ${
+                    isDarkMode ? "text-green-400" : "text-green-600"
+                  }`}
+                >
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(selectedOrder.finalAmount)}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div
+          className={`mt-4 text-xs text-center ${
+            isDarkMode ? "text-gray-400" : "text-gray-500"
+          }`}
+        >
+          Khi bấm xác nhận sẽ chuyển đến trang thanh toán {paymentMethod}
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -2,7 +2,13 @@ import { Schema, model, Document } from "mongoose";
 
 export interface IShowtimeSeat {
   seat: Schema.Types.ObjectId; // Reference to Seat model
-  status: "available" | "selected" | "maintenance" | "reserved" | "occupied";
+  status:
+    | "available"
+    | "selected"
+    | "maintenance"
+    | "reserved"
+    | "occupied"
+    | "keepwaiting";
   reservedUntil?: Date; // Temporary reservation
   reservedBy?: Schema.Types.ObjectId; // User who reserved temporarily
 }
@@ -48,6 +54,7 @@ const ShowtimeSchema = new Schema<IShowtime>({
               "maintenance",
               "reserved",
               "occupied",
+              "keepwaiting",
             ],
             default: "available",
             required: true,

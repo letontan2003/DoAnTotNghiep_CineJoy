@@ -120,23 +120,25 @@ const CardInfMovie = () => {
 
     return showDate === selectedDate;
   });
+  // Nếu là hôm nay: ẩn các suất có giờ bắt đầu đã quá giờ hiện tại 5 phút
   // Lấy ngày hôm nay: dùng UTC time hiện tại rồi convert sang VN timezone
   const todayVN = dayjs.utc().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
   if (selectedDate === todayVN) {
     const now = dayjs.utc().tz("Asia/Ho_Chi_Minh");
     showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
-      const start = dayjs(st.start).tz("Asia/Ho_Chi_Minh");
-      const end = dayjs(st.end).tz("Asia/Ho_Chi_Minh");
+      // Parse từ UTC trước khi convert sang VN timezone để tránh lệch timezone
+      const start = dayjs.utc(st.start).tz("Asia/Ho_Chi_Minh");
+      const end = dayjs.utc(st.end).tz("Asia/Ho_Chi_Minh");
       // Xử lý trường hợp ca đêm qua ngày hôm sau
       if (start.hour() >= 22 && end.hour() < 6) {
-        // Ca đêm: kiểm tra xem đã qua end time chưa
-        const endTimeToday = end.format("YYYY-MM-DD HH:mm");
-        return dayjs(endTimeToday)
-          .tz("Asia/Ho_Chi_Minh")
-          .add(5, "minute")
-          .isAfter(now);
+        // Ca đêm: kiểm tra xem đã qua end time + 5 phút chưa
+        // end đã ở VN timezone, nên có thể dùng trực tiếp
+        return end.add(5, "minute").isAfter(now);
       } else {
         // Ca bình thường: kiểm tra start time
+        // Ẩn nếu giờ bắt đầu + 5 phút đã quá giờ hiện tại
+        // Ví dụ: start = 17:00, now = 17:06 → 17:05 < 17:06 → ẩn
+        // Ví dụ: start = 17:00, now = 17:04 → 17:05 > 17:04 → hiển thị
         return start.add(5, "minute").isAfter(now);
       }
     });

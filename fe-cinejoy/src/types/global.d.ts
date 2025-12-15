@@ -153,7 +153,14 @@ declare global {
     _id: string;
     row: string;
     number: number;
-    status: "available" | "reserved" | "sold" | "occupied";
+    status:
+      | "available"
+      | "reserved"
+      | "sold"
+      | "occupied"
+      | "selected"
+      | "keepwaiting"
+      | "maintenance";
   }
 
   // Voucher
@@ -348,14 +355,15 @@ declare global {
     comboPrice: number;
     totalAmount: number;
     finalAmount: number;
-    paymentMethod: "MOMO" | "VNPAY";
+    paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER";
     paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
     orderStatus:
       | "PENDING"
       | "CONFIRMED"
       | "CANCELLED"
       | "COMPLETED"
-      | "RETURNED";
+      | "RETURNED"
+      | "WAITING";
     customerInfo: {
       fullName: string;
       phoneNumber: string;
@@ -366,6 +374,14 @@ declare global {
       paymentDate?: Date;
       paymentGatewayResponse?: Record<string, unknown>;
     };
+    returnInfo?: {
+      reason?: string;
+      returnDate?: Date;
+      refundAmount?: number;
+      refundPercentage?: number;
+      returnedBeforeHours?: number;
+      isBefore2Hours?: boolean;
+    };
     createdAt: string;
     updatedAt: string;
     expiresAt: string;
@@ -374,7 +390,7 @@ declare global {
   interface IPayment {
     _id: string;
     orderId: string;
-    paymentMethod: "MOMO" | "VNPAY";
+    paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER";
     amount: number;
     status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "REFUNDED";
     transactionId?: string;

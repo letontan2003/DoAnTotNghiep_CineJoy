@@ -67,9 +67,7 @@ export const resetPasswordApi = async (data: {
   return response.data;
 };
 
-export const verifyCurrentPasswordApi = async (data: {
-  password: string;
-}) => {
+export const verifyCurrentPasswordApi = async (data: { password: string }) => {
   const response = await axios.post<IBackendResponse<null>>(
     "/v1/api/auth/verify-password",
     data
@@ -500,7 +498,7 @@ export const createOrderApi = async (orderData: {
     price: number;
   }>;
   voucherId?: string | null;
-  paymentMethod: "MOMO" | "VNPAY";
+  paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER";
   customerInfo: {
     fullName: string;
     phoneNumber: string;
@@ -530,7 +528,7 @@ export const createOrderApi = async (orderData: {
 export const processPaymentApi = async (
   orderId: string,
   paymentData: {
-    paymentMethod: "MOMO" | "VNPAY";
+    paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER";
     returnUrl: string;
     cancelUrl: string;
   }
