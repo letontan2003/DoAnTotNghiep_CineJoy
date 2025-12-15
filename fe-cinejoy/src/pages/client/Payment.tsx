@@ -156,7 +156,127 @@ const PaymentPage = () => {
   }, [userVouchers]);
   const [isModalPaymentOpen, setIsModalPaymentOpen] = useState<boolean>(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState<boolean>(false);
-  const [paymentMethod, setPaymentMethod] = useState<"MOMO" | "VNPAY">("MOMO");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "MOMO" | "VNPAY" | "PAY_LATER"
+  >("MOMO");
+  const [isPayLaterDisabled, setIsPayLaterDisabled] = useState<boolean>(false);
+  const [payLaterDisabledReason, setPayLaterDisabledReason] =
+    useState<string>("");
+
+  // Hàm tính toán thời gian còn lại từ giờ hiện tại đến giờ bắt đầu chiếu
+  const calculateTimeUntilShowtime = useCallback((): {
+    hoursRemaining: number;
+    isDisabled: boolean;
+  } => {
+    if (!date || !time) {
+      return { hoursRemaining: 0, isDisabled: false };
+    }
+
+    try {
+      // Parse thời gian chiếu
+      const parseTimeTo24Hour = (
+        timeStr: string
+      ): { hours: number; minutes: number } | null => {
+        try {
+          let hours: number;
+          let minutes: number;
+
+          if (timeStr.includes("AM") || timeStr.includes("PM")) {
+            const timePart = timeStr.replace(/\s*(AM|PM)/i, "");
+            const [h, m] = timePart.split(":").map(Number);
+            const isPM = /PM/i.test(timeStr);
+
+            if (isPM && h !== 12) {
+              hours = h + 12;
+            } else if (!isPM && h === 12) {
+              hours = 0;
+            } else {
+              hours = h;
+            }
+            minutes = m;
+          } else {
+            const [h, m] = timeStr.split(":").map(Number);
+            hours = h;
+            minutes = m;
+          }
+          return { hours, minutes };
+        } catch (error) {
+          console.error("Error parsing time:", error);
+          return null;
+        }
+      };
+
+      const parsedTime = parseTimeTo24Hour(time);
+      if (!parsedTime) {
+        return { hoursRemaining: 0, isDisabled: false };
+      }
+
+      // Tạo Date object cho thời gian bắt đầu chiếu
+      const showDate = new Date(date);
+      if (isNaN(showDate.getTime())) {
+        return { hoursRemaining: 0, isDisabled: false };
+      }
+
+      const showDateTime = new Date(showDate);
+      showDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+
+      // Lấy thời gian hiện tại
+      const now = new Date();
+
+      // Tính số giờ còn lại (có thể âm nếu đã qua giờ chiếu)
+      const hoursRemaining =
+        (showDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      // Nếu <= 5 tiếng thì disable
+      const isDisabled = hoursRemaining <= 5;
+
+      return { hoursRemaining, isDisabled };
+    } catch (error) {
+      console.error("Error calculating time until showtime:", error);
+      return { hoursRemaining: 0, isDisabled: false };
+    }
+  }, [date, time]);
+
+  // Kiểm tra và cập nhật trạng thái disable cho "Thanh toán sau"
+  useEffect(() => {
+    const updatePayLaterStatus = () => {
+      const { hoursRemaining, isDisabled } = calculateTimeUntilShowtime();
+
+      setIsPayLaterDisabled(isDisabled);
+
+      if (isDisabled) {
+        if (hoursRemaining <= 0) {
+          setPayLaterDisabledReason(
+            "Suất chiếu đã bắt đầu hoặc đã qua giờ chiếu"
+          );
+        } else {
+          const hours = Math.floor(hoursRemaining);
+          const minutes = Math.floor((hoursRemaining - hours) * 60);
+          setPayLaterDisabledReason(
+            `Còn ${hours} giờ ${minutes} phút đến giờ chiếu. Thanh toán sau chỉ áp dụng cho suất chiếu còn hơn 5 giờ.`
+          );
+        }
+      } else {
+        setPayLaterDisabledReason("");
+      }
+
+      // Nếu đang chọn "Thanh toán sau" nhưng bị disable, chuyển sang MOMO
+      if (isDisabled && paymentMethod === "PAY_LATER") {
+        setPaymentMethod("MOMO");
+        message.warning(
+          "Phương thức thanh toán sau không khả dụng cho suất chiếu này. Đã chuyển sang MOMO."
+        );
+      }
+    };
+
+    // Cập nhật ngay lập tức
+    updatePayLaterStatus();
+
+    // Cập nhật mỗi phút để đảm bảo trạng thái luôn chính xác
+    const interval = setInterval(updatePayLaterStatus, 60000); // 1 phút
+
+    return () => clearInterval(interval);
+  }, [date, time, calculateTimeUntilShowtime, paymentMethod]);
 
   // releaseSeatsOnExit function removed - seats should stay reserved when navigating back
 
@@ -692,7 +812,21 @@ const PaymentPage = () => {
           return;
         }
 
-        // Gọi API thanh toán
+        // Nếu là thanh toán sau, chỉ tạo order và hiển thị thông báo
+        if (paymentMethod === "PAY_LATER") {
+          message.success(
+            "Đã xác nhận phương thức thanh toán sau. Vui lòng thanh toán trong lịch sử giao dịch."
+          );
+          setIsModalPaymentOpen(false);
+          setIsPaymentLoading(false);
+          // Navigate to booking history after a short delay
+          setTimeout(() => {
+            navigate("/booking-history");
+          }, 1500);
+          return;
+        }
+
+        // Gọi API thanh toán cho MOMO và VNPAY
         const paymentData = {
           paymentMethod: paymentMethod,
           returnUrl: "http://localhost:3000/payment/success",
@@ -1234,7 +1368,9 @@ const PaymentPage = () => {
                     value="MOMO"
                     checked={paymentMethod === "MOMO"}
                     onChange={(e) =>
-                      setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+                      setPaymentMethod(
+                        e.target.value as "MOMO" | "VNPAY" | "PAY_LATER"
+                      )
                     }
                     className="mr-3 w-4 h-4 text-blue-600"
                   />
@@ -1269,7 +1405,9 @@ const PaymentPage = () => {
                     value="VNPAY"
                     checked={paymentMethod === "VNPAY"}
                     onChange={(e) =>
-                      setPaymentMethod(e.target.value as "MOMO" | "VNPAY")
+                      setPaymentMethod(
+                        e.target.value as "MOMO" | "VNPAY" | "PAY_LATER"
+                      )
                     }
                     className="mr-3 w-4 h-4 text-blue-600"
                   />
@@ -1284,6 +1422,78 @@ const PaymentPage = () => {
                     />
                     <span className="text-sm font-medium">VNPAY</span>
                   </div>
+                </label>
+
+                {/* Thanh toán sau */}
+                <label
+                  className={`flex flex-col p-3 rounded-lg border transition-all duration-200 ${
+                    isPayLaterDisabled
+                      ? isDarkMode
+                        ? "bg-gray-800/50 border-gray-600 cursor-not-allowed opacity-60"
+                        : "bg-gray-100 border-gray-300 cursor-not-allowed opacity-60"
+                      : paymentMethod === "PAY_LATER"
+                      ? isDarkMode
+                        ? "bg-blue-900/30 border-blue-500 cursor-pointer"
+                        : "bg-[#f0f9ff] border-blue-400 cursor-pointer"
+                      : isDarkMode
+                      ? "bg-[#232c3b] border-[#3a3d46] hover:bg-[#2a2f3a] cursor-pointer"
+                      : "bg-[#f7f7f9] border-gray-300 hover:bg-[#f0f0f3] cursor-pointer"
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="PAY_LATER"
+                      checked={paymentMethod === "PAY_LATER"}
+                      disabled={isPayLaterDisabled}
+                      onChange={(e) => {
+                        if (!isPayLaterDisabled) {
+                          setPaymentMethod(
+                            e.target.value as "MOMO" | "VNPAY" | "PAY_LATER"
+                          );
+                        }
+                      }}
+                      className="mr-3 w-4 h-4 text-blue-600 disabled:cursor-not-allowed"
+                    />
+                    <div className="flex items-center flex-1">
+                      <svg
+                        className={`w-8 h-8 mr-3 ${
+                          isPayLaterDisabled ? "text-gray-500" : "text-blue-500"
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span
+                        className={`text-sm font-medium ${
+                          isPayLaterDisabled
+                            ? isDarkMode
+                              ? "text-gray-500"
+                              : "text-gray-400"
+                            : ""
+                        }`}
+                      >
+                        Thanh toán sau
+                      </span>
+                    </div>
+                  </div>
+                  {isPayLaterDisabled && payLaterDisabledReason && (
+                    <div
+                      className={`mt-2 ml-7 text-xs font-bold ${
+                        isDarkMode ? "text-orange-400" : "text-orange-600"
+                      }`}
+                    >
+                      {payLaterDisabledReason}
+                    </div>
+                  )}
                 </label>
               </div>
             </div>
@@ -1923,7 +2133,9 @@ const PaymentPage = () => {
           </div>
 
           <div className="mt-[10px] text-[13px] text-center text-red-600 select-none">
-            (Khi bấm xác nhận sẽ chuyển đến trang thanh toán {paymentMethod})
+            {paymentMethod === "PAY_LATER"
+              ? "(Khi bấm xác nhận sẽ tạo đơn hàng với phương thức thanh toán sau)"
+              : `(Khi bấm xác nhận sẽ chuyển đến trang thanh toán ${paymentMethod})`}
           </div>
         </div>
       </Modal>

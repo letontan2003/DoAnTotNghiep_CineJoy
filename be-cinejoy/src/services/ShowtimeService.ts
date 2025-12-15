@@ -1094,6 +1094,12 @@ class ShowtimeService {
           } else if (!currentReservedBy && entry.status === "selected") {
             // Nếu ghế đã selected nhưng không có reservedBy, cũng coi là không khả dụng
             unavailableSeats.push(`${doc.seatId} (đã được đặt)`);
+          } else if (
+            entry.status === "keepwaiting" &&
+            currentReservedBy !== requestingUserId
+          ) {
+            // Nếu ghế đang keepwaiting và không phải của user hiện tại, coi là không khả dụng
+            unavailableSeats.push(`${doc.seatId} (đã được đặt)`);
           } else if (!requestingUserId) {
             // Nếu không có requestingUserId, vẫn cho phép đặt lại nếu reservedBy khớp
             // Đây là fallback cho trường hợp userId không được truyền đúng
@@ -1253,7 +1259,13 @@ class ShowtimeService {
     startTime: string,
     room: string,
     seatIds: string[],
-    status: "selected" | "available" | "maintenance" | "reserved" | "occupied",
+    status:
+      | "selected"
+      | "available"
+      | "maintenance"
+      | "reserved"
+      | "occupied"
+      | "keepwaiting",
     onlyIfReservedByUserId?: string,
     reservedByUserId?: string
   ): Promise<void> {
@@ -1298,6 +1310,9 @@ class ShowtimeService {
 
     const specificShowtime = showtime.showTimes[showtimeIndex];
 
+    let seatsUpdated = 0;
+    let seatsNotFound = 0;
+
     seatIds.forEach((seatId) => {
       const seatIndex = specificShowtime.seats.findIndex(
         (s) =>
@@ -1327,6 +1342,7 @@ class ShowtimeService {
         }
 
         const seat = specificShowtime.seats[seatIndex] as any;
+        const previousStatus = seat.status;
         seat.status = status as any;
 
         // Logic cho reservation
@@ -1339,6 +1355,18 @@ class ShowtimeService {
           console.log(
             `🔒 Seat ${seatId} reserved by user ${reservedByUserId} until ${seat.reservedUntil}`
           );
+        } else if (status === "keepwaiting") {
+          // QUAN TRỌNG: keepwaiting CHỈ được sử dụng khi orderStatus = WAITING
+          // Ghế đang chờ thanh toán sau - giữ cho đến khi thanh toán thành công hoặc order bị hủy
+          // Khi order chuyển sang CANCELLED, ghế PHẢI về available
+          // Khi order chuyển sang CONFIRMED (thanh toán thành công), ghế chuyển sang occupied
+          seat.reservedUntil = undefined; // Không có thời gian hết hạn (chờ thanh toán)
+          seat.reservedBy = reservedByUserId
+            ? new mongoose.Types.ObjectId(reservedByUserId)
+            : seat.reservedBy;
+          console.log(
+            `⏳ Seat ${seatId} set to keepwaiting by user ${reservedByUserId} (waiting for payment - orderStatus must be WAITING)`
+          );
         } else if (status === "occupied") {
           // Ghế đã được thanh toán thành công - không còn tạm giữ
           seat.reservedUntil = undefined;
@@ -1347,15 +1375,44 @@ class ShowtimeService {
             `✅ Seat ${seatId} marked as occupied after successful payment`
           );
         } else if (status === "available") {
-          // Giải phóng ghế
+          // Giải phóng ghế - đặc biệt quan trọng khi hủy đơn hàng
+          // Khi order CANCELLED, ghế PHẢI về available (bao gồm cả ghế keepwaiting từ order WAITING)
           seat.reservedUntil = undefined;
           seat.reservedBy = undefined;
-          console.log(`🔓 Seat ${seatId} released and available`);
+          console.log(
+            `🔓 Seat ${seatId} released from ${previousStatus} to available${
+              previousStatus === "keepwaiting" ? " (order CANCELLED)" : ""
+            }`
+          );
         }
+        seatsUpdated++;
       } else {
         console.log(`❌ Seat ${seatId} not found in showtime`);
+        seatsNotFound++;
       }
     });
+
+    if (seatsNotFound > 0) {
+      console.warn(
+        `⚠️ Warning: ${seatsNotFound} seat(s) not found in showtime:`,
+        seatIds.filter((seatId) => {
+          const seatIndex = specificShowtime.seats.findIndex(
+            (s) =>
+              (s.seat as any)?.seatId === seatId ||
+              (s as any)?.seatId === seatId
+          );
+          return seatIndex === -1;
+        })
+      );
+    }
+
+    if (seatsUpdated === 0 && seatIds.length > 0) {
+      throw new Error(
+        `Không tìm thấy ghế nào trong showtime để cập nhật. SeatIds: ${seatIds.join(
+          ", "
+        )}`
+      );
+    }
 
     console.log(
       `💾 Before save - Seat statuses:`,

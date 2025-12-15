@@ -179,7 +179,7 @@ class OrderController {
 
       if (
         !orderData.paymentMethod ||
-        !["MOMO", "VNPAY"].includes(orderData.paymentMethod)
+        !["MOMO", "VNPAY", "PAY_LATER"].includes(orderData.paymentMethod)
       ) {
         res.status(400).json({
           status: false,
@@ -504,8 +504,23 @@ class OrderController {
         return;
       }
 
-      // Kiểm tra paymentMethod có khớp với order không
-      if (order.paymentMethod !== paymentMethod) {
+      // Nếu paymentMethod là PAY_LATER, không tạo payment URL
+      if (paymentMethod === "PAY_LATER") {
+        res.status(400).json({
+          status: false,
+          error: 400,
+          message: "Không thể tạo payment URL cho phương thức thanh toán sau",
+          data: null,
+        });
+        return;
+      }
+
+      // Cho phép thanh toán đơn hàng WAITING với MOMO hoặc VNPAY (cập nhật paymentMethod)
+      // Nếu không phải WAITING, kiểm tra paymentMethod có khớp với order không
+      if (
+        order.orderStatus !== "WAITING" &&
+        order.paymentMethod !== paymentMethod
+      ) {
         res.status(400).json({
           status: false,
           error: 400,
@@ -513,6 +528,13 @@ class OrderController {
           data: null,
         });
         return;
+      }
+
+      // Nếu order là WAITING, cập nhật paymentMethod của order
+      if (order.orderStatus === "WAITING") {
+        await OrderService.updateOrder(order._id.toString(), {
+          paymentMethod: paymentMethod,
+        });
       }
 
       // Tạo payment record
@@ -575,6 +597,28 @@ class OrderController {
         status: false,
         error: 500,
         message: error instanceof Error ? error.message : "Lỗi server",
+        data: null,
+      });
+    }
+  }
+
+  // Tự động hủy đơn hàng WAITING quá hạn thanh toán
+  async cancelExpiredWaitingOrders(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await OrderService.cancelExpiredWaitingOrders();
+
+      res.status(200).json({
+        status: true,
+        error: 0,
+        message: `Đã hủy ${result.cancelledCount} đơn hàng quá hạn thanh toán`,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error cancelling expired waiting orders:", error);
+      res.status(500).json({
+        status: false,
+        error: 500,
+        message: "Lỗi server khi hủy đơn hàng quá hạn",
         data: null,
       });
     }

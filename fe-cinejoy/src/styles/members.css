@@ -202,3 +202,26 @@
 .dark-modal .ant-modal-close-x:hover {
   color: #ff4d4f !important;
 }
+
+.dark-modal-wrapper .ant-modal-mask {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+.dark-modal .ant-modal-content {
+  background-color: #1f2937 !important;
+}
+
+.dark-modal .ant-modal-header {
+  background-color: #1f2937 !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+.dark-modal .ant-modal-body {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark-modal .ant-modal-footer {
+  background-color: #1f2937 !important;
+  border-top: 1px solid #374151 !important;
+}

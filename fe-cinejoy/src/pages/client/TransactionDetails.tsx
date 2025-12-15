@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Spin, Result } from "antd";
@@ -421,6 +422,30 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = () => {
                       : "Không có thông tin"}
                   </span>
                 </p>
+                {(order as any).returnInfo.isBefore2Hours !== undefined && (
+                  <p>
+                    <span className="font-semibold">Thời điểm trả vé:</span>{" "}
+                    <span className="text-red-600 font-medium">
+                      Trả vé{" "}
+                      {(order as any).returnInfo.isBefore2Hours
+                        ? "trước"
+                        : "từ hoặc sau"}{" "}
+                      2 tiếng trước giờ chiếu
+                    </span>
+                  </p>
+                )}
+                {(order as any).returnInfo.refundAmount !== undefined && (
+                  <p>
+                    <span className="font-semibold">Số tiền hoàn trả:</span>{" "}
+                    <span className="text-green-600 font-bold text-lg">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                      }).format((order as any).returnInfo.refundAmount)}{" "}
+                      ({(order as any).returnInfo.refundPercentage || 0}%)
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           )}

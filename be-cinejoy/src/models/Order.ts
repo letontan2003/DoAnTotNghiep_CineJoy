@@ -47,13 +47,23 @@ export interface IOrder extends Document {
   comboPrice: number;
   totalAmount: number;
   finalAmount: number;
-  paymentMethod: "MOMO" | "VNPAY"; // Required
+  paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER"; // Required
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
-  orderStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RETURNED";
+  orderStatus:
+    | "PENDING"
+    | "CONFIRMED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | "RETURNED"
+    | "WAITING";
   pointsProcessed?: boolean;
   returnInfo?: {
     reason?: string;
     returnDate?: Date;
+    refundAmount?: number;
+    refundPercentage?: number;
+    returnedBeforeHours?: number;
+    isBefore2Hours?: boolean;
   };
   customerInfo: {
     fullName: string;
@@ -250,7 +260,7 @@ const OrderSchema: Schema = new Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["MOMO", "VNPAY"],
+      enum: ["MOMO", "VNPAY", "PAY_LATER"],
       required: true, // Required when creating order
     },
     paymentStatus: {
@@ -261,7 +271,14 @@ const OrderSchema: Schema = new Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "RETURNED"],
+      enum: [
+        "PENDING",
+        "CONFIRMED",
+        "CANCELLED",
+        "COMPLETED",
+        "RETURNED",
+        "WAITING",
+      ],
       default: "PENDING",
       index: true,
     },
@@ -277,6 +294,22 @@ const OrderSchema: Schema = new Schema(
       },
       returnDate: {
         type: Date,
+        required: false,
+      },
+      refundAmount: {
+        type: Number,
+        required: false,
+      },
+      refundPercentage: {
+        type: Number,
+        required: false,
+      },
+      returnedBeforeHours: {
+        type: Number,
+        required: false,
+      },
+      isBefore2Hours: {
+        type: Boolean,
         required: false,
       },
     },

@@ -23,7 +23,7 @@ export interface CreateOrderData {
     quantity: number;
   }>;
   voucherId?: string;
-  paymentMethod: "MOMO" | "VNPAY";
+  paymentMethod: "MOMO" | "VNPAY" | "PAY_LATER";
   customerInfo: {
     fullName: string;
     phoneNumber: string;
@@ -38,8 +38,9 @@ export interface UpdateOrderData {
     | "CONFIRMED"
     | "CANCELLED"
     | "COMPLETED"
-    | "RETURNED";
-  paymentMethod?: "MOMO" | "VNPAY";
+    | "RETURNED"
+    | "WAITING";
+  paymentMethod?: "MOMO" | "VNPAY" | "PAY_LATER";
   paymentInfo?: {
     transactionId?: string;
     paymentDate?: Date;
@@ -59,7 +60,7 @@ class OrderService {
     try {
       const orders = await Order.find({
         userId: new mongoose.Types.ObjectId(userId),
-        orderStatus: { $in: ["CONFIRMED", "RETURNED"] }, // Bao gồm cả CONFIRMED và RETURNED
+        orderStatus: { $in: ["CONFIRMED", "RETURNED", "WAITING"] }, // Bao gồm cả CONFIRMED, RETURNED và WAITING
       })
         .populate({
           path: "movieId",
@@ -555,7 +556,18 @@ class OrderService {
       // Sử dụng thời gian trực tiếp từ frontend (Vietnam time)
       const showTime = orderData.showTime;
 
-      // Tạm giữ ghế trong showtime với trạng thái "reserved" (8 phút)
+      // Set orderStatus based on paymentMethod
+      // If PAY_LATER, set to WAITING; otherwise default to PENDING
+      // QUAN TRỌNG: keepwaiting CHỈ được sử dụng khi orderStatus = WAITING
+      const initialOrderStatus =
+        orderData.paymentMethod === "PAY_LATER" ? "WAITING" : "PENDING";
+
+      // Nếu là thanh toán sau, ghế chuyển sang "keepwaiting"; ngược lại là "reserved"
+      // Lưu ý: keepwaiting CHỈ dành cho order WAITING, không được sử dụng ở trạng thái khác
+      const seatStatus =
+        orderData.paymentMethod === "PAY_LATER" ? "keepwaiting" : "reserved";
+
+      // Tạm giữ ghế trong showtime với trạng thái tương ứng
       try {
         await showtimeService.setSeatsStatus(
           orderData.showtimeId,
@@ -563,14 +575,18 @@ class OrderService {
           showTime,
           orderData.room,
           seatIds,
-          "reserved",
+          seatStatus,
           undefined, // onlyIfReservedByUserId
           orderData.userId // reservedByUserId
         );
         console.log(
-          `🔒 Reserved seats ${seatIds.join(", ")} for user ${
+          `🔒 Set seats ${seatIds.join(", ")} to ${seatStatus} for user ${
             orderData.userId
-          } for 8 minutes`
+          }${
+            seatStatus === "keepwaiting"
+              ? " (waiting for payment)"
+              : " for 8 minutes"
+          }`
         );
       } catch (seatError: any) {
         // Nếu ghế không available, return error response
@@ -603,6 +619,7 @@ class OrderService {
         totalAmount,
         finalAmount,
         paymentMethod: orderData.paymentMethod,
+        orderStatus: initialOrderStatus,
         customerInfo: orderData.customerInfo,
         expiresAt,
       });
@@ -758,6 +775,59 @@ class OrderService {
         console.log(
           `✅ Order ${orderId} confirmed and expiresAt will be unset`
         );
+
+        // Nếu order đang ở trạng thái WAITING (thanh toán sau), chuyển ghế từ keepwaiting sang occupied
+        // QUAN TRỌNG: Chỉ khi orderStatus = WAITING thì ghế mới ở trạng thái keepwaiting
+        // Khi thanh toán thành công, orderStatus chuyển sang CONFIRMED và ghế chuyển sang occupied
+        if (
+          currentOrder.orderStatus === "WAITING" &&
+          updateData.paymentStatus === "PAID"
+        ) {
+          try {
+            const seatIds = currentOrder.seats.map((seat) => seat.seatId);
+            const showTime = currentOrder.showTime;
+
+            console.log(
+              "Attempting to mark seats as occupied for paid WAITING order:",
+              {
+                orderId: currentOrder._id,
+                orderCode: currentOrder.orderCode,
+                showtimeId: currentOrder.showtimeId.toString(),
+                showDate: currentOrder.showDate,
+                showTime: currentOrder.showTime,
+                room: currentOrder.room,
+                seatIds: seatIds,
+                previousSeatStatus: "keepwaiting",
+                newSeatStatus: "occupied",
+              }
+            );
+
+            // Chuyển ghế từ "keepwaiting" sang "occupied" khi thanh toán thành công cho order WAITING
+            // Sau khi thanh toán thành công, orderStatus sẽ chuyển sang CONFIRMED
+            // và ghế không còn ở trạng thái keepwaiting nữa
+            await showtimeService.setSeatsStatus(
+              currentOrder.showtimeId.toString(),
+              currentOrder.showDate,
+              showTime,
+              currentOrder.room,
+              seatIds,
+              "occupied",
+              currentOrder.userId.toString(), // Chỉ user này mới có thể confirm ghế của họ
+              currentOrder.userId.toString()
+            );
+            console.log(
+              `✅ Marked seats ${seatIds.join(", ")} as occupied for user ${
+                currentOrder.userId
+              } after successful payment for WAITING order (seats changed from keepwaiting to occupied, order changed from WAITING to CONFIRMED)`
+            );
+          } catch (seatError) {
+            console.error(
+              "Error marking seats as occupied for paid WAITING order:",
+              seatError
+            );
+            // Log error nhưng không fail transaction vì payment đã thành công
+          }
+        }
       }
 
       // Nếu order được trả vé (RETURNED), xóa expiresAt để không bao giờ xóa
@@ -922,7 +992,85 @@ class OrderService {
           // Log error nhưng vẫn tiếp tục trả vé
         }
 
-        // Cập nhật trạng thái order thành RETURNED với thông tin trả vé
+        // Tính toán số tiền hoàn lại dựa trên thời gian trả vé
+        const now = new Date();
+        const returnDate = new Date();
+
+        // Parse thời gian chiếu
+        const parseTimeTo24Hour = (
+          timeStr: string
+        ): { hours: number; minutes: number } | null => {
+          try {
+            let hours: number;
+            let minutes: number;
+
+            if (timeStr.includes("AM") || timeStr.includes("PM")) {
+              const timePart = timeStr.replace(/\s*(AM|PM)/i, "");
+              const [h, m] = timePart.split(":").map(Number);
+              const isPM = /PM/i.test(timeStr);
+
+              if (isPM && h !== 12) {
+                hours = h + 12;
+              } else if (!isPM && h === 12) {
+                hours = 0;
+              } else {
+                hours = h;
+              }
+              minutes = m;
+            } else {
+              const [h, m] = timeStr.split(":").map(Number);
+              hours = h;
+              minutes = m;
+            }
+            return { hours, minutes };
+          } catch (error) {
+            console.error("Error parsing time:", error);
+            return null;
+          }
+        };
+
+        const parsedTime = parseTimeTo24Hour(order.showTime);
+        if (!parsedTime) {
+          throw new Error("Không thể parse thời gian chiếu");
+        }
+
+        // Tạo Date object cho thời gian bắt đầu chiếu
+        const showDate = new Date(order.showDate);
+        const showDateTime = new Date(showDate);
+        showDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+
+        // Tính số giờ còn lại từ thời điểm trả vé đến giờ chiếu
+        const hoursUntilShowtime =
+          (showDateTime.getTime() - returnDate.getTime()) / (1000 * 60 * 60);
+
+        // Xác định tỷ lệ hoàn tiền
+        let refundPercentage: number;
+        let isBefore2Hours: boolean;
+
+        if (hoursUntilShowtime > 2) {
+          // Trả vé trước (> 2 giờ) trước giờ chiếu: hoàn lại 90% (trừ 10%)
+          refundPercentage = 90;
+          isBefore2Hours = true;
+        } else {
+          // Trả vé sau (<= 2 giờ) trước giờ chiếu: hoàn lại 75% (trừ 25%)
+          refundPercentage = 75;
+          isBefore2Hours = false;
+        }
+
+        // Tính số tiền hoàn lại
+        const refundAmount = Math.round(
+          (order.finalAmount * refundPercentage) / 100
+        );
+
+        console.log(`💰 Refund calculation for order ${order.orderCode}:`, {
+          finalAmount: order.finalAmount,
+          hoursUntilShowtime: hoursUntilShowtime.toFixed(2),
+          isBefore2Hours,
+          refundPercentage,
+          refundAmount,
+        });
+
+        // Cập nhật trạng thái order thành RETURNED với thông tin trả vé và hoàn tiền
         const updatedOrder = await Order.findByIdAndUpdate(
           orderId,
           {
@@ -931,7 +1079,11 @@ class OrderService {
               paymentStatus: "REFUNDED",
               returnInfo: {
                 reason: reason || "Khách hàng yêu cầu trả vé",
-                returnDate: new Date(),
+                returnDate: returnDate,
+                refundAmount: refundAmount,
+                refundPercentage: refundPercentage,
+                returnedBeforeHours: hoursUntilShowtime,
+                isBefore2Hours: isBefore2Hours,
               },
             },
             $unset: {
@@ -943,14 +1095,31 @@ class OrderService {
         return updatedOrder;
       }
 
-      // Hủy order chưa thanh toán
+      // Hủy order chưa thanh toán (bao gồm cả order WAITING với ghế keepwaiting)
       // Bỏ logic hoàn trả FoodCombo vì đã xóa các trường quantity, price
 
       // Release ghế trong showtime khi hủy order
+      // QUAN TRỌNG: Khi order CANCELLED, ghế PHẢI về available (bao gồm cả ghế keepwaiting từ order WAITING)
       try {
         const seatIds = order.seats.map((seat) => seat.seatId);
 
-        // Cập nhật trạng thái ghế về available (dùng setSeatsStatus để so khớp theo tên phòng/seatId)
+        console.log(
+          `🔄 Attempting to release seats for cancelled order ${order.orderCode}:`,
+          {
+            orderId: order._id,
+            showtimeId: order.showtimeId.toString(),
+            showDate: order.showDate,
+            showTime: order.showTime,
+            room: order.room,
+            seatIds: seatIds,
+            currentOrderStatus: order.orderStatus,
+            isWaitingOrder: order.orderStatus === "WAITING",
+          }
+        );
+
+        // Cập nhật trạng thái ghế về available
+        // Điều này áp dụng cho TẤT CẢ các trạng thái ghế: reserved, keepwaiting, selected
+        // Khi order bị CANCELLED, ghế PHẢI về available
         await showtimeService.setSeatsStatus(
           order.showtimeId.toString(),
           order.showDate,
@@ -959,10 +1128,26 @@ class OrderService {
           seatIds,
           "available"
         );
-        console.log("Seats released for cancelled order:", order.orderCode);
+        console.log(
+          `✅ Seats released successfully for cancelled order: ${
+            order.orderCode
+          } (from ${order.orderStatus} to CANCELLED, seats from ${
+            order.orderStatus === "WAITING"
+              ? "keepwaiting"
+              : "reserved/selected"
+          } to available)`
+        );
       } catch (seatError) {
-        console.error("Error releasing seats for cancelled order:", seatError);
-        // Log error nhưng vẫn tiếp tục cancel order
+        console.error(
+          `❌ Error releasing seats for cancelled order ${order.orderCode}:`,
+          seatError
+        );
+        // Throw error để đảm bảo việc hủy đơn hàng không thành công nếu không giải phóng được ghế
+        throw new Error(
+          `Không thể giải phóng ghế cho đơn hàng ${order.orderCode}: ${
+            seatError instanceof Error ? seatError.message : String(seatError)
+          }`
+        );
       }
 
       // Cập nhật trạng thái order
@@ -1082,6 +1267,119 @@ class OrderService {
       todayOrders: todayStats[0]?.count || 0,
       todayRevenue: todayStats[0]?.revenue || 0,
     };
+  }
+
+  // Tự động hủy đơn hàng WAITING quá hạn thanh toán (5 tiếng trước giờ chiếu)
+  async cancelExpiredWaitingOrders(): Promise<{
+    cancelledCount: number;
+    cancelledOrderIds: string[];
+  }> {
+    try {
+      const now = new Date();
+      const cancelledOrderIds: string[] = [];
+
+      // Lấy tất cả đơn hàng có trạng thái WAITING
+      const waitingOrders = await Order.find({
+        orderStatus: "WAITING",
+        paymentStatus: { $ne: "PAID" },
+      })
+        .populate("showtimeId")
+        .lean();
+
+      console.log(`🔍 Found ${waitingOrders.length} WAITING orders to check`);
+
+      for (const order of waitingOrders) {
+        try {
+          // Tính toán thời gian bắt đầu chiếu
+          const showDate = new Date(order.showDate);
+          const showTimeStr = order.showTime;
+
+          // Parse thời gian chiếu
+          let showHours = 0;
+          let showMinutes = 0;
+
+          if (showTimeStr.includes("AM") || showTimeStr.includes("PM")) {
+            const timePart = showTimeStr.replace(/\s*(AM|PM)/i, "");
+            const [h, m] = timePart.split(":").map(Number);
+            const isPM = /PM/i.test(showTimeStr);
+
+            if (isPM && h !== 12) {
+              showHours = h + 12;
+            } else if (!isPM && h === 12) {
+              showHours = 0;
+            } else {
+              showHours = h;
+            }
+            showMinutes = m;
+          } else {
+            const [h, m] = showTimeStr.split(":").map(Number);
+            showHours = h;
+            showMinutes = m;
+          }
+
+          // Tạo Date object cho thời gian bắt đầu chiếu
+          const showDateTime = new Date(showDate);
+          showDateTime.setHours(showHours, showMinutes, 0, 0);
+
+          // Tính thời gian hết hạn thanh toán (5 tiếng trước giờ chiếu)
+          const paymentDeadline = new Date(
+            showDateTime.getTime() - 5 * 60 * 60 * 1000
+          );
+
+          // Nếu thời gian hiện tại đã qua hạn thanh toán
+          if (now > paymentDeadline) {
+            console.log(
+              `⏰ Order ${
+                order._id
+              } has passed payment deadline (deadline: ${paymentDeadline.toISOString()}, now: ${now.toISOString()}). Cancelling...`
+            );
+
+            try {
+              // Hủy đơn hàng - hàm này sẽ tự động giải phóng ghế
+              const cancelledOrder = await this.cancelOrder(
+                order._id.toString(),
+                "Quá hạn thanh toán (5 tiếng trước giờ chiếu)"
+              );
+
+              if (cancelledOrder) {
+                cancelledOrderIds.push(order._id.toString());
+                console.log(
+                  `✅ Successfully cancelled order ${order._id} and released seats`
+                );
+              } else {
+                console.error(
+                  `❌ Failed to cancel order ${order._id} - cancelOrder returned null`
+                );
+              }
+            } catch (cancelError) {
+              console.error(
+                `❌ Error cancelling order ${order._id}:`,
+                cancelError
+              );
+              // Tiếp tục xử lý các đơn hàng khác ngay cả khi có lỗi
+            }
+          }
+        } catch (error) {
+          console.error(
+            `❌ Error processing order ${order._id} for cancellation:`,
+            error
+          );
+          // Tiếp tục xử lý các đơn hàng khác
+        }
+      }
+
+      console.log(
+        `✅ Cancelled ${cancelledOrderIds.length} expired WAITING orders`
+      );
+
+      return {
+        cancelledCount: cancelledOrderIds.length,
+        cancelledOrderIds,
+      };
+    } catch (error) {
+      console.error("❌ Error cancelling expired waiting orders:", error);
+      throw error;
+    }
   }
 }
 

@@ -29,4 +29,10 @@ router.delete("/:id", OrderController.deleteOrder); // Xóa order (Admin)
 // Routes cho Payment của Order
 router.post("/:orderId/payment", OrderController.createPayment); // Tạo payment cho order
 
+// Route để tự động hủy đơn hàng quá hạn (có thể gọi từ cron job)
+router.post(
+  "/cancel-expired-waiting",
+  OrderController.cancelExpiredWaitingOrders
+);
+
 export default router;
