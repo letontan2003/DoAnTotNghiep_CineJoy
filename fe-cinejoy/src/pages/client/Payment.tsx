@@ -829,8 +829,8 @@ const PaymentPage = () => {
         // Gọi API thanh toán cho MOMO và VNPAY
         const paymentData = {
           paymentMethod: paymentMethod,
-          returnUrl: "http://localhost:3000/payment/success",
-          cancelUrl: "http://localhost:3000/payment/cancel",
+          returnUrl: "https://cinejoy.vercel.app/payment/success",
+          cancelUrl: "https://cinejoy.vercel.app/payment/cancel",
         };
 
         const orderId =
