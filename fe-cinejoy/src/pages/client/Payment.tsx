@@ -446,6 +446,29 @@ const PaymentPage = () => {
     }
   };
 
+  // Format giờ chiếu: hỗ trợ cả ISO string (UTC) và "HH:mm"
+  const formatShowtimeTime = (timeString: string) => {
+    if (!timeString) return timeString;
+
+    // Nếu đã là HH:mm thì trả về luôn
+    if (/^\d{1,2}:\d{2}$/.test(timeString)) {
+      return timeString;
+    }
+
+    try {
+      const date = new Date(timeString);
+      if (isNaN(date.getTime())) return timeString;
+
+      // Chuyển sang giờ Việt Nam (UTC+7)
+      const vn = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+      const hour = String(vn.getUTCHours()).padStart(2, "0");
+      const minute = String(vn.getUTCMinutes()).padStart(2, "0");
+      return `${hour}:${minute}`;
+    } catch {
+      return timeString;
+    }
+  };
+
   const voucherDateFormats = [
     "DD/MM/YYYY",
     "D/M/YYYY",
@@ -1582,7 +1605,7 @@ const PaymentPage = () => {
                 <div className="row flex justify-between text-sm">
                   <p className="label font-bold">Giờ chiếu:</p>
                   <p className={`value ${isDarkMode ? "text-gray-200" : ""}`}>
-                    {time}
+                    {formatShowtimeTime(time)}
                   </p>
                 </div>
                 <div className="row flex justify-between text-sm">
@@ -1913,7 +1936,7 @@ const PaymentPage = () => {
                 <Text strong>Giờ chiếu:</Text>
               </Col>
               <Col span={16}>
-                <Text>{time}</Text>
+                <Text>{formatShowtimeTime(time)}</Text>
               </Col>
             </Row>
             <Row gutter={16}>
