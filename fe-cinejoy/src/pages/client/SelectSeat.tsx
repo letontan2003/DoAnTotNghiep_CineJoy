@@ -17,6 +17,11 @@ import {
   getSeatsWithReservationStatusApi,
 } from "@/apiservice/apiShowTime";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const SelectSeat = () => {
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -50,8 +55,18 @@ export const SelectSeat = () => {
     theaterId,
   });
 
-  const apiDate = date;
+  // API needs YYYY-MM-DD (VN timezone) for date matching in backend
+  const apiDate = useMemo(() => {
+    const parsed = Date.parse(date);
+    if (!Number.isNaN(parsed)) {
+      return dayjs(parsed).tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+    }
+    return date;
+  }, [date]);
+
+  // API accepts ISO string for time
   const apiTime = time;
+
   const displayDate = useMemo(() => {
     const parsed = Date.parse(date);
     if (!Number.isNaN(parsed)) {
@@ -68,10 +83,10 @@ export const SelectSeat = () => {
   }, [time]);
 
   // Validation để đảm bảo có đủ thông tin cần thiết
-  if (!showtimeId || !date || !apiTime || !room) {
+  if (!showtimeId || !apiDate || !apiTime || !room) {
     console.error("❌ Missing required data for seat selection:", {
       showtimeId,
-      date,
+      apiDate,
       apiTime,
       room,
     });
@@ -251,10 +266,10 @@ export const SelectSeat = () => {
   const handleSelectSeat = useCallback(
     async (seat: string) => {
       // Validation để đảm bảo có đủ thông tin cần thiết
-      if (!showtimeId || !date || !apiTime || !room) {
+      if (!showtimeId || !apiDate || !apiTime || !room) {
         console.error("❌ Cannot select seat - missing required data:", {
           showtimeId,
-          date,
+          apiDate,
           apiTime,
           room,
         });
@@ -320,7 +335,7 @@ export const SelectSeat = () => {
       selectedSeatType,
       validateSeatTypeSelection,
       showtimeId,
-      date,
+      apiDate,
       apiTime,
       room,
       user,
@@ -332,12 +347,12 @@ export const SelectSeat = () => {
       if (seats.length === 0) return;
 
       // Validation để đảm bảo có đủ thông tin cần thiết
-      if (!showtimeId || !date || !apiTime || !room) {
+      if (!showtimeId || !apiDate || !apiTime || !room) {
         console.error(
           "❌ Cannot select multiple seats - missing required data:",
           {
             showtimeId,
-            date,
+            apiDate,
             apiTime,
             room,
           }
@@ -401,7 +416,7 @@ export const SelectSeat = () => {
       selectedSeatType,
       validateSeatTypeSelection,
       showtimeId,
-      date,
+      apiDate,
       apiTime,
       room,
     ]
@@ -441,7 +456,7 @@ export const SelectSeat = () => {
       console.log("🔄 Loading seats with reservation status...");
       const response = await getSeatsWithReservationStatusApi(
         showtimeId,
-        date,
+        apiDate,
         apiTime,
         room
       );
@@ -469,14 +484,16 @@ export const SelectSeat = () => {
     } catch (error) {
       console.error("Error loading seats with reservation:", error);
     }
-  }, [user, showtimeId, date, apiTime, room]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, showtimeId, apiDate, apiTime, room]); // apiDate is derived from date via useMemo
 
   // Load reservation status when user is authenticated (chỉ gọi 1 lần khi mount)
   useEffect(() => {
     if (user && user._id) {
       loadSeatsWithReservation();
     }
-  }, [user?._id, showtimeId, date, apiTime, room]); // Chỉ phụ thuộc vào data cần thiết
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id, showtimeId, apiDate, apiTime, room]); // loadSeatsWithReservation is stable via useCallback
 
   // Reload reservation status 1 lần sau 2 giây rồi dừng
   useEffect(() => {
@@ -571,7 +588,7 @@ export const SelectSeat = () => {
           onSelect={handleSelectSeat}
           onSelectMultiple={handleSelectMultipleSeats}
           showtimeId={showtimeId}
-          date={date}
+          date={apiDate}
           startTime={apiTime}
           room={room}
           onSeatsLoaded={handleSeatsLoaded}
@@ -608,7 +625,7 @@ export const SelectSeat = () => {
                 );
                 await reserveSeatsApi(
                   showtimeId,
-                  date,
+                  apiDate,
                   apiTime,
                   room,
                   selectedSeats
@@ -661,7 +678,7 @@ export const SelectSeat = () => {
                 ),
                 seatTypeMap,
                 cinema,
-                date: date,
+                date: apiDate,
                 time: apiTime,
                 room: room,
                 theaterId: theaterId || movie?.theaterId,
