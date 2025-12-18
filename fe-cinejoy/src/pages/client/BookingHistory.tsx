@@ -19,6 +19,7 @@ import vnpayLogo from "@/assets/vnpay.png";
 const { Title } = Typography;
 // IOrder is defined in global namespace
 
+// Chuẩn hóa chuỗi giờ chiếu sang dạng 24h (theo giờ Việt Nam nếu là ISO string)
 const parseTimeTo24Hour = (
   timeStr: string
 ): { hours: number; minutes: number } | null => {
@@ -26,6 +27,18 @@ const parseTimeTo24Hour = (
     let hours: number;
     let minutes: number;
 
+    // Trường hợp timeStr là ISO string (ví dụ: 2025-12-18T16:00:00.000Z)
+    if (timeStr.includes("T")) {
+      const date = new Date(timeStr);
+      if (Number.isNaN(date.getTime())) return null;
+      // Chuyển sang giờ Việt Nam (UTC+7)
+      const vnTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+      hours = vnTime.getUTCHours();
+      minutes = vnTime.getUTCMinutes();
+      return { hours, minutes };
+    }
+
+    // Trường hợp HH:mm AM/PM
     if (timeStr.includes("AM") || timeStr.includes("PM")) {
       const timePart = timeStr.replace(/\s*(AM|PM)/i, "");
       const [h, m] = timePart.split(":").map(Number);
@@ -40,6 +53,7 @@ const parseTimeTo24Hour = (
       }
       minutes = m;
     } else {
+      // Trường hợp HH:mm 24h
       const [h, m] = timeStr.split(":").map(Number);
       hours = h;
       minutes = m;
@@ -51,28 +65,43 @@ const parseTimeTo24Hour = (
   }
 };
 
+// Tính giờ kết thúc suất chiếu dựa trên giờ bắt đầu + duration (phút)
 const calculateEndTime = (startTime: string, duration: number): string => {
   try {
-    const parsedTime = parseTimeTo24Hour(startTime);
-    if (!parsedTime) return "Invalid Time";
+    let startDate: Date;
 
-    const startDate = new Date();
-    startDate.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+    if (startTime.includes("T")) {
+      // ISO string: parse trực tiếp rồi chuyển sang giờ VN
+      const isoDate = new Date(startTime);
+      if (Number.isNaN(isoDate.getTime())) return "Invalid Time";
+      startDate = new Date(isoDate.getTime() + 7 * 60 * 60 * 1000);
+    } else {
+      const parsedTime = parseTimeTo24Hour(startTime);
+      if (!parsedTime) return "Invalid Time";
+      startDate = new Date();
+      startDate.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+    }
+
     const endDate = new Date(startDate.getTime() + duration * 60000);
-
-    return endDate.toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const hour = String(endDate.getHours()).padStart(2, "0");
+    const minute = String(endDate.getMinutes()).padStart(2, "0");
+    return `${hour}:${minute}`;
   } catch (error) {
     console.error("Error calculating end time:", error);
     return "Invalid Time";
   }
 };
 
+// Lấy Date đầy đủ của suất chiếu (dùng để phân loại upcoming / past)
 const getShowDateTime = (showDate: string, showTime: string): Date | null => {
   try {
+    // Nếu showTime là ISO string thì ưu tiên dùng trực tiếp (đã bao gồm ngày giờ)
+    if (showTime.includes("T")) {
+      const d = new Date(showTime);
+      if (Number.isNaN(d.getTime())) return null;
+      return d;
+    }
+
     const parsedTime = parseTimeTo24Hour(showTime);
     if (!parsedTime) return null;
 
@@ -83,6 +112,33 @@ const getShowDateTime = (showDate: string, showTime: string): Date | null => {
   } catch (error) {
     console.error("Error parsing show datetime:", error);
     return null;
+  }
+};
+
+// Format giờ hiển thị "HH:mm" từ các kiểu dữ liệu khác nhau
+const formatShowTimeLabel = (timeStr: string): string => {
+  if (!timeStr) return timeStr;
+
+  // Nếu đã là HH:mm thì trả lại luôn
+  if (/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr;
+
+  try {
+    if (timeStr.includes("T")) {
+      const date = new Date(timeStr);
+      if (Number.isNaN(date.getTime())) return timeStr;
+      const vnTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+      const hour = String(vnTime.getUTCHours()).padStart(2, "0");
+      const minute = String(vnTime.getUTCMinutes()).padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    const parsed = parseTimeTo24Hour(timeStr);
+    if (!parsed) return timeStr;
+    const hour = String(parsed.hours).padStart(2, "0");
+    const minute = String(parsed.minutes).padStart(2, "0");
+    return `${hour}:${minute}`;
+  } catch {
+    return timeStr;
   }
 };
 
@@ -376,7 +432,7 @@ const BookingHistory: React.FC<BookingHistoryProps> = () => {
                 </p>
                 <p>
                   <span className="font-medium">Giờ: </span>
-                  Từ {order.showTime} ~ Đến{" "}
+                  Từ {formatShowTimeLabel(order.showTime)} ~ Đến{" "}
                   {calculateEndTime(order.showTime, movie?.duration || 120)}
                 </p>
                 <p>
