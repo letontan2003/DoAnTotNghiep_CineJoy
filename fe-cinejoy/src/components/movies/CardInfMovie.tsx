@@ -891,8 +891,8 @@ const CardInfMovie = () => {
                                   cinema: filteredCinemas.find(
                                     (c) => c._id === selectedCinemaId
                                   )?.name,
-                                  date: selectedDate,
-                                  time: formatVNTime(showtime.start),
+                                  date: showtime.date, // Pass raw ISO string to match chatbot behavior
+                                  time: showtime.start, // Pass raw ISO string instead of formatted time
                                   room: showtime.room,
                                   seats: [], // sẽ cập nhật khi chọn ghế
                                 },
