@@ -558,14 +558,13 @@ class OrderService {
 
       // Set orderStatus based on paymentMethod
       // If PAY_LATER, set to WAITING; otherwise default to PENDING
-      // QUAN TRỌNG: keepwaiting CHỈ được sử dụng khi orderStatus = WAITING
       const initialOrderStatus =
         orderData.paymentMethod === "PAY_LATER" ? "WAITING" : "PENDING";
 
-      // Nếu là thanh toán sau, ghế chuyển sang "keepwaiting"; ngược lại là "reserved"
-      // Lưu ý: keepwaiting CHỈ dành cho order WAITING, không được sử dụng ở trạng thái khác
+      // Nếu thanh toán sau (WAITING), ghế phải chuyển sang trạng thái occupied ngay lập tức
+      // Các order PENDING giữ ghế bằng trạng thái "reserved"
       const seatStatus =
-        orderData.paymentMethod === "PAY_LATER" ? "keepwaiting" : "reserved";
+        orderData.paymentMethod === "PAY_LATER" ? "occupied" : "reserved";
 
       // Tạm giữ ghế trong showtime với trạng thái tương ứng
       try {
@@ -583,8 +582,8 @@ class OrderService {
           `🔒 Set seats ${seatIds.join(", ")} to ${seatStatus} for user ${
             orderData.userId
           }${
-            seatStatus === "keepwaiting"
-              ? " (waiting for payment)"
+            seatStatus === "occupied"
+              ? " (WAITING order, kept as occupied)"
               : " for 8 minutes"
           }`
         );
@@ -776,9 +775,8 @@ class OrderService {
           `✅ Order ${orderId} confirmed and expiresAt will be unset`
         );
 
-        // Nếu order đang ở trạng thái WAITING (thanh toán sau), chuyển ghế từ keepwaiting sang occupied
-        // QUAN TRỌNG: Chỉ khi orderStatus = WAITING thì ghế mới ở trạng thái keepwaiting
-        // Khi thanh toán thành công, orderStatus chuyển sang CONFIRMED và ghế chuyển sang occupied
+        // Nếu order đang ở trạng thái WAITING (thanh toán sau), đảm bảo ghế được set occupied
+        // Khi thanh toán thành công, orderStatus chuyển sang CONFIRMED và ghế giữ trạng thái occupied
         if (
           currentOrder.orderStatus === "WAITING" &&
           updateData.paymentStatus === "PAID"
@@ -797,14 +795,12 @@ class OrderService {
                 showTime: currentOrder.showTime,
                 room: currentOrder.room,
                 seatIds: seatIds,
-                previousSeatStatus: "keepwaiting",
                 newSeatStatus: "occupied",
               }
             );
 
-            // Chuyển ghế từ "keepwaiting" sang "occupied" khi thanh toán thành công cho order WAITING
+            // Đảm bảo ghế ở trạng thái occupied sau khi thanh toán thành công cho order WAITING
             // Sau khi thanh toán thành công, orderStatus sẽ chuyển sang CONFIRMED
-            // và ghế không còn ở trạng thái keepwaiting nữa
             await showtimeService.setSeatsStatus(
               currentOrder.showtimeId.toString(),
               currentOrder.showDate,
@@ -818,7 +814,7 @@ class OrderService {
             console.log(
               `✅ Marked seats ${seatIds.join(", ")} as occupied for user ${
                 currentOrder.userId
-              } after successful payment for WAITING order (seats changed from keepwaiting to occupied, order changed from WAITING to CONFIRMED)`
+              } after successful payment for WAITING order (order changed from WAITING to CONFIRMED)`
             );
           } catch (seatError) {
             console.error(
@@ -1095,11 +1091,11 @@ class OrderService {
         return updatedOrder;
       }
 
-      // Hủy order chưa thanh toán (bao gồm cả order WAITING với ghế keepwaiting)
+      // Hủy order chưa thanh toán (bao gồm cả order WAITING với ghế occupied)
       // Bỏ logic hoàn trả FoodCombo vì đã xóa các trường quantity, price
 
       // Release ghế trong showtime khi hủy order
-      // QUAN TRỌNG: Khi order CANCELLED, ghế PHẢI về available (bao gồm cả ghế keepwaiting từ order WAITING)
+      // QUAN TRỌNG: Khi order CANCELLED, ghế PHẢI về available (bao gồm cả ghế occupied từ order WAITING)
       try {
         const seatIds = order.seats.map((seat) => seat.seatId);
 
@@ -1118,7 +1114,7 @@ class OrderService {
         );
 
         // Cập nhật trạng thái ghế về available
-        // Điều này áp dụng cho TẤT CẢ các trạng thái ghế: reserved, keepwaiting, selected
+        // Điều này áp dụng cho TẤT CẢ các trạng thái ghế: reserved, occupied, selected
         // Khi order bị CANCELLED, ghế PHẢI về available
         await showtimeService.setSeatsStatus(
           order.showtimeId.toString(),
@@ -1132,9 +1128,7 @@ class OrderService {
           `✅ Seats released successfully for cancelled order: ${
             order.orderCode
           } (from ${order.orderStatus} to CANCELLED, seats from ${
-            order.orderStatus === "WAITING"
-              ? "keepwaiting"
-              : "reserved/selected"
+            order.orderStatus === "WAITING" ? "occupied" : "reserved/selected"
           } to available)`
         );
       } catch (seatError) {

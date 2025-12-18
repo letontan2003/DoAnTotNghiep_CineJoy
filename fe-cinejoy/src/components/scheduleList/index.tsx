@@ -154,30 +154,22 @@ const ScheduleList: React.FC = () => {
       // Lọc theo ngày chọn
       // Parse date: Backend lưu date ở UTC, cần lấy calendar date theo VN timezone
       let showTimesOfSelectedDate = allShowTimes.filter((st) => {
-        // Parse date: Backend lưu date ở UTC với time 17:00 (VN midnight của ngày hôm sau)
-        // Ví dụ: "2025-12-17T17:00:00.000Z" = VN midnight của ngày 18
-        // Để lấy calendar date đúng, cần trừ 7 giờ từ UTC time
-        // "2025-12-17T17:00:00.000Z" - 7h = "2025-12-17T10:00:00.000Z" → date: "2025-12-17" ✓
-        const showDate = dayjs
-          .utc(st.date)
-          .subtract(7, "hour")
+        // Backend lưu st.date theo UTC, nhưng ngày hiển thị/phân loại phải theo timezone VN
+        // Ví dụ: "2025-12-19T17:00:00.000Z" ở VN = 00:00 ngày 20/12/2025
+        const showDate = dayjs(st.date)
+          .tz("Asia/Ho_Chi_Minh")
           .format("YYYY-MM-DD");
 
         // Debug log: Hiển thị trong browser console (F12) để debug trên production
         // Mở F12 > Console để xem log này
-        if (showDate !== selectedDate) {
-          console.log("[ScheduleList] Date filter debug:", {
-            rawDate: st.date,
-            parsedUTC: dayjs.utc(st.date).format("YYYY-MM-DD HH:mm:ss"),
-            afterSubtract7h: dayjs
-              .utc(st.date)
-              .subtract(7, "hour")
-              .format("YYYY-MM-DD HH:mm:ss"),
-            showDate,
-            selectedDate,
-            match: showDate === selectedDate,
-          });
-        }
+        // (Optional) Debug khi cần:
+        // if (showDate !== selectedDate) {
+        //   console.log("[ScheduleList] Date filter debug:", {
+        //     rawDate: st.date,
+        //     showDateVN: dayjs(st.date).tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD HH:mm:ss"),
+        //     selectedDate,
+        //   });
+        // }
 
         return showDate === selectedDate;
       });
@@ -191,20 +183,10 @@ const ScheduleList: React.FC = () => {
         showTimesOfSelectedDate = showTimesOfSelectedDate.filter((st) => {
           // Parse từ UTC trước khi convert sang VN timezone để tránh lệch timezone
           const start = dayjs.utc(st.start).tz("Asia/Ho_Chi_Minh");
-          const end = dayjs.utc(st.end).tz("Asia/Ho_Chi_Minh");
 
-          // Xử lý trường hợp ca đêm qua ngày hôm sau
-          if (start.hour() >= 22 && end.hour() < 6) {
-            // Ca đêm: kiểm tra xem đã qua end time + 5 phút chưa
-            // end đã ở VN timezone, nên có thể dùng trực tiếp
-            return end.add(5, "minute").isAfter(now);
-          } else {
-            // Ca bình thường: kiểm tra start time
-            // Ẩn nếu giờ bắt đầu + 5 phút đã quá giờ hiện tại
-            // Ví dụ: start = 17:00, now = 17:06 → 17:05 < 17:06 → ẩn
-            // Ví dụ: start = 17:00, now = 17:04 → 17:05 > 17:04 → hiển thị
-            return start.add(5, "minute").isAfter(now);
-          }
+          // Đồng bộ với rule của chatbot:
+          // Nếu giờ bắt đầu đã trôi qua quá 5 phút so với hiện tại -> không hiển thị nữa
+          return start.add(5, "minute").isAfter(now);
         });
       }
 

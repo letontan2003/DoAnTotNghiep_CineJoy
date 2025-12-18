@@ -147,7 +147,12 @@ function AppContent() {
           />
         </Stack.Navigator>
       </NavigationContainer>
-      <ChatBubble enabled={chatbotEnabled} />
+      <ChatBubble
+        enabled={chatbotEnabled}
+        navigationRef={
+          navigationRef as React.RefObject<NavigationContainerRef<any>>
+        }
+      />
     </>
   );
 }

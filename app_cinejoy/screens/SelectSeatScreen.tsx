@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -32,6 +32,14 @@ import {
 import { useAppSelector } from "@/store/hooks";
 import SideMenu from "@/components/SideMenu";
 import SeatSelectionSkeleton from "@/components/Skeleton/SeatSelectionSkeleton";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const VN_TZ = "Asia/Ho_Chi_Minh";
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 const { width, height } = Dimensions.get("window");
 
@@ -184,6 +192,22 @@ const SelectSeatScreen = () => {
   const minAge = parseMinAgeFromAgeRating(movie?.ageRating);
   const showUnder16Notice = minAge < 16;
 
+  // Chuẩn hoá date cho các API reservation (backend so sánh dạng YYYY-MM-DD theo giờ VN)
+  const reservationDate = useMemo(() => {
+    try {
+      const raw = date;
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return raw;
+      const vn = new Date(parsed.getTime() + 7 * 60 * 60 * 1000);
+      const year = vn.getFullYear();
+      const month = String(vn.getMonth() + 1).padStart(2, "0");
+      const day = String(vn.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return date;
+    }
+  }, [date]);
+
   // Side menu handlers
   const toggleSideMenu = () => {
     setShowSideMenu(!showSideMenu);
@@ -193,14 +217,40 @@ const SelectSeatScreen = () => {
     setShowSideMenu(false);
   };
 
-  // Format date từ YYYY-MM-DD sang DD-MM-YYYY
+  // Format ngày hiển thị (hỗ trợ cả ISO và dạng YYYY-MM-DD) sang DD-MM-YYYY
   const formatDateVN = (dateStr: string): string => {
     if (!dateStr) return dateStr;
+    // Ưu tiên parse Date (xử lý ISO từ backend như 2025-12-17T16:00:00.000Z)
+    const parsed = new Date(dateStr);
+    if (!Number.isNaN(parsed.getTime())) {
+      const vn = new Date(parsed.getTime() + 7 * 60 * 60 * 1000);
+      const day = String(vn.getDate()).padStart(2, "0");
+      const month = String(vn.getMonth() + 1).padStart(2, "0");
+      const year = vn.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+    // Fallback cho chuỗi YYYY-MM-DD
     const parts = dateStr.split("-");
     if (parts.length === 3) {
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
     return dateStr;
+  };
+
+  // Format thời gian hiển thị (hỗ trợ cả ISO và dạng HH:mm) sang HH:mm
+  const formatTimeVN = (timeStr: string | undefined): string => {
+    if (!timeStr) return "";
+    // Nếu đã là HH:mm format (không có T hoặc :00.000Z)
+    if (/^\d{2}:\d{2}$/.test(timeStr)) {
+      return timeStr;
+    }
+    // Nếu là ISO string (có T hoặc .000Z) - parse và cộng UTC+7 thủ công (ổn định trên RN)
+    const t = Date.parse(timeStr);
+    if (Number.isNaN(t)) return timeStr;
+    const vn = new Date(t + VN_OFFSET_MS);
+    const hh = String(vn.getUTCHours()).padStart(2, "0");
+    const mm = String(vn.getUTCMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
   };
 
   // Load giá vé từ bảng giá đang hoạt động
@@ -325,7 +375,7 @@ const SelectSeatScreen = () => {
           try {
             const reservationResponse = await getSeatsWithReservationStatusApi(
               showtimeId,
-              date,
+              reservationDate,
               startTime,
               roomName,
               false
@@ -394,7 +444,15 @@ const SelectSeatScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [showtimeId, date, startTime, roomName, isAuthenticated, user]);
+  }, [
+    showtimeId,
+    date,
+    startTime,
+    roomName,
+    isAuthenticated,
+    user,
+    reservationDate,
+  ]);
 
   const releaseReservedSeats = useCallback(async (): Promise<boolean> => {
     let seatsToRelease: string[] = [];
@@ -405,7 +463,7 @@ const SelectSeatScreen = () => {
       try {
         const reservationResponse = await getSeatsWithReservationStatusApi(
           showtimeId,
-          date,
+          reservationDate,
           startTime,
           roomName,
           false
@@ -443,7 +501,7 @@ const SelectSeatScreen = () => {
     try {
       await releaseSeatsApi(
         showtimeId,
-        date,
+        reservationDate,
         startTime,
         roomName,
         seatsToRelease
@@ -930,7 +988,9 @@ const SelectSeatScreen = () => {
             <Text style={styles.headerTitle}>{theaterName}</Text>
             <Text style={styles.headerSubtitle}>
               {roomName} | {formatDateVN(date)} |{" "}
-              {endTime ? `${startTime} ~ ${endTime}` : startTime}
+              {endTime
+                ? `${formatTimeVN(startTime)} ~ ${formatTimeVN(endTime)}`
+                : formatTimeVN(startTime)}
             </Text>
           </View>
           <TouchableOpacity style={styles.headerRight} onPress={toggleSideMenu}>

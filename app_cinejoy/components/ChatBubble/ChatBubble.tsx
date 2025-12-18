@@ -15,12 +15,45 @@ import {
   Image,
   Alert,
 } from "react-native";
+import type { NavigationContainerRef } from "@react-navigation/native";
 import Fontisto from "@expo/vector-icons/Fontisto";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 // Lazy load ImagePicker to avoid crash on app startup with New Architecture
-import { sendChatbotMessageApi } from "@/services/api";
+import { getMovieByIdApi, sendChatbotMessageApi } from "@/services/api";
 import Logo from "@/assets/CineJoyLogo.png";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setChatbotEnabled } from "@/store/appSlice";
+import { IMovie } from "@/types/api";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const VN_TZ = "Asia/Ho_Chi_Minh";
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+const formatVNDateLabel = (isoOrDate: string): string => {
+  const t = Date.parse(isoOrDate);
+  if (Number.isNaN(t)) return isoOrDate;
+  const vn = new Date(t + VN_OFFSET_MS);
+  const dd = String(vn.getUTCDate()).padStart(2, "0");
+  const mm = String(vn.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = vn.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+const formatVNTimeLabel = (isoOrTime: string): string => {
+  if (/^\d{1,2}:\d{2}$/.test(isoOrTime)) {
+    const [h, m] = isoOrTime.split(":");
+    return `${String(h).padStart(2, "0")}:${m}`;
+  }
+  const t = Date.parse(isoOrTime);
+  if (Number.isNaN(t)) return isoOrTime;
+  const vn = new Date(t + VN_OFFSET_MS);
+  const hh = String(vn.getUTCHours()).padStart(2, "0");
+  const mm = String(vn.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -30,6 +63,8 @@ type Message = {
   text: string;
   timestamp: number;
   imageUri?: string;
+  movie?: any;
+  showtimes?: any[];
 };
 
 const getWelcomeText = (fullName?: string | null) => {
@@ -97,9 +132,10 @@ const TypingIndicator = () => {
 
 interface ChatBubbleProps {
   enabled: boolean;
+  navigationRef?: React.RefObject<NavigationContainerRef<any>>;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
+const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled, navigationRef }) => {
   const dispatch = useAppDispatch();
   const isChatbotScreenOpen = useAppSelector(
     (state) => state.app.isChatbotScreenOpen
@@ -159,6 +195,178 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  const handlePressShowtime = (movie: any, showtime: any, st: any) => {
+    try {
+      const nav = navigationRef?.current;
+      if (!nav) {
+        Alert.alert(
+          "Thông báo",
+          "Không thể mở chọn ghế vì chưa có navigation. Vui lòng thử lại."
+        );
+        return;
+      }
+
+      const theaterName = showtime?.theaterId?.name || "Rạp CineJoy";
+      const theaterId = showtime?.theaterId?._id;
+      const showtimeId = showtime?._id;
+
+      if (!theaterId || !showtimeId) {
+        Alert.alert("Thông báo", "Không thể mở chọn ghế cho suất chiếu này.");
+        return;
+      }
+
+      // Dùng raw ISO từ backend để backend so khớp chính xác (nhánh includes('T'))
+      const date = st?.date;
+      const startTime = st?.start;
+      const endTime = st?.end ? formatVNTimeLabel(st.end) : undefined;
+      const room = st?.room || "Rạp";
+
+      nav.navigate("SelectSeatScreen", {
+        movie: movie as IMovie,
+        showtimeId,
+        theaterId,
+        theaterName,
+        date,
+        startTime,
+        endTime,
+        room,
+      });
+    } catch (e) {
+      console.error("handlePressShowtime error", e);
+      Alert.alert("Lỗi", "Không thể mở chọn ghế. Vui lòng thử lại.");
+    }
+  };
+
+  const handlePressMovie = async (movie: any) => {
+    try {
+      const nav = navigationRef?.current;
+      if (!nav) return;
+      const movieId = movie?._id;
+      if (!movieId) {
+        Alert.alert("Thông báo", "Không thể mở chi tiết phim.");
+        return;
+      }
+      const fullMovie = await getMovieByIdApi(movieId);
+      nav.navigate("MovieDetailScreen", { movie: fullMovie as IMovie });
+    } catch (e) {
+      console.error("handlePressMovie error", e);
+      Alert.alert("Lỗi", "Không thể tải chi tiết phim. Vui lòng thử lại.");
+    }
+  };
+
+  const renderMovieAndShowtimes = (message: Message) => {
+    if (message.sender !== "bot") return null;
+    const movie = message.movie;
+    const showtimes = message.showtimes;
+
+    if (!movie && (!Array.isArray(showtimes) || showtimes.length === 0)) {
+      return null;
+    }
+
+    const nowMs = Date.now();
+
+    return (
+      <View style={styles.payloadContainer}>
+        {movie && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.movieCard}
+            onPress={() => {
+              void handlePressMovie(movie);
+            }}
+          >
+            <Image
+              source={{ uri: movie?.posterImage || movie?.image }}
+              style={styles.moviePoster}
+            />
+            <View style={styles.movieInfo}>
+              <Text style={styles.movieTitle} numberOfLines={2}>
+                {movie?.title || "Phim"}
+              </Text>
+              <Text style={styles.movieMeta} numberOfLines={1}>
+                {(movie?.genre || []).join(", ")}
+              </Text>
+              <Text style={styles.movieMeta}>
+                {movie?.duration ? `${movie.duration} phút` : ""}{" "}
+                {movie?.ageRating ? `• ${movie.ageRating}` : ""}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {Array.isArray(showtimes) && showtimes.length > 0 && movie && (
+          <View style={styles.showtimesContainer}>
+            <Text style={styles.sectionTitle}>Suất chiếu:</Text>
+            {showtimes.map((showtime: any, stIdx: number) => {
+              const theaterName = showtime?.theaterId?.name || "Chưa có tên";
+              const upcoming =
+                showtime?.showTimes
+                  ?.filter((st: any) => {
+                    if (st?.status && st.status !== "active") return false;
+                    const startMs = Date.parse(st?.start);
+                    if (Number.isNaN(startMs)) return false;
+                    return startMs >= nowMs - 5 * 60 * 1000;
+                  })
+                  .sort(
+                    (a: any, b: any) =>
+                      Date.parse(a?.start) - Date.parse(b?.start)
+                  ) || [];
+
+              if (upcoming.length === 0) return null;
+
+              const byDate: Record<string, any[]> = {};
+              upcoming.forEach((st: any) => {
+                const key = st?.date ? formatVNDateLabel(st.date) : "N/A";
+                if (!byDate[key]) byDate[key] = [];
+                byDate[key].push(st);
+              });
+
+              return (
+                <View key={`theater-${stIdx}`} style={styles.theaterBlock}>
+                  <Text style={styles.theaterName}>{theaterName}</Text>
+                  {Object.entries(byDate).map(([dateLabel, sts]) => (
+                    <View key={`date-${dateLabel}`} style={styles.dateBlock}>
+                      <Text style={styles.dateLabel}>{dateLabel}:</Text>
+                      <View style={styles.timeChips}>
+                        {sts.map((st: any, timeIdx: number) => {
+                          const time = st?.start
+                            ? formatVNTimeLabel(st.start)
+                            : "";
+                          const roomName =
+                            typeof st?.room === "object"
+                              ? st?.room?.name
+                              : st?.room || "Rạp";
+                          return (
+                            <TouchableOpacity
+                              key={`time-${timeIdx}`}
+                              style={styles.timeChip}
+                              onPress={() =>
+                                handlePressShowtime(movie, showtime, st)
+                              }
+                              activeOpacity={0.85}
+                            >
+                              <Text style={styles.timeChipText}>{time}</Text>
+                              <Text
+                                style={styles.roomChipText}
+                                numberOfLines={1}
+                              >
+                                {roomName}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Cập nhật lại câu chào khi thông tin user (tên) thay đổi
   useEffect(() => {
@@ -415,9 +623,14 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
         imageBase64: imageToSend?.base64,
         mimeType: imageToSend?.mimeType,
       });
-      const replyText =
-        response?.reply?.trim() ||
-        "Xin lỗi, tôi chưa thể phản hồi ngay lúc này. Bạn vui lòng thử lại sau nhé!";
+      const hasPayload =
+        Boolean(response?.movie) ||
+        (Array.isArray(response?.showtimes) && response.showtimes.length > 0);
+      const replyText = response?.reply?.trim()
+        ? response.reply.trim()
+        : hasPayload
+        ? ""
+        : "Xin lỗi, tôi chưa thể phản hồi ngay lúc này. Bạn vui lòng thử lại sau nhé!";
       setMessages((prev) => [
         ...prev,
         {
@@ -425,6 +638,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
           sender: "bot",
           text: replyText,
           timestamp: Date.now(),
+          movie: response?.movie,
+          showtimes: response?.showtimes,
         },
       ]);
     } catch (error) {
@@ -452,7 +667,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
       // Lazy load ImagePicker to avoid crash on startup
       const ImagePickerModule = await import("expo-image-picker");
       const ImagePicker =
-        ImagePickerModule?.default && typeof ImagePickerModule.default === "object"
+        ImagePickerModule?.default &&
+        typeof ImagePickerModule.default === "object"
           ? ImagePickerModule.default
           : ImagePickerModule;
 
@@ -709,6 +925,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ enabled }) => {
                           {message.text}
                         </Text>
                       )}
+
+                      {renderMovieAndShowtimes(message)}
                     </View>
                   </View>
                 ))}
@@ -992,6 +1210,87 @@ const styles = StyleSheet.create({
   },
   messageTextBot: {
     color: "#e2e8f0",
+  },
+  payloadContainer: {
+    marginTop: 10,
+    gap: 10,
+  },
+  movieCard: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  moviePoster: {
+    width: 62,
+    height: 90,
+    borderRadius: 10,
+    backgroundColor: "#0b1220",
+  },
+  movieInfo: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  movieTitle: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  movieMeta: {
+    color: "#cbd5e1",
+    fontSize: 12,
+  },
+  showtimesContainer: {
+    gap: 10,
+  },
+  sectionTitle: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  theaterBlock: {
+    gap: 8,
+  },
+  theaterName: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  dateBlock: {
+    gap: 6,
+  },
+  dateLabel: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  timeChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  timeChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(37, 99, 235, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(37, 99, 235, 0.35)",
+    minWidth: 86,
+  },
+  timeChipText: {
+    color: "#93c5fd",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  roomChipText: {
+    marginTop: 2,
+    color: "#cbd5e1",
+    fontSize: 10,
   },
   imageTouchable: {
     width: "100%",

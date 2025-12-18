@@ -14,6 +14,8 @@ interface MovieInfoProps {
     cinema: string;
     date: string;
     time: string;
+    dateRaw?: string;
+    timeRaw?: string;
     room: string;
     seats: string[];
     minAge?: number;
@@ -42,11 +44,15 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
   const hasSelectedSeats = movie.seats.length > 0;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Format ngày chiếu theo chuẩn Việt Nam DD/MM/YYYY
-  // Parse date string "YYYY-MM-DD" trực tiếp, không dùng new Date() để tránh lệch timezone
-  const displayDate = movie.date
-    ? dayjs(movie.date, "YYYY-MM-DD").format("DD/MM/YYYY")
+  // Format ngày/giờ hiển thị (ưu tiên dùng giá trị gốc ISO nếu có)
+  const displayDate = movie.dateRaw
+    ? dayjs(movie.dateRaw).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY")
+    : movie.date
+    ? dayjs(movie.date).format("DD/MM/YYYY")
     : movie.date;
+  const displayTime = movie.timeRaw
+    ? dayjs(movie.timeRaw).tz("Asia/Ho_Chi_Minh").format("HH:mm")
+    : movie.time;
 
   const seatCols = movie.seatCols || 10;
   const soldSet = new Set(movie.soldSeats || []);
@@ -122,6 +128,8 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
     }
 
     try {
+      const apiDate = movie.dateRaw || movie.date;
+      const apiTime = movie.timeRaw || movie.time;
       // Gọi API đặt ghế với trạng thái selected (giữ ghế 5 phút)
       // Lấy userId từ store hoặc sessionStorage
       const userId =
@@ -131,8 +139,8 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
 
       const result = await bookSeatsApi({
         showtimeId,
-        date: movie.date,
-        startTime: movie.time,
+        date: apiDate,
+        startTime: apiTime,
         room: movie.room,
         seatIds: movie.seats,
         userId: userId || undefined,
@@ -149,8 +157,8 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
         // Lưu info để còn release khi rời trang payment
         const info = {
           showtimeId,
-          date: movie.date,
-          startTime: movie.time,
+          date: apiDate,
+          startTime: apiTime,
           room: movie.room,
           seatIds: movie.seats,
           userId,
@@ -244,7 +252,7 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
         >
           <span className="font-bold">Suất chiếu:</span>
           <span>
-            {displayDate} {movie.time}
+            {displayDate} {displayTime}
           </span>
         </div>
         <div
