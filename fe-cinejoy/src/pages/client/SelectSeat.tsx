@@ -55,32 +55,73 @@ export const SelectSeat = () => {
     theaterId,
   });
 
+  console.log("🔍 SelectSeat Debug - Raw inputs:", {
+    rawDate: date,
+    rawTime: time,
+  });
+
   // API needs YYYY-MM-DD (VN timezone) for date matching in backend
+  // Using manual UTC+7 offset instead of dayjs.tz to ensure consistency across environments
   const apiDate = useMemo(() => {
-    const parsed = Date.parse(date);
-    if (!Number.isNaN(parsed)) {
-      return dayjs(parsed).tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return date; // Return as-is if invalid
+      }
+      // Add 7 hours for Vietnam timezone (UTC+7) - same logic as backend
+      const vnDate = new Date(dateObj.getTime() + 7 * 60 * 60 * 1000);
+      const year = vnDate.getUTCFullYear();
+      const month = String(vnDate.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(vnDate.getUTCDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return date;
     }
-    return date;
   }, [date]);
 
   // API accepts ISO string for time
   const apiTime = time;
 
   const displayDate = useMemo(() => {
-    const parsed = Date.parse(date);
-    if (!Number.isNaN(parsed)) {
-      return dayjs(parsed).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY");
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return date;
+      }
+      const vnDate = new Date(dateObj.getTime() + 7 * 60 * 60 * 1000);
+      const day = String(vnDate.getUTCDate()).padStart(2, "0");
+      const month = String(vnDate.getUTCMonth() + 1).padStart(2, "0");
+      const year = vnDate.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return date;
     }
-    return date;
   }, [date]);
+
   const displayTime = useMemo(() => {
-    const parsed = Date.parse(time);
-    if (!Number.isNaN(parsed)) {
-      return dayjs(parsed).tz("Asia/Ho_Chi_Minh").format("HH:mm");
+    try {
+      const timeObj = new Date(time);
+      if (isNaN(timeObj.getTime())) {
+        return time;
+      }
+      const vnTime = new Date(timeObj.getTime() + 7 * 60 * 60 * 1000);
+      const hour = String(vnTime.getUTCHours()).padStart(2, "0");
+      const minute = String(vnTime.getUTCMinutes()).padStart(2, "0");
+      return `${hour}:${minute}`;
+    } catch {
+      return time;
     }
-    return time;
   }, [time]);
+
+  // Debug log API parameters after transformation
+  console.log("🔍 SelectSeat Debug - Transformed API parameters:", {
+    apiDate,
+    apiTime,
+    displayDate,
+    displayTime,
+    showtimeId,
+    room,
+  });
 
   // Validation để đảm bảo có đủ thông tin cần thiết
   if (!showtimeId || !apiDate || !apiTime || !room) {
