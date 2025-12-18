@@ -1,4 +1,5 @@
 import axios from "axios";
+import NodeCache from "node-cache";
 import chatbotConfig from "../chatbot/chatbotConfig";
 import { User } from "../models/User";
 import { Movie } from "../models/Movies";
@@ -11,6 +12,7 @@ import OrderService from "./OrderService";
 import BlogService from "./BlogService";
 
 const { model, cache, conversationCache, PROMPT_CONFIG } = chatbotConfig;
+const theaterCache = new NodeCache({ stdTTL: 300 });
 const showtimeService = new ShowtimeService();
 const voucherService = new VoucherService();
 const userVoucherService = new UserVoucherService();
@@ -50,6 +52,270 @@ const callGeminiWithRetry = async (
       await delay(backoff);
     }
   }
+};
+
+const SHOWTIME_KEYWORDS = [
+  "suất chiếu",
+  "lịch chiếu",
+  "giờ chiếu",
+  "suat chieu",
+  "lich chieu",
+  "gio chieu",
+  "chiếu lúc",
+  "chiếu vào",
+  "chiếu hôm nay",
+  "hôm nay chiếu",
+  "hôm nay có gì",
+  "hom nay co gi",
+  "hôm nay có phim",
+  "xem phim hôm nay",
+  "đặt vé hôm nay",
+  "ve hom nay",
+];
+
+const CITY_KEYWORDS = [
+  { keyword: "hồ chí minh", value: "Hồ Chí Minh" },
+  { keyword: "hcm", value: "Hồ Chí Minh" },
+  { keyword: "ho chi minh", value: "Hồ Chí Minh" },
+  { keyword: "hà nội", value: "Hà Nội" },
+  { keyword: "hanoi", value: "Hà Nội" },
+  { keyword: "ha noi", value: "Hà Nội" },
+  { keyword: "đà nẵng", value: "Đà Nẵng" },
+  { keyword: "da nang", value: "Đà Nẵng" },
+  { keyword: "danang", value: "Đà Nẵng" },
+];
+
+const normalize = (text: string) =>
+  removeAccents(text || "")
+    .toLowerCase()
+    .trim();
+
+// Parse ngày người dùng nhập, trả về format YYYY-MM-DD, không thì undefined
+const detectDateFromMessage = (message: string): string | undefined => {
+  const msg = message.toLowerCase();
+
+  // Ưu tiên dạng có năm rõ ràng: DD/MM/YYYY hoặc DD-MM-YYYY
+  const fullDateMatch = msg.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (fullDateMatch) {
+    const day = parseInt(fullDateMatch[1], 10);
+    const month = parseInt(fullDateMatch[2], 10);
+    const year = parseInt(fullDateMatch[3], 10);
+    if (
+      !Number.isNaN(day) &&
+      !Number.isNaN(month) &&
+      !Number.isNaN(year) &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    ) {
+      const dd = String(day).padStart(2, "0");
+      const mm = String(month).padStart(2, "0");
+      return `${year}-${mm}-${dd}`;
+    }
+  }
+
+  // Các từ khóa tự nhiên: hôm nay / ngày mai
+  const now = new Date();
+  // toLocalYMD đã format theo timezone VN, không cộng thêm +7h (tránh bị lệch sang ngày mai)
+  const todayStr = toLocalYMD(now);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowStr = toLocalYMD(tomorrow);
+
+  if (msg.includes("hôm nay")) {
+    return todayStr;
+  }
+  if (
+    msg.includes("ngày mai") ||
+    (msg.includes("mai") && !msg.includes("hôm nay"))
+  ) {
+    return tomorrowStr;
+  }
+
+  return undefined;
+};
+
+// Lọc showTimes theo ngày cụ thể (YYYY-MM-DD), sau đó giữ các suất chưa qua 5 phút
+const filterShowTimesByDate = (showTimes: any[], targetDate: string) => {
+  const filteredByDate = (showTimes || []).filter((st: any) => {
+    const showDateStr = toLocalYMD(new Date(st.date));
+    const isActive = !st.status || st.status === "active";
+    return isActive && showDateStr === targetDate;
+  });
+  return filterUpcomingShowTimes(filteredByDate);
+};
+
+const detectCityFromMessage = (message: string): string | undefined => {
+  const normalized = normalize(message);
+  for (const item of CITY_KEYWORDS) {
+    if (normalized.includes(item.keyword)) {
+      return item.value;
+    }
+  }
+  return undefined;
+};
+
+const getTheatersCached = async () => {
+  const cached = theaterCache.get("theaters");
+  if (cached) return cached as any[];
+  const response = await axios.get(`${backendUrl}/theaters`);
+  const theaters = Array.isArray(response.data) ? response.data : [];
+  theaterCache.set("theaters", theaters);
+  return theaters;
+};
+
+const detectTheaterFromMessage = (
+  message: string,
+  theaters: any[],
+  city?: string
+) => {
+  const normalizedMsg = normalize(message);
+  const candidates = city
+    ? theaters.filter(
+        (t) =>
+          normalize(t?.location?.city || "") === normalize(city) ||
+          (t?.location?.city || "")?.toLowerCase().includes(city.toLowerCase())
+      )
+    : theaters;
+
+  return (
+    candidates.find((theater) => {
+      const name = normalize(theater?.name || "");
+      return (
+        normalizedMsg.includes(name) ||
+        name.includes(normalizedMsg) ||
+        name
+          .split(" ")
+          .some(
+            (part: string) => part.length > 2 && normalizedMsg.includes(part)
+          )
+      );
+    }) || null
+  );
+};
+
+const formatCityName = (city?: string) => {
+  if (!city) return "khu vực bạn chọn";
+  return city
+    .split(" ")
+    .map((c) => c.charAt(0).toUpperCase() + c.slice(1))
+    .join(" ");
+};
+
+const filterUpcomingShowTimes = (showTimes: any[]) => {
+  const now = new Date();
+  return (showTimes || [])
+    .filter((st: any) => st && (st.status === "active" || !st.status))
+    .filter((st: any) => {
+      const start = new Date(st.start);
+      // Chỉ giữ các suất bắt đầu sau hiện tại 5 phút
+      return start.getTime() >= now.getTime() - 5 * 60 * 1000;
+    })
+    .sort(
+      (a: any, b: any) =>
+        new Date(a.start).getTime() - new Date(b.start).getTime()
+    );
+};
+
+const toLocalYMD = (d: Date) => {
+  // Đảm bảo lấy đúng ngày hiện tại theo VN timezone (UTC+7)
+  // Lấy UTC time và cộng thêm 7 giờ để có VN time
+  const vnTime = d.getTime() + 7 * 60 * 60 * 1000;
+  const vnDate = new Date(vnTime);
+  const year = vnDate.getUTCFullYear();
+  const month = String(vnDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(vnDate.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const filterTodayShowTimes = (showTimes: any[]) => {
+  // Backend chỉ lọc các suất chưa qua; logic "chỉ hôm nay" đã được xử lý chi tiết ở frontend (chatBot component)
+  return filterUpcomingShowTimes(showTimes);
+};
+
+const buildMovieShowtimeReply = (
+  movieData: any,
+  showtimes: any[],
+  theaterName?: string,
+  city?: string,
+  opts?: { textless?: boolean }
+) => {
+  const showtimesToday = (showtimes || [])
+    .map((st: any) => ({
+      ...st,
+      showTimes: filterTodayShowTimes(st.showTimes || []),
+    }))
+    .filter((st: any) => st.showTimes && st.showTimes.length > 0);
+
+  if (!showtimesToday || showtimesToday.length === 0) {
+    return {
+      text: "Hôm nay chưa có suất chiếu phù hợp cho phim này tại khu vực/rạp bạn chọn.",
+      movie: movieData?._id
+        ? {
+            _id: movieData._id,
+            title: movieData.title,
+            posterImage: movieData.posterImage,
+            image: movieData.image,
+            genre: movieData.genre,
+            duration: movieData.duration,
+            ageRating: movieData.ageRating,
+            status: movieData.status,
+          }
+        : undefined,
+      showtimes: [],
+    };
+  }
+
+  const limited = showtimesToday.slice(0, 3);
+  const summary = limited
+    .map((st: any) => {
+      const firstDate = st.showTimes?.[0]?.date
+        ? new Date(st.showTimes[0].date).toLocaleDateString("vi-VN")
+        : "Chưa có ngày";
+      const times =
+        st.showTimes
+          ?.slice(0, 5)
+          .map((time: any) =>
+            new Date(time.start).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          )
+          .join(", ") || "Chưa có giờ";
+      const theater =
+        theaterName ||
+        st.theaterId?.name ||
+        st.theater?.name ||
+        st.theaterName ||
+        "Rạp";
+      return `- ${theater}: ${firstDate} (${times})`;
+    })
+    .join("\n");
+
+  const text = opts?.textless
+    ? ""
+    : `Dưới đây là các suất chiếu của ${movieData?.title || "phim này"}${
+        theaterName ? ` tại ${theaterName}` : ""
+      }${
+        city ? ` (${formatCityName(city)})` : ""
+      }:\n${summary}\nBạn có thể nhấn vào phim để xem chi tiết hoặc chọn giờ chiếu để đặt ghế.`;
+
+  return {
+    text,
+    movie: movieData?._id
+      ? {
+          _id: movieData._id,
+          title: movieData.title,
+          posterImage: movieData.posterImage,
+          image: movieData.image,
+          genre: movieData.genre,
+          duration: movieData.duration,
+          ageRating: movieData.ageRating,
+          status: movieData.status,
+        }
+      : undefined,
+    showtimes: limited,
+  };
 };
 
 const ChatbotService = {
@@ -254,6 +520,190 @@ ${timesDetails}
       console.error("Error fetching showtimes:", error);
       return "Không thể lấy thông tin suất chiếu do lỗi hệ thống.";
     }
+  },
+
+  // Xử lý câu hỏi chung về suất chiếu (chưa chọn khu vực/rạp)
+  handleGeneralShowtimeInquiry: async (
+    userMessage: string,
+    sessionId: string,
+    movieContext?: { movieId?: string; movie?: any }
+  ) => {
+    const normalizedMsg = normalize(userMessage);
+    const isShowtimeQuestion = SHOWTIME_KEYWORDS.some((kw) =>
+      normalizedMsg.includes(normalize(kw))
+    );
+
+    if (!isShowtimeQuestion) return null;
+
+    const preferenceKey = `showtimePreference:${sessionId}`;
+    const storedPref =
+      (conversationCache.get(preferenceKey) as {
+        city?: string;
+        theaterId?: string;
+        movieId?: string;
+        movie?: any;
+        stage?: string;
+        date?: string;
+      }) || {};
+
+    const theaters = await getTheatersCached();
+    if (!theaters || theaters.length === 0) {
+      return "Hiện chưa có dữ liệu rạp để hiển thị suất chiếu.";
+    }
+
+    const detectedCity =
+      detectCityFromMessage(userMessage) || storedPref.city || undefined;
+    const detectedDate =
+      detectDateFromMessage(userMessage) || storedPref.date || undefined;
+    if (!detectedCity) {
+      const availableCities = Array.from(
+        new Set(
+          theaters
+            .map((t) => t?.location?.city)
+            .filter((c: string) => Boolean(c))
+        )
+      )
+        .filter(Boolean)
+        .join(", ");
+
+      conversationCache.set(preferenceKey, {
+        stage: "needCity",
+        movieId: movieContext?.movieId || storedPref.movieId,
+        movie: movieContext?.movie || storedPref.movie,
+        date: detectedDate,
+      });
+      return `Bạn muốn xem ở khu vực nào? Các khu vực hiện có: ${availableCities}. Vui lòng cho tôi biết bạn ở đâu (ví dụ: Hồ Chí Minh, Hà Nội, Đà Nẵng).`;
+    }
+
+    const detectedTheater =
+      detectTheaterFromMessage(userMessage, theaters, detectedCity) ||
+      theaters.find(
+        (t) =>
+          t?._id?.toString() === storedPref.theaterId ||
+          t?.id?.toString() === storedPref.theaterId
+      );
+
+    if (!detectedTheater) {
+      const cityTheaters = theaters.filter(
+        (t) =>
+          normalize(t?.location?.city || "") === normalize(detectedCity) ||
+          (t?.location?.city || "")
+            ?.toLowerCase()
+            .includes(detectedCity.toLowerCase())
+      );
+      const theaterNames =
+        cityTheaters
+          .map((t) => t?.name)
+          .filter(Boolean)
+          .join(", ") || "Chưa có rạp trong khu vực này";
+
+      conversationCache.set(preferenceKey, {
+        stage: "needTheater",
+        city: detectedCity,
+        movieId: movieContext?.movieId || storedPref.movieId,
+        movie: movieContext?.movie || storedPref.movie,
+        date: detectedDate,
+      });
+
+      return `Bạn muốn xem ở rạp nào tại ${formatCityName(
+        detectedCity
+      )}? Các rạp hiện có: ${theaterNames}. Vui lòng trả lời tên rạp để mình lấy lịch chiếu.`;
+    }
+
+    conversationCache.del(preferenceKey);
+
+    const targetMovieId =
+      movieContext?.movieId || storedPref.movieId || movieContext?.movie?._id;
+    const targetMovie =
+      movieContext?.movie || storedPref.movie || movieContext?.movie;
+    const targetDate =
+      detectedDate || storedPref.date || toLocalYMD(new Date()); // default hôm nay (VN)
+
+    const allShowtimes = await showtimeService.getShowtimes();
+    const showtimesForTheater = (allShowtimes || [])
+      .filter((st: any) => {
+        const theaterId = st.theaterId?._id || st.theaterId;
+        const matchTheater =
+          theaterId?.toString() === detectedTheater._id?.toString() ||
+          theaterId?.toString() === detectedTheater.id?.toString();
+        const matchMovie = targetMovieId
+          ? st.movieId?._id?.toString() === targetMovieId?.toString() ||
+            st.movieId?.toString() === targetMovieId?.toString()
+          : true;
+        return matchTheater && matchMovie;
+      })
+      .map((st: any) => ({
+        ...st,
+        showTimes: filterShowTimesByDate(st.showTimes || [], targetDate),
+      }))
+      .filter((st: any) => st.showTimes && st.showTimes.length > 0);
+
+    if (!showtimesForTheater || showtimesForTheater.length === 0) {
+      return `Hiện chưa có suất chiếu nào tại ${
+        detectedTheater.name
+      } ở ${formatCityName(detectedCity)}${
+        targetMovieId ? " cho phim bạn hỏi" : ""
+      }. Bạn có muốn chọn khu vực khác không?`;
+    }
+
+    if (targetMovieId || targetMovie) {
+      const primaryShowtime = showtimesForTheater[0];
+      const movieData =
+        targetMovie || primaryShowtime?.movieId || primaryShowtime?.movie || {};
+      return buildMovieShowtimeReply(
+        movieData,
+        showtimesForTheater,
+        detectedTheater.name,
+        detectedCity,
+        { textless: true }
+      );
+    }
+
+    const limitedShowtimes = showtimesForTheater.slice(0, 3);
+    const summary = limitedShowtimes
+      .map((st: any) => {
+        const firstDate = st.showTimes?.[0]?.date
+          ? new Date(st.showTimes[0].date).toLocaleDateString("vi-VN")
+          : "Chưa có ngày";
+        const times =
+          st.showTimes
+            ?.slice(0, 5)
+            .map((time: any) =>
+              new Date(time.start).toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            )
+            .join(", ") || "Chưa có giờ";
+        return `- ${st.movieId?.title || "Phim"}: ${firstDate} (${times})`;
+      })
+      .join("\n");
+
+    const primary = limitedShowtimes[0];
+    const movieData = primary?.movieId || primary?.movie || {};
+
+    const replyText = `Dưới đây là các suất chiếu tại ${
+      detectedTheater.name
+    } (${formatCityName(
+      detectedCity
+    )}):\n${summary}\nBạn có thể nhấn vào phim để xem chi tiết hoặc chọn giờ chiếu để đặt ghế.`;
+
+    return {
+      text: replyText,
+      movie: movieData?._id
+        ? {
+            _id: movieData._id,
+            title: movieData.title,
+            posterImage: movieData.posterImage,
+            image: movieData.image,
+            genre: movieData.genre,
+            duration: movieData.duration,
+            ageRating: movieData.ageRating,
+            status: movieData.status,
+          }
+        : undefined,
+      showtimes: limitedShowtimes,
+    };
   },
 
   // Lấy thông tin giá vé và combo từ bảng giá đang hoạt động
@@ -1245,6 +1695,8 @@ Trả lời:`;
       let theaterId: string | undefined;
       let city: string | undefined;
       let time: string | undefined;
+      // Ngày chiếu cụ thể (format YYYY-MM-DD). Nếu không detect được, sẽ dùng ngày hiện tại.
+      let date: string | undefined;
       let needsMoreInfo = false;
 
       // Detect xem user có hỏi về suất chiếu không
@@ -1280,6 +1732,9 @@ Trả lời:`;
           break;
         }
       }
+
+      // Detect date/ngày chiếu
+      date = detectDateFromMessage(message);
 
       // Detect theater/rạp
       const theaters = await axios.get(`${backendUrl}/theaters`);
@@ -1375,6 +1830,7 @@ Trả lời:`;
                 theaterId,
                 city,
                 time,
+                date,
               }
             );
           }
@@ -1453,8 +1909,11 @@ Trả lời:`;
 
     const cacheKey = `response:${userMessage}`;
     const cachedResponse = cache.get(cacheKey);
+    const isShowtimeQuestion = SHOWTIME_KEYWORDS.some((kw) =>
+      normalize(userMessage).includes(normalize(kw))
+    );
 
-    if (cachedResponse) {
+    if (cachedResponse && !isShowtimeQuestion) {
       // Lưu tin nhắn người dùng và phản hồi vào lịch sử
       ChatbotService.saveMessage(sessionId, {
         sender: "user",
@@ -1474,7 +1933,75 @@ Trả lời:`;
         text: userMessage,
       });
 
-      // Lấy thông tin phim
+      // Lấy thông tin phim (ưu tiên để giữ ngữ cảnh phim cụ thể)
+      const movieData = await ChatbotService.detectMovieFromMessage(
+        userMessage
+      );
+      if (movieData?.movie?._id) {
+        // Lưu ngữ cảnh phim để dùng cho bước hỏi khu vực/rạp
+        conversationCache.set(`showtimePreference:${sessionId}`, {
+          movieId: movieData.movie._id.toString(),
+          movie: movieData.movie,
+        });
+      }
+
+      // Nếu đã detect được phim và đã có showtimes sẵn, trả về ngay (để FE render card + giờ chiếu)
+      if (movieData?.movie && movieData.showtimes?.length > 0) {
+        const ready = buildMovieShowtimeReply(
+          movieData.movie,
+          movieData.showtimes,
+          undefined,
+          undefined,
+          { textless: true }
+        );
+        ChatbotService.saveMessage(sessionId, {
+          sender: "bot",
+          text: ready.text,
+        });
+        return ready;
+      }
+
+      // Nếu cần thêm thông tin khu vực/rạp cho phim cụ thể, hỏi bổ sung
+      if (movieData?.movie && movieData.needsMoreInfo) {
+        conversationCache.set(`showtimePreference:${sessionId}`, {
+          stage: "needCity",
+          movieId: movieData.movie._id?.toString(),
+          movie: movieData.movie,
+        });
+        const askLocation =
+          "Bạn muốn xem ở khu vực hoặc rạp nào? Vui lòng cho tôi biết thành phố (ví dụ: Hồ Chí Minh, Hà Nội) hoặc tên rạp để mình lấy đúng suất chiếu cho phim này.";
+        ChatbotService.saveMessage(sessionId, {
+          sender: "bot",
+          text: askLocation,
+        });
+        return askLocation;
+      }
+
+      // Xử lý nhanh câu hỏi về suất chiếu tổng quát (ưu tiên hỏi khu vực/rạp), nhưng truyền ngữ cảnh phim nếu có
+      const quickShowtimeAnswer =
+        await ChatbotService.handleGeneralShowtimeInquiry(
+          userMessage,
+          sessionId,
+          movieData?.movie?._id
+            ? {
+                movieId: movieData.movie._id.toString(),
+                movie: movieData.movie,
+              }
+            : undefined
+        );
+      if (quickShowtimeAnswer) {
+        const botText =
+          typeof quickShowtimeAnswer === "string"
+            ? quickShowtimeAnswer
+            : quickShowtimeAnswer.text;
+        ChatbotService.saveMessage(sessionId, {
+          sender: "bot",
+          text: botText,
+        });
+        return quickShowtimeAnswer;
+      }
+
+      // Lấy thông tin phim (danh sách) cho prompt
       const movieInfo = await ChatbotService.getMovieInfo();
       // Lấy thông tin rạp chiếu phim
       const theaterInfo = await ChatbotService.getTheaterInfo();
@@ -1767,13 +2294,13 @@ Trả lời:`;
 
       // Detect movie/showtimes từ USER MESSAGE (không phải bot response)
       // Vì bot response có thể chứa tên phim nhưng user không hỏi về suất chiếu
-      const movieData = await ChatbotService.detectMovieFromMessage(
+      const movieDataAgain = await ChatbotService.detectMovieFromMessage(
         userMessage // Detect từ user message, không phải bot response
       );
 
       // Trả về response với movie/showtimes nếu có
       // CHỈ trả về movie nếu user thực sự hỏi về phim (có từ khóa phim hoặc tên phim cụ thể)
-      if (movieData) {
+      if (movieDataAgain) {
         // Kiểm tra xem user có thực sự hỏi về phim không
         const userMessageLower = userMessage.toLowerCase();
         const isActuallyAskingAboutMovie =
@@ -1786,11 +2313,11 @@ Trả lời:`;
           userMessageLower.includes("rạp") ||
           userMessageLower.includes("cinema") ||
           // Hoặc message chứa tên phim đầy đủ (ít nhất 5 ký tự)
-          (movieData.movie &&
+          (movieDataAgain.movie &&
             userMessageLower.includes(
-              movieData.movie.title
+              movieDataAgain.movie.title
                 .toLowerCase()
-                .substring(0, Math.min(5, movieData.movie.title.length))
+                .substring(0, Math.min(5, movieDataAgain.movie.title.length))
             ));
 
         // Nếu user không hỏi về phim (chỉ chào hỏi như "hi", "hello"), không trả về movie
@@ -1800,24 +2327,24 @@ Trả lời:`;
 
         // CHỈ hiển thị showtimes nếu user thực sự hỏi về suất chiếu
         // Nếu user chỉ hỏi thông tin phim (diễn viên, thể loại, v.v.) thì không hiển thị showtimes
-        const shouldShowShowtimes = movieData.showtimes.length > 0;
+        const shouldShowShowtimes = movieDataAgain.showtimes.length > 0;
 
         // Nếu cần hỏi thêm thông tin, thêm câu hỏi vào response
         let finalResponse = botResponse;
-        if (movieData.needsMoreInfo && shouldShowShowtimes) {
+        if (movieDataAgain.needsMoreInfo && shouldShowShowtimes) {
           finalResponse +=
             "\n\n💡 Bạn muốn xem ở rạp nào hoặc khu vực nào? (ví dụ: Hồ Chí Minh, Hà Nội, hoặc tên rạp cụ thể)";
-        } else if (movieData.needsMoreInfo && !shouldShowShowtimes) {
+        } else if (movieDataAgain.needsMoreInfo && !shouldShowShowtimes) {
           finalResponse +=
             "\n\n💡 Bạn muốn xem ở rạp nào, khu vực nào, hoặc giờ nào? (ví dụ: Hồ Chí Minh, buổi tối, hoặc tên rạp cụ thể)";
         }
 
         return {
           text: finalResponse,
-          movie: movieData.movie,
-          showtimes: shouldShowShowtimes ? movieData.showtimes : [], // Chỉ trả về showtimes nếu user hỏi về suất chiếu
-          targetDate: (movieData as any).targetDate,
-          dateRange: (movieData as any).dateRange,
+          movie: movieDataAgain.movie,
+          showtimes: shouldShowShowtimes ? movieDataAgain.showtimes : [], // Chỉ trả về showtimes nếu user hỏi về suất chiếu
+          targetDate: (movieDataAgain as any).targetDate,
+          dateRange: (movieDataAgain as any).dateRange,
         };
       }
 
@@ -2255,13 +2782,14 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
     }
   },
 
-  // Lấy showtimes cho một phim, có thể filter theo theater/city/time
+  // Lấy showtimes cho một phim, có thể filter theo theater/city/time/date
   getShowtimesForMovie: async (
     movieId: string,
     filters?: {
       theaterId?: string;
       city?: string;
       time?: string; // "sáng", "chiều", "tối", hoặc giờ cụ thể
+      date?: string; // Ngày chiếu cụ thể (YYYY-MM-DD). Nếu không có sẽ dùng ngày hiện tại.
     }
   ): Promise<any[]> => {
     try {
@@ -2354,6 +2882,27 @@ Hãy phân tích kỹ hình ảnh và trả lời CHỈ tên phim (hoặc "KHONG
           });
         });
       }
+
+      // Filter theo date nếu có (hoặc mặc định ngày hiện tại)
+      const targetDate = filters?.date || toLocalYMD(new Date()); // hôm nay (VN)
+
+      movieShowtimes = movieShowtimes
+        .map((st: any) => {
+          const filteredShowTimes =
+            st.showTimes?.filter((showTime: any) => {
+              const showDateStr = toLocalYMD(new Date(showTime.date));
+              return (
+                showDateStr === targetDate &&
+                (!showTime.status || showTime.status === "active")
+              );
+            }) || [];
+
+          return {
+            ...st,
+            showTimes: filteredShowTimes,
+          };
+        })
+        .filter((st: any) => st.showTimes && st.showTimes.length > 0);
 
       // Filter theo time nếu có
       if (filters?.time) {

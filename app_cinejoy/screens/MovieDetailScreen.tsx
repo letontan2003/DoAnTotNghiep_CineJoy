@@ -273,7 +273,9 @@ const MovieDetailScreen = () => {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Thể loại:</Text>
-            <Text style={styles.detailValue}>{movie.genre.join(", ")}</Text>
+          <Text style={styles.detailValue}>
+            {(movie.genre || []).join(", ")}
+          </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Đạo diễn:</Text>
@@ -282,13 +284,15 @@ const MovieDetailScreen = () => {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Diễn viên:</Text>
             <Text style={styles.detailValue}>
-              {movie.actors.join(", ")}
-              {movie.actors.length > 5 ? "..." : ""}
+            {(movie.actors || []).join(", ")}
+            {(movie.actors || []).length > 5 ? "..." : ""}
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Ngôn ngữ:</Text>
-            <Text style={styles.detailValue}>{movie.language.join(", ")}</Text>
+          <Text style={styles.detailValue}>
+            {(movie.language || []).join(", ")}
+          </Text>
           </View>
         </View>
 

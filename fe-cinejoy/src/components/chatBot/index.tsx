@@ -507,54 +507,34 @@ const Chatbot: React.FC = () => {
                                 (showtime: any, stIdx: number) => {
                                   const theaterName =
                                     showtime.theaterId?.name || "Chưa có tên";
-                                  // Filter showtimes: chỉ lấy các suất chưa qua (từ hôm nay trở đi)
+
+                                  // Lưu ý:
+                                  // - Việc chọn ngày (hôm nay / ngày cụ thể user nói) đã xử lý ở backend.
+                                  // - FE chỉ còn nhiệm vụ:
+                                  //   + Bỏ các suất inactive
+                                  //   + Ẩn những suất đã chiếu quá 5 phút so với thời điểm hiện tại.
+
                                   const now = dayjs
                                     .utc()
                                     .tz("Asia/Ho_Chi_Minh");
-                                  const today = now.format("YYYY-MM-DD");
 
                                   const upcomingShowtimes =
                                     showtime.showTimes
                                       ?.filter((st: any) => {
-                                        if (st.status !== "active")
+                                        // Bỏ suất inactive
+                                        if (st.status && st.status !== "active")
                                           return false;
 
-                                        // Parse date và so sánh với hôm nay
-                                        const showDate = dayjs
-                                          .utc(st.date)
-                                          .subtract(7, "hour")
-                                          .format("YYYY-MM-DD");
+                                        const startTime = dayjs(st.start).tz(
+                                          "Asia/Ho_Chi_Minh"
+                                        );
 
-                                        // Chỉ lấy suất từ hôm nay trở đi
-                                        if (showDate < today) return false;
-
-                                        // Nếu là hôm nay, kiểm tra giờ bắt đầu
-                                        if (showDate === today) {
-                                          const startTime = dayjs(st.start).tz(
-                                            "Asia/Ho_Chi_Minh"
-                                          );
-                                          const currentTime = now;
-                                          // Chỉ lấy suất chưa bắt đầu (còn ít nhất 5 phút)
-                                          return startTime.isAfter(
-                                            currentTime.add(5, "minute")
-                                          );
-                                        }
-
-                                        return true;
+                                        // Ẩn những suất đã chiếu quá 5 phút
+                                        return startTime.isAfter(
+                                          now.subtract(5, "minute")
+                                        );
                                       })
                                       .sort((a: any, b: any) => {
-                                        // Sắp xếp theo ngày, sau đó theo giờ
-                                        const dateA = dayjs
-                                          .utc(a.date)
-                                          .subtract(7, "hour")
-                                          .format("YYYY-MM-DD");
-                                        const dateB = dayjs
-                                          .utc(b.date)
-                                          .subtract(7, "hour")
-                                          .format("YYYY-MM-DD");
-                                        if (dateA !== dateB) {
-                                          return dateA.localeCompare(dateB);
-                                        }
                                         const timeA = dayjs(a.start).tz(
                                           "Asia/Ho_Chi_Minh"
                                         );
@@ -568,9 +548,10 @@ const Chatbot: React.FC = () => {
                                   const showtimesByDate: Record<string, any[]> =
                                     {};
                                   upcomingShowtimes.forEach((st: any) => {
-                                    const date = dayjs
-                                      .utc(st.date)
-                                      .subtract(7, "hour")
+                                    // st.date trong DB đang là mốc theo UTC (thường = 00:00 VN -> 17:00Z hôm trước)
+                                    // Nên phải format theo timezone VN để ra đúng ngày người dùng hỏi
+                                    const date = dayjs(st.date)
+                                      .tz("Asia/Ho_Chi_Minh")
                                       .format("DD/MM/YYYY");
                                     if (!showtimesByDate[date]) {
                                       showtimesByDate[date] = [];
@@ -607,80 +588,99 @@ const Chatbot: React.FC = () => {
                                                     return (
                                                       <button
                                                         key={timeIdx}
+                                                        type="button"
                                                         onClick={() => {
-                                                          navigate(
-                                                            `/selectSeat`,
-                                                            {
-                                                              state: {
-                                                                movie: {
-                                                                  ...message.movie,
-                                                                  title:
-                                                                    message
-                                                                      .movie
-                                                                      ?.title,
-                                                                  poster:
-                                                                    message
-                                                                      .movie
-                                                                      ?.posterImage,
-                                                                  format:
-                                                                    "2D, Phụ đề Tiếng Việt",
-                                                                  genre:
-                                                                    message.movie?.genre?.join(
-                                                                      ", "
-                                                                    ),
-                                                                  duration:
-                                                                    message
-                                                                      .movie
-                                                                      ?.duration,
-                                                                  minAge:
-                                                                    message
-                                                                      .movie
-                                                                      ?.ageRating ===
-                                                                    "T18+"
-                                                                      ? 18
-                                                                      : message
-                                                                          .movie
-                                                                          ?.ageRating ===
-                                                                        "T16+"
-                                                                      ? 16
-                                                                      : message
-                                                                          .movie
-                                                                          ?.ageRating ===
-                                                                        "T15+"
-                                                                      ? 15
-                                                                      : message
-                                                                          .movie
-                                                                          ?.ageRating ===
-                                                                        "T12+"
-                                                                      ? 12
-                                                                      : 13,
-                                                                  ageRating:
-                                                                    message
-                                                                      .movie
-                                                                      ?.ageRating,
-                                                                },
-                                                                cinema:
-                                                                  theaterName,
-                                                                date: dayjs
-                                                                  .utc(st.date)
-                                                                  .subtract(
-                                                                    7,
-                                                                    "hour"
-                                                                  )
-                                                                  .format(
-                                                                    "YYYY-MM-DD"
-                                                                  ),
-                                                                time: time,
-                                                                room: roomName,
+                                                          try {
+                                                            console.log(
+                                                              "[chatbot] click showtime -> /selectSeat",
+                                                              {
                                                                 showtimeId:
                                                                   showtime._id,
                                                                 theaterId:
                                                                   showtime
                                                                     .theaterId
                                                                     ?._id,
-                                                              },
-                                                            }
-                                                          );
+                                                                time,
+                                                                roomName,
+                                                              }
+                                                            );
+                                                            navigate(
+                                                              "/selectSeat",
+                                                              {
+                                                                state: {
+                                                                  movie: {
+                                                                    ...message.movie,
+                                                                    title:
+                                                                      message
+                                                                        .movie
+                                                                        ?.title,
+                                                                    poster:
+                                                                      message
+                                                                        .movie
+                                                                        ?.posterImage,
+                                                                    format:
+                                                                      "2D, Phụ đề Tiếng Việt",
+                                                                    genre:
+                                                                      message.movie?.genre?.join(
+                                                                        ", "
+                                                                      ),
+                                                                    duration:
+                                                                      message
+                                                                        .movie
+                                                                        ?.duration,
+                                                                    minAge:
+                                                                      message
+                                                                        .movie
+                                                                        ?.ageRating ===
+                                                                      "T18+"
+                                                                        ? 18
+                                                                        : message
+                                                                            .movie
+                                                                            ?.ageRating ===
+                                                                          "T16+"
+                                                                        ? 16
+                                                                        : message
+                                                                            .movie
+                                                                            ?.ageRating ===
+                                                                          "T15+"
+                                                                        ? 15
+                                                                        : message
+                                                                            .movie
+                                                                            ?.ageRating ===
+                                                                          "T12+"
+                                                                        ? 12
+                                                                        : 13,
+                                                                    ageRating:
+                                                                      message
+                                                                        .movie
+                                                                        ?.ageRating,
+                                                                  },
+                                                                  cinema:
+                                                                    theaterName,
+                                                                  // Gửi giá trị ISO gốc để backend khớp chính xác, tránh RangeError
+                                                                  date: st.date,
+                                                                  time: st.start,
+                                                                  room: roomName,
+                                                                  showtimeId:
+                                                                    showtime._id,
+                                                                  theaterId:
+                                                                    showtime
+                                                                      .theaterId
+                                                                      ?._id,
+                                                                },
+                                                              }
+                                                            );
+                                                            // Đóng chatbot sau khi điều hướng
+                                                            requestAnimationFrame(
+                                                              () =>
+                                                                setIsOpen(false)
+                                                            );
+                                                          } catch (err) {
+                                                            console.error(
+                                                              "[chatbot] navigate to /selectSeat failed",
+                                                              err
+                                                            );
+                                                          }
                                                         }}
                                                         className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors text-xs"
                                                       >

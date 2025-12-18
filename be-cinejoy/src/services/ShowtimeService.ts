@@ -29,7 +29,8 @@ class ShowtimeService {
       })
 
         .populate("movieId", "title")
-        .populate("theaterId", "name")
+        // Cần cả location.city để chatbot lọc suất chiếu theo khu vực (HCM, Hà Nội,...)
+        .populate("theaterId", "name location")
         .populate({
           path: "showTimes.room",
           select: "name roomType",
