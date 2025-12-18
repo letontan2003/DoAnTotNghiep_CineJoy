@@ -574,13 +574,12 @@ class ShowtimeService {
       }
 
       // Tìm suất chiếu cụ thể trong array showTimes
-      const targetDate = new Date(date);
-
       const specificShowtime = showtime.showTimes.find((st) => {
-        // So sánh ngày
+        // So sánh ngày - dùng logic giống setSeatsStatus để consistency
         const showDate = new Date(st.date);
-        const targetDate = new Date(date);
-        const dateMatch = showDate.toDateString() === targetDate.toDateString();
+        const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
+        const showDateStr = showDateVietnam.toISOString().split("T")[0]; // YYYY-MM-DD
+        const dateMatch = showDateStr === date;
 
         // So sánh thời gian
         let timeMatch = false;
@@ -650,9 +649,9 @@ class ShowtimeService {
         // Tự động lưu ghế mặc định vào database
         const showtimeIndex = showtime.showTimes.findIndex((st) => {
           const showDate = new Date(st.date);
-          const targetDate = new Date(date);
-          const dateMatch =
-            showDate.toDateString() === targetDate.toDateString();
+          const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
+          const showDateStr = showDateVietnam.toISOString().split("T")[0];
+          const dateMatch = showDateStr === date;
 
           let timeMatch = false;
           if (startTime.includes("T")) {
@@ -1197,12 +1196,14 @@ class ShowtimeService {
         : new Date(`${date} ${startTime}`);
 
       const showtimeIndex = showtime.showTimes.findIndex((st) => {
-        const showDate = new Date(st.date).toDateString();
+        const showDate = new Date(st.date);
+        const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
+        const showDateStr = showDateVietnam.toISOString().split("T")[0];
+        
         const showStartTime = new Date(st.start).getTime();
-        const targetDateStr = targetDate.toDateString();
         const targetTimeMs = targetStartTime.getTime();
 
-        const dateMatch = showDate === targetDateStr;
+        const dateMatch = showDateStr === date;
         const timeMatch = Math.abs(showStartTime - targetTimeMs) < 60000;
         const roomMatch =
           ((st.room as any)?.name || st.room.toString()) === room;
@@ -1715,8 +1716,9 @@ class ShowtimeService {
       // Tìm showtime cụ thể trong array
       const showtimeIndex = showtime.showTimes.findIndex((st) => {
         const showDate = new Date(st.date);
-        const targetDate = new Date(date);
-        const dateMatch = showDate.toDateString() === targetDate.toDateString();
+        const showDateVietnam = new Date(showDate.getTime() + 7 * 60 * 60 * 1000);
+        const showDateStr = showDateVietnam.toISOString().split("T")[0];
+        const dateMatch = showDateStr === date;
 
         let timeMatch = false;
         if (startTime.includes("T")) {

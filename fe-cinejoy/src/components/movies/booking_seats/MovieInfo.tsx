@@ -45,14 +45,41 @@ const MovieInfo: React.FC<MovieInfoProps> = ({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Format ngày/giờ hiển thị (ưu tiên dùng giá trị gốc ISO nếu có)
-  const displayDate = movie.dateRaw
-    ? dayjs(movie.dateRaw).tz("Asia/Ho_Chi_Minh").format("DD/MM/YYYY")
-    : movie.date
-    ? dayjs(movie.date).format("DD/MM/YYYY")
-    : movie.date;
-  const displayTime = movie.timeRaw
-    ? dayjs(movie.timeRaw).tz("Asia/Ho_Chi_Minh").format("HH:mm")
-    : movie.time;
+  // Using manual UTC+7 offset for consistency across environments
+  const displayDate = (() => {
+    try {
+      const rawDate = movie.dateRaw || movie.date;
+      if (!rawDate) return movie.date;
+
+      const dateObj = new Date(rawDate);
+      if (isNaN(dateObj.getTime())) return rawDate;
+
+      const vnDate = new Date(dateObj.getTime() + 7 * 60 * 60 * 1000);
+      const day = String(vnDate.getUTCDate()).padStart(2, "0");
+      const month = String(vnDate.getUTCMonth() + 1).padStart(2, "0");
+      const year = vnDate.getUTCFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return movie.date;
+    }
+  })();
+
+  const displayTime = (() => {
+    try {
+      const rawTime = movie.timeRaw || movie.time;
+      if (!rawTime) return movie.time;
+
+      const timeObj = new Date(rawTime);
+      if (isNaN(timeObj.getTime())) return rawTime;
+
+      const vnTime = new Date(timeObj.getTime() + 7 * 60 * 60 * 1000);
+      const hour = String(vnTime.getUTCHours()).padStart(2, "0");
+      const minute = String(vnTime.getUTCMinutes()).padStart(2, "0");
+      return `${hour}:${minute}`;
+    } catch {
+      return movie.time;
+    }
+  })();
 
   const seatCols = movie.seatCols || 10;
   const soldSet = new Set(movie.soldSeats || []);
